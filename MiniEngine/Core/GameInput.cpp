@@ -65,6 +65,7 @@ namespace
 	DIMOUSESTATE2 s_MouseState;
 	unsigned char s_Keybuffer[256];
 	unsigned char s_DXKeyMapping[GameInput::kNumKeys]; // map DigitalInput enum to DX key codes 
+    bool          s_MouseExclusive = true;
 
 #endif
 
@@ -396,7 +397,17 @@ namespace
 			s_Mouse->GetDeviceState(sizeof(DIMOUSESTATE2), &s_MouseState);
 			s_Keyboard->Acquire();
 			s_Keyboard->GetDeviceState(sizeof(s_Keybuffer), s_Keybuffer);
-		}
+
+            if (!s_MouseExclusive)
+            {
+                if (s_MouseState.rgbButtons[0] > 0)
+                {
+                    GameInput::SetMouseExclusive(true);
+                }
+
+                KbmZeroInputs();
+            }
+        }
 #endif
 	}
 
@@ -578,4 +589,30 @@ float GameInput::GetAnalogInput( AnalogInput ai )
 float GameInput::GetTimeCorrectedAnalogInput( AnalogInput ai )
 {
 	return s_AnalogsTC[ai];
+}
+
+bool GameInput::IsMouseExclusive()
+{
+    return s_MouseExclusive;
+}
+
+void GameInput::SetMouseExclusive(bool Exclusive)
+{
+    if (Exclusive == s_MouseExclusive)
+    {
+        return;
+    }
+    s_MouseExclusive = Exclusive;
+    s_Mouse->Unacquire();
+    if (Exclusive)
+    {
+        if (FAILED(s_Mouse->SetCooperativeLevel(GameCore::g_hWnd, DISCL_FOREGROUND | DISCL_EXCLUSIVE)))
+            ASSERT(false, "Mouse SetCooperativeLevel failed.");
+    }
+    else
+    {
+        if (FAILED(s_Mouse->SetCooperativeLevel(GameCore::g_hWnd, DISCL_FOREGROUND | DISCL_NONEXCLUSIVE)))
+            ASSERT(false, "Mouse SetCooperativeLevel failed.");
+    }
+    s_Mouse->Acquire();
 }

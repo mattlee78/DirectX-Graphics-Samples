@@ -56,6 +56,8 @@ public:
 	virtual void Update( float deltaT ) override;
 	virtual void RenderScene( void ) override;
 
+    virtual bool IsDone(void) override;
+
 private:
 
 	void RenderObjects( GraphicsContext& Context, const Matrix4& ViewProjMat );
@@ -182,7 +184,15 @@ void ModelViewer::Update( float deltaT )
 	else if (GameInput::IsFirstPressed(GameInput::kRShoulder))
 		DebugZoom.Increment();
 
-	m_pCameraController->Update(deltaT);
+    if (GameInput::IsFirstPressed(GameInput::kKey_escape))
+    {
+        if (GameInput::IsMouseExclusive())
+        {
+            GameInput::SetMouseExclusive(false);
+        }
+    }
+
+    m_pCameraController->Update(deltaT);
 	m_ViewProjMatrix = m_Camera.GetViewProjMatrix();
 
 	float costheta = cosf(m_SunOrientation);
@@ -239,6 +249,11 @@ void ModelViewer::Update( float deltaT )
 	m_MainScissor.top = 0;
 	m_MainScissor.right = (LONG)g_SceneColorBuffer.GetWidth();
 	m_MainScissor.bottom = (LONG)g_SceneColorBuffer.GetHeight();
+}
+
+bool ModelViewer::IsDone()
+{
+    return false;
 }
 
 void ModelViewer::RenderObjects( GraphicsContext& gfxContext, const Matrix4& ViewProjMat )
