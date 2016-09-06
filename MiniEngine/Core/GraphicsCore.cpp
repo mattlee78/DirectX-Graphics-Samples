@@ -292,6 +292,7 @@ void Graphics::Initialize(void)
 
 	// Create the D3D graphics device
 	Microsoft::WRL::ComPtr<IDXGIAdapter1> pAdapter;
+    Microsoft::WRL::ComPtr<IDXGIAdapter1> pSelectedAdapter;
 
 	static const bool bUseWarpDriver = false;
 
@@ -304,15 +305,24 @@ void Graphics::Initialize(void)
 			if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
 				continue;
 
-			if (SUCCEEDED(D3D12CreateDevice(pAdapter.Get(), D3D_FEATURE_LEVEL_11_0, MY_IID_PPV_ARGS(&pDevice))))
-			{
-				pAdapter->GetDesc1(&desc);
-				Utility::Printf(L"D3D12-capable hardware found:  %s (%u MB)\n", desc.Description, desc.DedicatedVideoMemory >> 20);
-				g_Device = pDevice.Detach();
-				break;
-			}
+            if (pSelectedAdapter == nullptr)
+            {
+                pSelectedAdapter = pAdapter;
+            }
+            else if (desc.VendorId != 0x8086)
+            {
+                pSelectedAdapter = pAdapter;
+            }
 		}
 	}
+
+    if (pSelectedAdapter != nullptr && SUCCEEDED(D3D12CreateDevice(pSelectedAdapter.Get(), D3D_FEATURE_LEVEL_11_0, MY_IID_PPV_ARGS(&pDevice))))
+    {
+        DXGI_ADAPTER_DESC1 desc;
+        pSelectedAdapter->GetDesc1(&desc);
+        Utility::Printf(L"D3D12-capable hardware found:  %s (%u MB)\n", desc.Description, desc.DedicatedVideoMemory >> 20);
+        g_Device = pDevice.Detach();
+    }
 
 	if (g_Device == nullptr)
 	{
