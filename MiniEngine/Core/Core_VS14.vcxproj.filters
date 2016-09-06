@@ -184,6 +184,12 @@
     <ClInclude Include="BuddyAllocator.h">
       <Filter>Source Files\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="BulletPhysics.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LineRender.h">
+      <Filter>Source Files\Graphics</Filter>
+    </ClInclude>
     <ClInclude Include="DynamicUploadBuffer.h">
       <Filter>Source Files\Graphics</Filter>
     </ClInclude>
@@ -319,6 +325,12 @@
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="BuddyAllocator.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="BulletPhysics.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LineRender.cpp">
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Color.cpp">
@@ -744,6 +756,12 @@
     </FxCompile>
     <FxCompile Include="Shaders\FXAAPass1_RGB2_CS.hlsl">
       <Filter>Shaders\FXAA</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\LineRenderPS.hlsl">
+      <Filter>Shaders\Misc</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\LineRenderVS.hlsl">
+      <Filter>Shaders\Misc</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\ColorPackingTestPS.hlsl">
       <Filter>Shaders\Misc</Filter>

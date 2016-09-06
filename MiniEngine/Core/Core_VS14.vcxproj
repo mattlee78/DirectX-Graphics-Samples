@@ -74,6 +74,7 @@
   <ItemGroup>
     <ClInclude Include="BuddyAllocator.h" />
     <ClInclude Include="BufferManager.h" />
+    <ClInclude Include="BulletPhysics.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CameraController.h" />
     <ClInclude Include="Color.h" />
@@ -103,6 +104,7 @@
     <ClInclude Include="GraphRenderer.h" />
     <ClInclude Include="Hash.h" />
     <ClInclude Include="LinearAllocator.h" />
+    <ClInclude Include="LineRender.h" />
     <ClInclude Include="Math\BoundingPlane.h" />
     <ClInclude Include="Math\BoundingSphere.h" />
     <ClInclude Include="Math\Common.h" />
@@ -138,6 +140,7 @@
   <ItemGroup>
     <ClCompile Include="BuddyAllocator.cpp" />
     <ClCompile Include="BufferManager.cpp" />
+    <ClCompile Include="BulletPhysics.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CameraController.cpp" />
     <ClCompile Include="Color.cpp" />
@@ -163,6 +166,7 @@
     <ClCompile Include="GraphicsCore.cpp" />
     <ClCompile Include="GraphRenderer.cpp" />
     <ClCompile Include="LinearAllocator.cpp" />
+    <ClCompile Include="LineRender.cpp" />
     <ClCompile Include="Math\Frustum.cpp" />
     <ClCompile Include="Math\Random.cpp" />
     <ClCompile Include="MotionBlur.cpp" />
@@ -279,6 +283,16 @@
     <FxCompile Include="Shaders\GenerateMipsLinearOddXCS.hlsl" />
     <FxCompile Include="Shaders\GenerateMipsLinearOddYCS.hlsl" />
     <FxCompile Include="Shaders\LinearizeDepthCS.hlsl" />
+    <FxCompile Include="Shaders\LineRenderPS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="Shaders\LineRenderVS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Vertex</ShaderType>
+    </FxCompile>
     <FxCompile Include="Shaders\MagnifyPixelsPS.hlsl">
       <ShaderType>Pixel</ShaderType>
     </FxCompile>
