@@ -89,6 +89,15 @@
       <Project>{86A58508-0D6A-4786-A32F-01A301FDC6F3}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
+    <ProjectReference Include="..\3rdParty\Bullet\build3\vs2015\BulletCollision.vcxproj">
+      <Project>{20fc7af7-a8bd-6446-bf3c-367470950cc8}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\3rdParty\Bullet\build3\vs2015\BulletDynamics.vcxproj">
+      <Project>{9cc1d2ec-6ccb-8a41-ac81-19fd3296b52e}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\3rdParty\Bullet\build3\vs2015\LinearMath.vcxproj">
+      <Project>{2a3727d9-9a74-a042-9d05-f57047ce1891}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\3rdParty\zlib-win64\ZLib_VS14.vcxproj">
       <Project>{ae5221d1-87e2-4428-8ef9-f25909c43291}</Project>
     </ProjectReference>
