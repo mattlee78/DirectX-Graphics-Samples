@@ -29,6 +29,7 @@
 #include "CommandSignature.h"
 #include "ParticleEffectManager.h"
 #include "GraphRenderer.h"
+#include "LineRender.h"
 
 // Uncomment this to enable experimental support for the new shader compiler, DXC.exe
 //#define DXIL
@@ -672,6 +673,7 @@ void Graphics::Initialize(void)
 	TextRenderer::Initialize();
 	GraphRenderer::Initialize();
 	ParticleEffects::Initialize(kMaxNativeWidth, kMaxNativeHeight);
+    LineRender::Initialize();
 }
 
 void Graphics::Terminate( void )
