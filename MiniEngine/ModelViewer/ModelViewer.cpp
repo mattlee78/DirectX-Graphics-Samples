@@ -31,6 +31,8 @@
 #include "ShadowCamera.h"
 #include "ParticleEffectManager.h"
 #include "GameInput.h"
+#include "LineRender.h"
+#include "BulletPhysics.h"
 
 #include "CompiledShaders/DepthViewerVS.h"
 #include "CompiledShaders/DepthViewerPS.h"
@@ -78,6 +80,8 @@ private:
 
 	Vector3 m_SunDirection;
 	ShadowCamera m_SunShadow;
+
+    PhysicsWorld    m_PhysicsWorld;
 };
 
 CREATE_APPLICATION( ModelViewer )
@@ -89,6 +93,7 @@ NumVar m_SunInclination("Application/Sun Inclination", 0.75f, 0.0f, 1.0f, 0.01f 
 NumVar ShadowDimX("Application/Shadow Dim X", 5000, 1000, 10000, 100 );
 NumVar ShadowDimY("Application/Shadow Dim Y", 3000, 1000, 10000, 100 );
 NumVar ShadowDimZ("Application/Shadow Dim Z", 3000, 1000, 10000, 100 );
+BoolVar DisplayPhysicsDebug("Application/Debug Draw Physics", false);
 
 void ModelViewer::Startup( void )
 {
@@ -160,6 +165,26 @@ void ModelViewer::Startup( void )
 	FXAA::Enable = true;
 	PostEffects::EnableHDR = true;
 	PostEffects::EnableAdaptation = true;
+
+    m_PhysicsWorld.Initialize(0, XMVectorSet(0, -98.0f, 0, 0));
+
+    CollisionShape* pGroundShape = CollisionShape::CreatePlane(g_XMIdentityR1);
+    m_PhysicsWorld.OwnShape(pGroundShape);
+    RigidBody* pGroundRB = new RigidBody(pGroundShape, 0.0f, XMMatrixIdentity());
+    m_PhysicsWorld.AddRigidBody(pGroundRB, TRUE);
+
+    Vector3 CubeSize(10, 10, 10);
+    CollisionShape* pCubeShape = CollisionShape::CreateBox(CubeSize);
+    m_PhysicsWorld.OwnShape(pCubeShape);
+//     Model* pCube = new Model();
+//     pCube->CreateCube(CubeSize);
+
+    for (UINT32 i = 0; i < 20; ++i)
+    {
+        RigidBody* pCubeRB = new RigidBody(pCubeShape, 1.0f, XMMatrixRotationX(0.1f) * XMMatrixTranslation(0, 500 + (FLOAT)i * 25, 0));
+        m_PhysicsWorld.AddRigidBody(pCubeRB, TRUE);
+//         CreateModelInstance(pCube, pCubeRB);
+    }
 }
 
 void ModelViewer::Cleanup( void )
@@ -178,6 +203,12 @@ namespace Graphics
 void ModelViewer::Update( float deltaT )
 {
 	ScopedTimer _prof(L"Update State");
+
+    m_PhysicsWorld.Update(deltaT);
+    if (DisplayPhysicsDebug)
+    {
+        m_PhysicsWorld.DebugRender();
+    }
 
 	if (GameInput::IsFirstPressed(GameInput::kLShoulder))
 		DebugZoom.Decrement();
@@ -249,6 +280,8 @@ void ModelViewer::Update( float deltaT )
 	m_MainScissor.top = 0;
 	m_MainScissor.right = (LONG)g_SceneColorBuffer.GetWidth();
 	m_MainScissor.bottom = (LONG)g_SceneColorBuffer.GetHeight();
+
+    LineRender::DrawAxis(XMMatrixScalingFromVector(XMVectorReplicate(10)));
 }
 
 bool ModelViewer::IsDone()
@@ -381,7 +414,8 @@ void ModelViewer::RenderScene( void )
 			gfxContext.SetRenderTarget(g_SceneColorBuffer.GetRTV(), g_SceneDepthBuffer.GetDSV_DepthReadOnly());
 			gfxContext.SetViewportAndScissor(m_MainViewport, m_MainScissor);
 			RenderObjects( gfxContext, m_ViewProjMatrix );
-		}
+            LineRender::Render(gfxContext, m_ViewProjMatrix);
+        }
 	}
 
 	ParticleEffects::Render(gfxContext, m_Camera, g_SceneColorBuffer, g_SceneDepthBuffer, g_LinearDepth);

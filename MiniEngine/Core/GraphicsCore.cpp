@@ -29,6 +29,7 @@
 #include "CommandSignature.h"
 #include "ParticleEffectManager.h"
 #include "GraphRenderer.h"
+#include "LineRender.h"
 
 #if !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
 	#include <agile.h>
@@ -615,6 +616,7 @@ void Graphics::Initialize(void)
 	TextRenderer::Initialize();
 	GraphRenderer::Initialize();
 	ParticleEffects::Initialize(kMaxNativeWidth, kMaxNativeHeight);
+    LineRender::Initialize();
 }
 
 void Graphics::Terminate( void )
