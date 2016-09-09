@@ -72,10 +72,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Model.h" />
+    <ClInclude Include="ModelInstance.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="ModelH3D.cpp" />
+    <ClCompile Include="ModelInstance.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
