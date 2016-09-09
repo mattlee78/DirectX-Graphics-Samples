@@ -307,7 +307,9 @@ namespace GameCore
 
 	void RunApplication( IGameApp& app, const wchar_t* className )
 	{
-		//ASSERT_SUCCEEDED(CoInitializeEx(nullptr, COINITBASE_MULTITHREADED));
+        SetProcessDPIAware();
+
+        //ASSERT_SUCCEEDED(CoInitializeEx(nullptr, COINITBASE_MULTITHREADED));
 		Microsoft::WRL::Wrappers::RoInitializeWrapper InitializeWinRT(RO_INIT_MULTITHREADED);
 		ASSERT_SUCCEEDED(InitializeWinRT);
 

@@ -33,6 +33,7 @@
 #include "GameInput.h"
 #include "LineRender.h"
 #include "BulletPhysics.h"
+#include "ModelInstance.h"
 
 #include "CompiledShaders/DepthViewerVS.h"
 #include "CompiledShaders/DepthViewerPS.h"
@@ -76,7 +77,8 @@ private:
 	GraphicsPSO m_ShadowPSO;
 
 	D3D12_CPU_DESCRIPTOR_HANDLE m_ExtraTextures[2];
-	Model m_Model;
+
+    ModelInstanceMap m_InstanceMap;
 
 	Vector3 m_SunDirection;
 	ShadowCamera m_SunShadow;
@@ -149,13 +151,16 @@ void ModelViewer::Startup( void )
 	m_ExtraTextures[1] = g_ShadowBuffer.GetSRV();
 
 	TextureManager::Initialize(L"Textures/");
-	ASSERT(m_Model.Load("Models/sponza.h3d"), "Failed to load model");
-	ASSERT(m_Model.m_Header.meshCount > 0, "Model contains no meshes");
+    ModelInstance* pMI = new ModelInstance();
+    ASSERT(pMI->InitializeModel("Models/sponza.h3d"), "Failed to load model");
+    pMI->SetWorldTransform(Matrix4(XMMatrixTranslation(500, 0, 0)));
+    m_InstanceMap[0] = pMI;
 
 	CreateParticleEffects();
 
-	float modelRadius = Length(m_Model.m_Header.boundingBox.max - m_Model.m_Header.boundingBox.min) * .5f;
-	const Vector3 eye = (m_Model.m_Header.boundingBox.min + m_Model.m_Header.boundingBox.max) * .5f + Vector3(modelRadius * .5f, 0.0f, 0.0f);
+    const Model* pModel = pMI->GetModel();
+	float modelRadius = Length(pModel->m_Header.boundingBox.max - pModel->m_Header.boundingBox.min) * .5f;
+	const Vector3 eye = pMI->GetWorldPosition() + (pModel->m_Header.boundingBox.min + pModel->m_Header.boundingBox.max) * .5f + Vector3(modelRadius * .5f, 0.0f, 0.0f);
 	m_Camera.SetEyeAtUp( eye, Vector3(kZero), Vector3(kYUnitVector) );
 	m_Camera.SetZRange( 1.0f, 10000.0f );
 	m_pCameraController = new CameraController(m_Camera, Vector3(kYUnitVector));
@@ -189,8 +194,6 @@ void ModelViewer::Startup( void )
 
 void ModelViewer::Cleanup( void )
 {
-	m_Model.Clear();
-
 	delete m_pCameraController;
 	m_pCameraController = nullptr;
 }
@@ -291,38 +294,21 @@ bool ModelViewer::IsDone()
 
 void ModelViewer::RenderObjects( GraphicsContext& gfxContext, const Matrix4& ViewProjMat )
 {
-	struct VSConstants
-	{
-		Matrix4 modelToProjection;
-		Matrix4 modelToShadow;
-		XMFLOAT3 viewerPos;
-	} vsConstants;
-	vsConstants.modelToProjection = ViewProjMat;
-	vsConstants.modelToShadow = m_SunShadow.GetShadowMatrix();
-	XMStoreFloat3(&vsConstants.viewerPos, m_Camera.GetPosition());
+    ModelRenderContext MRC;
+    MRC.pContext = &gfxContext;
+    MRC.CameraPosition = m_Camera.GetPosition();
+    MRC.ModelToShadow = m_SunShadow.GetShadowMatrix();
+    MRC.ViewProjection = ViewProjMat;
 
-	gfxContext.SetDynamicConstantBufferView(0, sizeof(vsConstants), &vsConstants);
-
-	uint32_t materialIdx = 0xFFFFFFFFul;
-
-	uint32_t VertexStride = m_Model.m_VertexStride;
-
-	for (unsigned int meshIndex = 0; meshIndex < m_Model.m_Header.meshCount; meshIndex++)
-	{
-		const Model::Mesh& mesh = m_Model.m_pMesh[meshIndex];
-
-		uint32_t indexCount = mesh.indexCount;
-		uint32_t startIndex = mesh.indexDataByteOffset / sizeof(uint16_t);
-		uint32_t baseVertex = mesh.vertexDataByteOffset / VertexStride;
-
-		if (mesh.materialIndex != materialIdx)
-		{
-			materialIdx = mesh.materialIndex;
-			gfxContext.SetDynamicDescriptors(3, 0, 6, m_Model.GetSRVs(materialIdx) );
-		}
-
-		gfxContext.DrawIndexed(indexCount, startIndex, baseVertex);
-	}
+    auto iter = m_InstanceMap.begin();
+    auto end = m_InstanceMap.end();
+    
+    while (iter != end)
+    {
+        ModelInstance* pMI = iter->second;
+        pMI->Render(MRC);
+        ++iter;
+    }
 }
 
 void ModelViewer::RenderScene( void )
@@ -352,8 +338,6 @@ void ModelViewer::RenderScene( void )
 
 		gfxContext.SetRootSignature(m_RootSig);
 		gfxContext.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		gfxContext.SetIndexBuffer(m_Model.m_IndexBuffer.IndexBufferView());
-		gfxContext.SetVertexBuffer(0, m_Model.m_VertexBuffer.VertexBufferView());
 		gfxContext.SetDynamicConstantBufferView(1, sizeof(psConstants), &psConstants);
 
 		gfxContext.SetPipelineState(m_DepthPSO);
@@ -376,8 +360,6 @@ void ModelViewer::RenderScene( void )
 		{
 			gfxContext.SetRootSignature(m_RootSig);
 			gfxContext.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-			gfxContext.SetIndexBuffer(m_Model.m_IndexBuffer.IndexBufferView());
-			gfxContext.SetVertexBuffer(0, m_Model.m_VertexBuffer.VertexBufferView());
 			gfxContext.SetDynamicDescriptors(4, 0, 2, m_ExtraTextures);
 			gfxContext.SetDynamicConstantBufferView(1, sizeof(psConstants), &psConstants);
 		};

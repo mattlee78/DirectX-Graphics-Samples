@@ -7,6 +7,9 @@
     <ClCompile Include="ModelH3D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ModelInstance.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source Files">
@@ -15,6 +18,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Model.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelInstance.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
