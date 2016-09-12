@@ -3,3 +3,9 @@
 ################################################################################
 
 /MiniEngine/ModelViewer/ModelViewer_VS14.VC.db
+*.pch
+*.pdb
+*.tlog
+*.db
+*.obj
+*.log
