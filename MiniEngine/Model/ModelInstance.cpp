@@ -6,6 +6,11 @@ using namespace Graphics;
 
 ModelInstance::~ModelInstance()
 {
+    if (m_pModel != nullptr)
+    {
+        delete m_pModel;
+        m_pModel = nullptr;
+    }
 }
 
 bool ModelInstance::InitializeModel(const CHAR* strFileName)
@@ -25,9 +30,18 @@ void ModelInstance::SetWorldTransform(const Math::Matrix4& Transform)
     XMStoreFloat4x4(&m_WorldTransform, Transform);
 }
 
-void ModelInstance::Render(const ModelRenderContext& MRC) const
+void ModelInstance::Render(ModelRenderContext& MRC) const
 {
     GraphicsContext* pContext = MRC.pContext;
+
+    assert(m_pModel->m_InputLayoutIndex != -1);
+    if (MRC.LastInputLayoutIndex != m_pModel->m_InputLayoutIndex)
+    {
+        GraphicsPSO* pPso = MRC.pPsoCache->SpecializePso(m_pModel->m_InputLayoutIndex);
+        pContext->SetPipelineState(*pPso);
+        MRC.LastInputLayoutIndex = m_pModel->m_InputLayoutIndex;
+    }
+    UINT32 LastInputLayoutIndex = -1;
 
     struct VSConstants
     {

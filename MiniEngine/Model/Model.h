@@ -30,6 +30,7 @@ public:
 	{
 		format_none = 0,
 		format_h3d, // native format
+        format_bmesh,
 		
 		formats,
 	};
@@ -195,6 +196,8 @@ public:
 	ByteAddressBuffer m_IndexBuffer;
 	uint32_t m_VertexStride;
 
+    UINT32 m_InputLayoutIndex;
+
 	// optimized for depth-only rendering
 	unsigned char *m_pVertexDataDepth;
 	unsigned char *m_pIndexDataDepth;
@@ -213,6 +216,7 @@ private:
 #ifdef MODEL_ENABLE_ASSIMP
 	bool LoadAssimp(const char *filename);
 #endif
+    bool LoadBMESH(const char *filename);
 
 	bool SaveH3D(const char *filename) const;
 

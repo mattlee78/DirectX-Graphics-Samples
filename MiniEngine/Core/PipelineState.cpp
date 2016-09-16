@@ -27,6 +27,8 @@ using namespace std;
 static map< size_t, ComPtr<ID3D12PipelineState> > s_GraphicsPSOHashMap;
 static map< size_t, ComPtr<ID3D12PipelineState> > s_ComputePSOHashMap;
 
+InputLayoutCache g_InputLayoutCache;
+
 void PSO::DestroyAll(void)
 {
 	s_GraphicsPSOHashMap.clear();
@@ -189,4 +191,157 @@ ComputePSO::ComputePSO()
 {
 	ZeroMemory(&m_PSODesc, sizeof(m_PSODesc));
 	m_PSODesc.NodeMask = 1;
+}
+
+UINT32 InputLayoutCache::FindOrAddLayout(const D3D12_INPUT_ELEMENT_DESC* pElements, UINT32 ElementCount)
+{
+    UINT32 CreateStringLength = 0;
+    size_t InputHash = HashLayout(pElements, ElementCount, &CreateStringLength);
+
+    const UINT32 LayoutCount = GetLayoutCount();
+    for (UINT32 i = 0; i < LayoutCount; ++i)
+    {
+        const InputLayout& IL = m_Layouts[i];
+        if (IL.Hash == InputHash && IL.ElementCount == ElementCount)
+        {
+            const D3D12_INPUT_ELEMENT_DESC* pStoredElements = &m_InputElements[IL.FirstElementIndex];
+            if (CompareLayout(pStoredElements, pElements, ElementCount))
+            {
+                return i;
+            }
+        }
+    }
+
+    InputLayout IL = {};
+    IL.ElementCount = ElementCount;
+    IL.strDuplicatedString = new CHAR[CreateStringLength];
+    IL.Hash = InputHash;
+    IL.FirstElementIndex = (UINT32)m_InputElements.size();
+
+    CHAR* pCopyDest = IL.strDuplicatedString;
+    UINT32 CopySizeRemaining = CreateStringLength;
+    for (UINT32 i = 0; i < ElementCount; ++i)
+    {
+        D3D12_INPUT_ELEMENT_DESC Desc = pElements[i];
+        UINT32 CopyCharCount = (UINT32)strlen(Desc.SemanticName) + 1;
+        assert(CopyCharCount <= CopySizeRemaining);
+        strcpy_s(pCopyDest, CopySizeRemaining, Desc.SemanticName);
+        Desc.SemanticName = pCopyDest;
+        pCopyDest += CopyCharCount;
+        CopySizeRemaining -= CopyCharCount;
+        m_InputElements.push_back(Desc);
+    }
+
+    UINT32 LayoutIndex = (UINT32)m_Layouts.size();
+    m_Layouts.push_back(IL);
+    return LayoutIndex;
+}
+
+bool InputLayoutCache::GetLayout(UINT32 Index, const D3D12_INPUT_ELEMENT_DESC** ppFirstElement, UINT32* pElementCount) const
+{
+    if (Index >= GetLayoutCount())
+    {
+        return false;
+    }
+
+    const InputLayout& IL = m_Layouts[Index];
+    *ppFirstElement = &m_InputElements[IL.FirstElementIndex];
+    *pElementCount = IL.ElementCount;
+
+    return true;
+}
+
+bool InputLayoutCache::CompareLayout(const D3D12_INPUT_ELEMENT_DESC* pA, const D3D12_INPUT_ELEMENT_DESC* pB, UINT32 ElementCount) const
+{
+    for (UINT32 i = 0; i < ElementCount; ++i)
+    {
+        if (pA->AlignedByteOffset != pB->AlignedByteOffset)
+        {
+            return false;
+        }
+        if (pA->Format != pB->Format)
+        {
+            return false;
+        }
+        if (pA->InputSlot != pB->InputSlot)
+        {
+            return false;
+        }
+        if (pA->InputSlotClass != pB->InputSlotClass)
+        {
+            return false;
+        }
+        if (pA->InstanceDataStepRate != pB->InstanceDataStepRate)
+        {
+            return false;
+        }
+        if (pA->SemanticIndex != pB->SemanticIndex)
+        {
+            return false;
+        }
+        if (_stricmp(pA->SemanticName, pB->SemanticName) != 0)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+size_t InputLayoutCache::HashLayout(const D3D12_INPUT_ELEMENT_DESC* pElements, UINT32 ElementCount, UINT32* pCombinedStringLen) const
+{
+    size_t Hash = 2166136261U;
+
+    UINT32 TotalStringLength = 0;
+
+    for (UINT32 i = 0; i < ElementCount; ++i)
+    {
+        D3D12_INPUT_ELEMENT_DESC Desc = pElements[i];
+        const CHAR* strSemanticName = Desc.SemanticName;
+        Desc.SemanticName = nullptr;
+
+        Hash = Utility::HashState(&Desc, 1, Hash);
+
+        UINT32 SemanticNameLength = (UINT32)strlen(strSemanticName) + 1;
+        TotalStringLength += SemanticNameLength;
+
+        UINT32 StringDwordSize = SemanticNameLength >> 2;
+        if (StringDwordSize > 0)
+        {
+            Hash = Utility::HashState((const UINT32*)strSemanticName, StringDwordSize, Hash);
+        }
+    }
+
+    *pCombinedStringLen = TotalStringLength;
+
+    return Hash;
+}
+
+GraphicsPSO* PsoLayoutCache::SpecializePso(UINT32 InputLayoutIndex)
+{
+    if (InputLayoutIndex >= m_SpecializedPsoList.size())
+    {
+        m_SpecializedPsoList.resize(InputLayoutIndex + 1, nullptr);
+    }
+
+    GraphicsPSO* pPso = m_SpecializedPsoList[InputLayoutIndex];
+
+    if (pPso == nullptr)
+    {
+        pPso = new GraphicsPSO();
+        *pPso = *m_pRootPso;
+
+        const D3D12_INPUT_ELEMENT_DESC* pDescs = nullptr;
+        UINT32 InputElementCount = 0;
+
+        bool Success = g_InputLayoutCache.GetLayout(InputLayoutIndex, &pDescs, &InputElementCount);
+        assert(Success);
+
+        pPso->SetInputLayout(InputElementCount, pDescs);
+        pPso->Finalize();
+
+        m_SpecializedPsoList[InputLayoutIndex] = pPso;
+    }
+
+    return pPso;
 }
