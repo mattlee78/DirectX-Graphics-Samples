@@ -194,6 +194,21 @@ bool Model::LoadBMESH(const char *filename)
         {
             assert(InputLayoutIndex == m_InputLayoutIndex);
         }
+
+        if (pSrcMesh->BoundingVolume.Type == BMESH_BOUNDINGVOLUME_AABB)
+        {
+            XMVECTOR Center = XMLoadFloat3((XMFLOAT3*)&pSrcMesh->BoundingVolume.Parameters[0]);
+            XMVECTOR Extents = XMLoadFloat3((XMFLOAT3*)&pSrcMesh->BoundingVolume.Parameters[3]);
+            DestMesh.boundingBox.min = Vector3(Center - Extents);
+            DestMesh.boundingBox.max = Vector3(Center + Extents);
+        }
+        else
+        {
+            XMVECTOR Center = XMLoadFloat3((XMFLOAT3*)&pSrcMesh->BoundingVolume.Parameters[0]);
+            XMVECTOR Extents = XMVectorReplicate(pSrcMesh->BoundingVolume.Parameters[3]);
+            DestMesh.boundingBox.min = Vector3(Center - Extents);
+            DestMesh.boundingBox.max = Vector3(Center + Extents);
+        }
     }
 
     free(pMeshBufferSegment);
