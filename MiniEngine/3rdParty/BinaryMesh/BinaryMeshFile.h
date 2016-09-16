@@ -6,7 +6,7 @@
 
 #pragma warning( disable:4480 )
 
-#define BMESH_VERSION 1001
+#define BMESH_VERSION 1002
 #define BMESH_MAGIC 'BMsh'
 
 #define BMESH_MAX_VERTEX_ELEMENTS 32
@@ -105,6 +105,18 @@ struct BMESH_INFLUENCE
     BMESH_STRING Name;
 };
 
+enum BMESH_BOUNDINGVOLUME_TYPE
+{
+    BMESH_BOUNDINGVOLUME_AABB = 0,
+    BMESH_BOUNDINGVOLUME_SPHERE = 1,
+};
+
+struct BMESH_BOUNDINGVOLUME
+{
+    BMESH_BOUNDINGVOLUME_TYPE Type;
+    FLOAT Parameters[6];
+};
+
 struct BMESH_MESH
 {
     BMESH_STRING Name;
@@ -117,6 +129,8 @@ struct BMESH_MESH
     BMESH_ARRAY<BMESH_SUBSET> Subsets;
 
     BMESH_ARRAY<BMESH_INFLUENCE> Influences;
+
+    BMESH_BOUNDINGVOLUME BoundingVolume;
 };
 
 enum BMESH_PARAMETER_TYPE
