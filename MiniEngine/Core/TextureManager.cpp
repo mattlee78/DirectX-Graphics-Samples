@@ -239,7 +239,13 @@ const ManagedTexture* TextureManager::LoadFromFile( const std::wstring& fileName
 {
 	std::wstring CatPath = fileName;
 
-	const ManagedTexture* Tex = LoadDDSFromFile( CatPath + L".dds", sRGB );
+    size_t existingpath = CatPath.find(L".dds");
+    if (existingpath == string::npos)
+    {
+        CatPath.append(L".dds");
+    }
+
+	const ManagedTexture* Tex = LoadDDSFromFile( CatPath, sRGB );
 	if (!Tex->IsValid())
 		Tex = LoadTGAFromFile( CatPath + L".tga", sRGB );
 
