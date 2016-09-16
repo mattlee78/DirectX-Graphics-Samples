@@ -25,6 +25,7 @@ const char* Model::s_FormatString[] =
 {
 	"none",
 	"h3d",
+    "bmesh",
 };
 static_assert(sizeof(Model::s_FormatString) / sizeof(const char*) == Model::formats, "s_FormatString doesn't match format enum");
 
@@ -115,6 +116,11 @@ bool Model::Load(const char *filename)
 		rval = LoadH3D(filename);
 		needToOptimize = false;
 		break;
+
+    case format_bmesh:
+        rval = LoadBMESH(filename);
+        needToOptimize = false;
+        break;
 	}
 
 	if (!rval)

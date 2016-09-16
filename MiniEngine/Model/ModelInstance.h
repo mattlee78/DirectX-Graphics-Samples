@@ -18,6 +18,8 @@ struct ModelRenderContext
     Math::Vector3 CameraPosition;
 
     GraphicsContext* pContext;
+    PsoLayoutCache* pPsoCache;
+    UINT32 LastInputLayoutIndex;
 };
 
 class ModelInstance
@@ -51,7 +53,7 @@ public:
     void PrePhysicsUpdate(float deltaT);
     void PostPhysicsUpdate(float deltaT);
 
-    void Render(const ModelRenderContext& MRC) const;
+    void Render(ModelRenderContext& MRC) const;
 };
 
 typedef std::unordered_map<UINT32, ModelInstance*> ModelInstanceMap;

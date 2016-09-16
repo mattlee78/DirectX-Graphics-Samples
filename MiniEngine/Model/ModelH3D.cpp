@@ -66,6 +66,7 @@ bool Model::LoadH3D(const char *filename)
 		ASSERT(mesh.attrib[0].components == 3 && mesh.attrib[0].format == Model::attrib_format_float); // position
 	}
 #endif
+    m_InputLayoutIndex = 0;
 
 	m_pVertexData = new unsigned char[ m_Header.vertexDataByteSize ];
 	m_pIndexData = new unsigned char[ m_Header.indexDataByteSize ];

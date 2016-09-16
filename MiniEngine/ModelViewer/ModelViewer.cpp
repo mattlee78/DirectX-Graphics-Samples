@@ -63,7 +63,7 @@ public:
 
 private:
 
-	void RenderObjects( GraphicsContext& Context, const Matrix4& ViewProjMat );
+	void RenderObjects(GraphicsContext& Context, const Matrix4& ViewProjMat, PsoLayoutCache* pPsoCache);
 	void CreateParticleEffects();
 	Camera m_Camera;
 	CameraController* m_pCameraController;
@@ -73,8 +73,11 @@ private:
 
 	RootSignature m_RootSig;
 	GraphicsPSO m_DepthPSO;
+    PsoLayoutCache m_DepthPSOCache;
 	GraphicsPSO m_ModelPSO;
+    PsoLayoutCache m_ModelPSOCache;
 	GraphicsPSO m_ShadowPSO;
+    PsoLayoutCache m_ShadowPSOCache;
 
 	D3D12_CPU_DESCRIPTOR_HANDLE m_ExtraTextures[2];
 
@@ -123,6 +126,8 @@ void ModelViewer::Startup( void )
 		{ "BITANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
+    g_InputLayoutCache.FindOrAddLayout(vertElem, _countof(vertElem));
+
 	m_DepthPSO.SetRootSignature(m_RootSig);
 	m_DepthPSO.SetRasterizerState(RasterizerDefault);
 	m_DepthPSO.SetBlendState(BlendNoColorWrite);
@@ -133,11 +138,13 @@ void ModelViewer::Startup( void )
 	m_DepthPSO.SetVertexShader(g_pDepthViewerVS, sizeof(g_pDepthViewerVS));
 	m_DepthPSO.SetPixelShader(g_pDepthViewerPS, sizeof(g_pDepthViewerPS));
 	m_DepthPSO.Finalize();
+    m_DepthPSOCache.Initialize(&m_DepthPSO);
 
 	m_ShadowPSO = m_DepthPSO;
 	m_ShadowPSO.SetRasterizerState(RasterizerShadow);
 	m_ShadowPSO.SetRenderTargetFormats(0, nullptr, g_ShadowBuffer.GetFormat());
 	m_ShadowPSO.Finalize();
+    m_ShadowPSOCache.Initialize(&m_ShadowPSO);
 
 	m_ModelPSO = m_DepthPSO;
 	m_ModelPSO.SetBlendState(BlendDisable);
@@ -146,6 +153,7 @@ void ModelViewer::Startup( void )
 	m_ModelPSO.SetVertexShader( g_pModelViewerVS, sizeof(g_pModelViewerVS) );
 	m_ModelPSO.SetPixelShader( g_pModelViewerPS, sizeof(g_pModelViewerPS) );
 	m_ModelPSO.Finalize();
+    m_ModelPSOCache.Initialize(&m_ModelPSO);
 
 	m_ExtraTextures[0] = g_SSAOFullScreen.GetSRV();
 	m_ExtraTextures[1] = g_ShadowBuffer.GetSRV();
@@ -155,6 +163,10 @@ void ModelViewer::Startup( void )
     ASSERT(pMI->InitializeModel("Models/sponza.h3d"), "Failed to load model");
     pMI->SetWorldTransform(Matrix4(XMMatrixTranslation(500, 0, 0)));
     m_InstanceMap[0] = pMI;
+
+    pMI = new ModelInstance();
+    pMI->InitializeModel("Models/cube.bmesh");
+    m_InstanceMap[1] = pMI;
 
 	CreateParticleEffects();
 
@@ -194,6 +206,16 @@ void ModelViewer::Startup( void )
 
 void ModelViewer::Cleanup( void )
 {
+    auto iter = m_InstanceMap.begin();
+    auto end = m_InstanceMap.end();
+    while (iter != end)
+    {
+        ModelInstance* pMI = iter->second;
+        delete pMI;
+        ++iter;
+    }
+    m_InstanceMap.clear();
+
 	delete m_pCameraController;
 	m_pCameraController = nullptr;
 }
@@ -292,13 +314,15 @@ bool ModelViewer::IsDone()
     return false;
 }
 
-void ModelViewer::RenderObjects( GraphicsContext& gfxContext, const Matrix4& ViewProjMat )
+void ModelViewer::RenderObjects(GraphicsContext& gfxContext, const Matrix4& ViewProjMat, PsoLayoutCache* pPsoCache)
 {
     ModelRenderContext MRC;
     MRC.pContext = &gfxContext;
     MRC.CameraPosition = m_Camera.GetPosition();
     MRC.ModelToShadow = m_SunShadow.GetShadowMatrix();
     MRC.ViewProjection = ViewProjMat;
+    MRC.pPsoCache = pPsoCache;
+    MRC.LastInputLayoutIndex = -1;
 
     auto iter = m_InstanceMap.begin();
     auto end = m_InstanceMap.end();
@@ -340,10 +364,9 @@ void ModelViewer::RenderScene( void )
 		gfxContext.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		gfxContext.SetDynamicConstantBufferView(1, sizeof(psConstants), &psConstants);
 
-		gfxContext.SetPipelineState(m_DepthPSO);
 		gfxContext.SetDepthStencilTarget(g_SceneDepthBuffer.GetDSV());
 		gfxContext.SetViewportAndScissor(m_MainViewport, m_MainScissor);
-		RenderObjects(gfxContext, m_ViewProjMatrix );
+		RenderObjects(gfxContext, m_ViewProjMatrix, &m_DepthPSOCache);
 	}
 
 	SSAO::Render(gfxContext, m_Camera);
@@ -372,9 +395,8 @@ void ModelViewer::RenderScene( void )
 			m_SunShadow.UpdateMatrix(-m_SunDirection, Vector3(0, -500.0f, 0), Vector3(ShadowDimX, ShadowDimY, ShadowDimZ),
 				(uint32_t)g_ShadowBuffer.GetWidth(), (uint32_t)g_ShadowBuffer.GetHeight(), 16);
 
-			gfxContext.SetPipelineState(m_ShadowPSO);
 			g_ShadowBuffer.BeginRendering(gfxContext);
-			RenderObjects(gfxContext, m_SunShadow.GetViewProjMatrix());
+			RenderObjects(gfxContext, m_SunShadow.GetViewProjMatrix(), &m_ShadowPSOCache);
 			g_ShadowBuffer.EndRendering(gfxContext);
 		}
 
@@ -389,13 +411,12 @@ void ModelViewer::RenderScene( void )
 
 		{
 			ScopedTimer _prof(L"Render Color", gfxContext);
-			gfxContext.SetPipelineState(m_ModelPSO);
 			gfxContext.TransitionResource(g_SSAOFullScreen, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			gfxContext.TransitionResource(g_SceneColorBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET);
 			gfxContext.TransitionResource(g_SceneDepthBuffer, D3D12_RESOURCE_STATE_DEPTH_READ);
 			gfxContext.SetRenderTarget(g_SceneColorBuffer.GetRTV(), g_SceneDepthBuffer.GetDSV_DepthReadOnly());
 			gfxContext.SetViewportAndScissor(m_MainViewport, m_MainScissor);
-			RenderObjects( gfxContext, m_ViewProjMatrix );
+			RenderObjects(gfxContext, m_ViewProjMatrix, &m_ModelPSOCache);
             LineRender::Render(gfxContext, m_ViewProjMatrix);
         }
 	}

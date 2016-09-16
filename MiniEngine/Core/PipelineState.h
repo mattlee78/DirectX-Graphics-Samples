@@ -126,3 +126,45 @@ private:
 
 	D3D12_COMPUTE_PIPELINE_STATE_DESC m_PSODesc;
 };
+
+class InputLayoutCache
+{
+private:
+    std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputElements;
+
+    struct InputLayout
+    {
+        UINT32 FirstElementIndex;
+        UINT32 ElementCount;
+        CHAR* strDuplicatedString;
+        size_t Hash;
+    };
+
+    std::vector<InputLayout> m_Layouts;
+
+public:
+    UINT32 FindOrAddLayout(const D3D12_INPUT_ELEMENT_DESC* pElements, UINT32 ElementCount);
+    UINT32 GetLayoutCount() const { return (UINT32)m_Layouts.size(); }
+    bool GetLayout(UINT32 Index, const D3D12_INPUT_ELEMENT_DESC** ppFirstElement, UINT32* pElementCount) const;
+
+private:
+    bool CompareLayout(const D3D12_INPUT_ELEMENT_DESC* pA, const D3D12_INPUT_ELEMENT_DESC* pB, UINT32 ElementCount) const;
+    size_t HashLayout(const D3D12_INPUT_ELEMENT_DESC* pElements, UINT32 ElementCount, UINT32* pCombinedStringLen) const;
+};
+
+extern InputLayoutCache g_InputLayoutCache;
+
+class PsoLayoutCache
+{
+private:
+    GraphicsPSO* m_pRootPso;
+    std::vector<GraphicsPSO*> m_SpecializedPsoList;
+
+public:
+    void Initialize(GraphicsPSO* pRootPso)
+    {
+        m_pRootPso = pRootPso;
+    }
+
+    GraphicsPSO* SpecializePso(UINT32 InputLayoutIndex);
+};
