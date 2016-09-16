@@ -572,7 +572,20 @@ void CommandContext::InitializeBuffer( GpuResource& Dest, const void* BufferData
 
 	void* DestAddress;
 	UploadBuffer->Map(0, nullptr, &DestAddress);
-	SIMDMemCopy(DestAddress, BufferData, Math::DivideByMultiple(NumBytes, 16));
+    if (((UINT64)BufferData & 0xF) == 0)
+    {
+        size_t Remainder = NumBytes & 0xF;
+        size_t AlignedSize = NumBytes - Remainder;
+        SIMDMemCopy(DestAddress, BufferData, Math::DivideByMultiple(AlignedSize, 16));
+        if (Remainder > 0)
+        {
+            memcpy((BYTE*)DestAddress + AlignedSize, (const BYTE*)BufferData + AlignedSize, Remainder);
+        }
+    }
+    else
+    {
+        memcpy(DestAddress, BufferData, NumBytes);
+    }
 	UploadBuffer->Unmap(0, nullptr);
 
 	// copy data to the intermediate upload heap and then schedule a copy from the upload heap to the default texture

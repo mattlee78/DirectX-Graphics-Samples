@@ -178,8 +178,10 @@ bool Model::LoadBMESH(const char *filename)
         const BMESH_MESH* pSrcMesh = SrcMapping.Mesh;
         const BMESH_SUBSET& SrcSubset = pSrcMesh->Subsets[SrcMapping.MeshSubsetIndex];
 
+        assert(pSrcMesh->IndexData.Format == DXGI_FORMAT_R16_UINT);
+
         DestMesh.indexCount = SrcSubset.IndexCount;
-        DestMesh.indexDataByteOffset = (UINT32)(pSrcMesh->IndexData.ByteBuffer.pFirstObject - pIndexBaseAddress);
+        DestMesh.indexDataByteOffset = (UINT32)(pSrcMesh->IndexData.ByteBuffer.pFirstObject - pIndexBaseAddress) + SrcSubset.StartIndex * 2;
         DestMesh.vertexCount = SrcSubset.VertexCount;
         DestMesh.vertexDataByteOffset = (UINT32)(pSrcMesh->VertexDatas[0].ByteBuffer.pFirstObject - pVertexBaseAddress);
         DestMesh.vertexStride = pSrcMesh->VertexDatas[0].StrideBytes;
