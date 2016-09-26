@@ -77,6 +77,7 @@
   <ItemGroup>
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="ModelBMESH.cpp" />
+    <ClCompile Include="ModelGenerated.cpp" />
     <ClCompile Include="ModelH3D.cpp" />
     <ClCompile Include="ModelInstance.cpp" />
   </ItemGroup>

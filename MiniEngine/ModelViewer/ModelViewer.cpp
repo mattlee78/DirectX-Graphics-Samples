@@ -34,6 +34,7 @@
 #include "LineRender.h"
 #include "BulletPhysics.h"
 #include "ModelInstance.h"
+#include "NetworkLayer.h"
 
 #include "CompiledShaders/DepthViewerVS.h"
 #include "CompiledShaders/DepthViewerPS.h"
@@ -81,12 +82,14 @@ private:
 
 	D3D12_CPU_DESCRIPTOR_HANDLE m_ExtraTextures[2];
 
-    ModelInstanceMap m_InstanceMap;
-
 	Vector3 m_SunDirection;
 	ShadowCamera m_SunShadow;
 
-    PhysicsWorld    m_PhysicsWorld;
+    GameNetClient m_NetClient;
+    World* m_pClientWorld;
+
+    GameNetServer m_NetServer;
+    ModelInstance* m_pServerTestMI;
 };
 
 CREATE_APPLICATION( ModelViewer )
@@ -99,6 +102,7 @@ NumVar ShadowDimX("Application/Shadow Dim X", 5000, 1000, 10000, 100 );
 NumVar ShadowDimY("Application/Shadow Dim Y", 3000, 1000, 10000, 100 );
 NumVar ShadowDimZ("Application/Shadow Dim Z", 3000, 1000, 10000, 100 );
 BoolVar DisplayPhysicsDebug("Application/Debug Draw Physics", false);
+BoolVar DisplayServerPhysicsDebug("Application/Debug Draw Server Physics", false);
 
 void ModelViewer::Startup( void )
 {
@@ -159,20 +163,25 @@ void ModelViewer::Startup( void )
 	m_ExtraTextures[1] = g_ShadowBuffer.GetSRV();
 
 	TextureManager::Initialize(L"Textures/");
-    ModelInstance* pMI = new ModelInstance();
-    ASSERT(pMI->InitializeModel("Models/sponza.h3d"), "Failed to load model");
-    pMI->SetWorldTransform(Matrix4(XMMatrixTranslation(500, 0, 0)));
-    m_InstanceMap[0] = pMI;
 
-    pMI = new ModelInstance();
-    pMI->InitializeModel("Models/cube.bmesh");
-    m_InstanceMap[1] = pMI;
+    m_pClientWorld = m_NetClient.GetWorld();
 
-	CreateParticleEffects();
+    ModelInstance* pMI = nullptr;
+//    pMI = m_pClientWorld->SpawnModelInstance("Models/sponza.h3d", "", DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 0, 0)));
+//    pMI = m_pClientWorld->SpawnModelInstance("Models/cube.bmesh", "", DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 0, 0)));
 
-    const Model* pModel = pMI->GetModel();
-	float modelRadius = Length(pModel->m_Header.boundingBox.max - pModel->m_Header.boundingBox.min) * .5f;
-	const Vector3 eye = pMI->GetWorldPosition() + (pModel->m_Header.boundingBox.min + pModel->m_Header.boundingBox.max) * .5f + Vector3(modelRadius * .5f, 0.0f, 0.0f);
+	//CreateParticleEffects();
+
+    Vector3 eye(50, 100, -100);
+    if (pMI != nullptr)
+    {
+        const Model* pModel = pMI->GetModel();
+        float modelRadius = Length(pModel->m_Header.boundingBox.max - pModel->m_Header.boundingBox.min) * .5f;
+        if (modelRadius >= 200)
+        {
+            eye = pMI->GetWorldPosition() + (pModel->m_Header.boundingBox.min + pModel->m_Header.boundingBox.max) * .5f + Vector3(modelRadius * .5f, 0.0f, 0.0f);
+        }
+    }
 	m_Camera.SetEyeAtUp( eye, Vector3(kZero), Vector3(kYUnitVector) );
 	m_Camera.SetZRange( 1.0f, 10000.0f );
 	m_pCameraController = new CameraController(m_Camera, Vector3(kYUnitVector));
@@ -183,38 +192,35 @@ void ModelViewer::Startup( void )
 	PostEffects::EnableHDR = true;
 	PostEffects::EnableAdaptation = true;
 
-    m_PhysicsWorld.Initialize(0, XMVectorSet(0, -98.0f, 0, 0));
+    m_NetServer.Start(15, 31338, false);
+    if (m_NetServer.IsStarted())
+    {
+        m_NetClient.SetProcessOnMainThread(true);
+        m_NetClient.Connect(15, "localhost", 31338, L"Blah", L"");
+    }
 
-    CollisionShape* pGroundShape = CollisionShape::CreatePlane(g_XMIdentityR1);
-    m_PhysicsWorld.OwnShape(pGroundShape);
-    RigidBody* pGroundRB = new RigidBody(pGroundShape, 0.0f, XMMatrixIdentity());
-    m_PhysicsWorld.AddRigidBody(pGroundRB, TRUE);
+//     DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 100, 100), XMFLOAT4(0, 0, 0, 1), 1);
+//     m_pServerTestMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "foo", "", DT, XMFLOAT3(0, 0, 0));
+    m_pServerTestMI = nullptr;
 
-    Vector3 CubeSize(10, 10, 10);
-    CollisionShape* pCubeShape = CollisionShape::CreateBox(CubeSize);
-    m_PhysicsWorld.OwnShape(pCubeShape);
-//     Model* pCube = new Model();
-//     pCube->CreateCube(CubeSize);
+    DecomposedTransform DT;
+    m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
 
     for (UINT32 i = 0; i < 20; ++i)
     {
-        RigidBody* pCubeRB = new RigidBody(pCubeShape, 1.0f, XMMatrixRotationX(0.1f) * XMMatrixTranslation(0, 500 + (FLOAT)i * 25, 0));
-        m_PhysicsWorld.AddRigidBody(pCubeRB, TRUE);
-//         CreateModelInstance(pCube, pCubeRB);
+        DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 2.0f + i * 10, 0));
+        m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
     }
 }
 
 void ModelViewer::Cleanup( void )
 {
-    auto iter = m_InstanceMap.begin();
-    auto end = m_InstanceMap.end();
-    while (iter != end)
+    if (m_NetClient.IsConnected(nullptr))
     {
-        ModelInstance* pMI = iter->second;
-        delete pMI;
-        ++iter;
+        m_NetClient.RequestDisconnect();
     }
-    m_InstanceMap.clear();
+
+    m_NetServer.Stop();
 
 	delete m_pCameraController;
 	m_pCameraController = nullptr;
@@ -229,10 +235,29 @@ void ModelViewer::Update( float deltaT )
 {
 	ScopedTimer _prof(L"Update State");
 
-    m_PhysicsWorld.Update(deltaT);
+    if (m_NetClient.IsConnected(nullptr))
+    {
+        m_NetClient.SingleThreadedTick();
+        m_pClientWorld->Tick(deltaT);
+    }
+
+    if (m_pServerTestMI != nullptr)
+    {
+        static float s_AbsTime = 0;
+        s_AbsTime += deltaT;
+        float XPos = 100.0f * sinf(s_AbsTime);
+        float ZPos = 100.0f * cosf(s_AbsTime);
+        Matrix4 m = Matrix4(XMMatrixTranslation(XPos, 100.0f, ZPos));
+        m_pServerTestMI->SetWorldTransform(m);
+    }
+
     if (DisplayPhysicsDebug)
     {
-        m_PhysicsWorld.DebugRender();
+        m_pClientWorld->GetPhysicsWorld()->DebugRender();
+    }
+    else if (DisplayServerPhysicsDebug)
+    {
+        m_NetServer.GetWorld()->GetPhysicsWorld()->DebugRender();
     }
 
 	if (GameInput::IsFirstPressed(GameInput::kLShoulder))
@@ -307,6 +332,8 @@ void ModelViewer::Update( float deltaT )
 	m_MainScissor.bottom = (LONG)g_SceneColorBuffer.GetHeight();
 
     LineRender::DrawAxis(XMMatrixScalingFromVector(XMVectorReplicate(10)));
+
+    m_NetServer.SingleThreadedTick();
 }
 
 bool ModelViewer::IsDone()
@@ -324,15 +351,7 @@ void ModelViewer::RenderObjects(GraphicsContext& gfxContext, const Matrix4& View
     MRC.pPsoCache = pPsoCache;
     MRC.LastInputLayoutIndex = -1;
 
-    auto iter = m_InstanceMap.begin();
-    auto end = m_InstanceMap.end();
-    
-    while (iter != end)
-    {
-        ModelInstance* pMI = iter->second;
-        pMI->Render(MRC);
-        ++iter;
-    }
+    m_pClientWorld->Render(MRC);
 }
 
 void ModelViewer::RenderScene( void )

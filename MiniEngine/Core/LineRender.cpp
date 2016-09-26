@@ -79,6 +79,8 @@ HRESULT LineRender::Initialize(UINT32 LinesPerSlab)
 
 HRESULT LineRender::Terminate()
 {
+    s_RS.DestroyAll();
+    s_PipelineState.DestroyAll();
     return S_OK;
 }
 
