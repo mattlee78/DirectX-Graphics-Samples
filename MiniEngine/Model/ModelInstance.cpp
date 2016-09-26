@@ -41,7 +41,7 @@ bool ModelInstance::Initialize(World* pWorld, const CHAR* strTemplateName, bool 
         FLOAT Mass = 0;
         if (_stricmp(strTemplateName + 1, "cube") == 0)
         {
-            Vector3 HalfDimensions(0.5f, 0.5f, 0.5f);
+            Vector3 HalfDimensions(5, 5, 5);
             m_pCollisionShape = CollisionShape::CreateBox(HalfDimensions);
             Mass = 1.0f;
             if (GraphicsEnabled)
@@ -55,6 +55,7 @@ bool ModelInstance::Initialize(World* pWorld, const CHAR* strTemplateName, bool 
             if (GraphicsEnabled)
             {
                 ModelSuccess = m_pModel->CreateXZPlane(Vector3(100, 0, 100), Vector3(20, 20, 0));
+                m_RenderInShadowPass = false;
             }
         }
 
@@ -76,7 +77,7 @@ bool ModelInstance::Initialize(World* pWorld, const CHAR* strTemplateName, bool 
         m_pModel = nullptr;
     }
 
-    return ModelSuccess || PhysicsSuccess;
+    return ModelSuccess || PhysicsSuccess || !GraphicsEnabled;
 }
 
 bool ModelInstance::IsLocalNetworkObject() const
@@ -142,6 +143,11 @@ void ModelInstance::Render(ModelRenderContext& MRC) const
         return;
     }
 
+    if (MRC.CurrentPassType == RenderPass_Shadow && !m_RenderInShadowPass)
+    {
+        return;
+    }
+
     GraphicsContext* pContext = MRC.pContext;
 
     assert(m_pModel->m_InputLayoutIndex != -1);
@@ -196,7 +202,7 @@ void ModelInstance::Render(ModelRenderContext& MRC) const
 void World::Initialize(bool GraphicsEnabled)
 {
     m_GraphicsEnabled = GraphicsEnabled;
-    m_PhysicsWorld.Initialize(0, XMVectorSet(0, -9.8f, 0, 0));
+    m_PhysicsWorld.Initialize(0, XMVectorSet(0, -98.0f, 0, 0));
 }
 
 void World::Tick(float deltaT)
