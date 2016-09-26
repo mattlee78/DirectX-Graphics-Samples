@@ -69,8 +69,44 @@ namespace Math
 		static INLINE Matrix4 MakeScale( float scale ) { return Matrix4(XMMatrixScaling(scale, scale, scale)); }
 		static INLINE Matrix4 MakeScale( Vector3 scale ) { return Matrix4(XMMatrixScalingFromVector(scale)); }
 
+        void Decompose(Vector3& Position, float& Scale, Vector4& Orientation) const
+        {
+            Position = Vector3(m_mat.r[3]);
+            static const XMVECTOR vOneThird = { 0.33333333f, 0, 0, 0 };
+            XMVECTOR vScaleX = XMVector3LengthEst(m_mat.r[0]);
+            XMVECTOR vScaleY = XMVector3LengthEst(m_mat.r[1]);
+            XMVECTOR vScaleZ = XMVector3LengthEst(m_mat.r[2]);
+            XMVECTOR vScaleBlend = XMVectorMultiplyAdd(vScaleX, vOneThird, XMVectorMultiplyAdd(vScaleY, vOneThird, XMVectorMultiply(vScaleZ, vOneThird)));
+            Scale = XMVectorGetX(vScaleBlend);
 
-	private:
+            XMMATRIX matRotation = m_mat;
+            matRotation.r[3] = XMQuaternionIdentity();
+            Orientation = Vector4(XMQuaternionRotationMatrix(matRotation));
+        }
+
+        void Compose(const Vector3& Position, float Scale, const Vector4& Orientation)
+        {
+            const XMVECTOR vS = XMVectorReplicate(Scale);
+            XMMATRIX m = XMMatrixRotationQuaternion(Orientation);
+            m.r[0] *= vS;
+            m.r[1] *= vS;
+            m.r[2] *= vS;
+            m.r[3] = XMVectorSelect(m.r[3], Position, g_XMSelect1110);
+            m_mat = m;
+        }
+
+        void Compose(const Vector4& PositionScale, const Vector4& Orientation)
+        {
+            const XMVECTOR vS = XMVectorSplatW(PositionScale);
+            XMMATRIX m = XMMatrixRotationQuaternion(Orientation);
+            m.r[0] *= vS;
+            m.r[1] *= vS;
+            m.r[2] *= vS;
+            m.r[3] = XMVectorSelect(m.r[3], PositionScale, g_XMSelect1110);
+            m_mat = m;
+        }
+
+    private:
 		XMMATRIX m_mat;
 	};
 }

@@ -3,12 +3,13 @@
 #include "VectorMath.h"
 #include "CommandContext.h"
 #include <unordered_map>
+#include "BulletPhysics.h"
+#include "Network\NetworkTransform.h"
 
 namespace Graphics
 {
     class Model;
 }
-class RigidBody;
 class Vehicle;
 
 struct ModelRenderContext
@@ -22,18 +23,51 @@ struct ModelRenderContext
     UINT32 LastInputLayoutIndex;
 };
 
-class ModelInstance
+struct DecomposedTransform
+{
+    DirectX::XMFLOAT4 PositionScale;
+    DirectX::XMFLOAT4 Orientation;
+
+    DecomposedTransform()
+        : PositionScale(0, 0, 0, 1),
+          Orientation(0, 0, 0, 1)
+    { }
+
+    static DecomposedTransform CreateFromComponents(XMFLOAT3 InPosition, XMFLOAT4 InOrientation = XMFLOAT4(0, 0, 0, 1), FLOAT InScale = 1.0f)
+    {
+        DecomposedTransform dt;
+        dt.PositionScale.x = InPosition.x;
+        dt.PositionScale.y = InPosition.y;
+        dt.PositionScale.z = InPosition.z;
+        dt.PositionScale.w = InScale;
+        dt.Orientation = InOrientation;
+        return dt;
+    }
+
+    Math::Matrix4 GetMatrix() const
+    {
+        Math::Matrix4 m;
+        m.Compose(Math::Vector4(XMLoadFloat4(&PositionScale)), Math::Vector4(XMLoadFloat4(&Orientation)));
+        return m;
+    }
+};
+
+class ModelInstance : public NetworkTransform
 {
 private:
+    friend class World;
+
     DirectX::XMFLOAT4X4 m_WorldTransform;
     Graphics::Model* m_pModel;
     RigidBody* m_pRigidBody;
+    CollisionShape* m_pCollisionShape;
     Vehicle* m_pVehicle;
 
 public:
     ModelInstance()
         : m_pModel(nullptr),
           m_pRigidBody(nullptr),
+          m_pCollisionShape(nullptr),
           m_pVehicle(nullptr)
     { 
         XMStoreFloat4x4(&m_WorldTransform, XMMatrixIdentity());
@@ -41,10 +75,13 @@ public:
 
     ~ModelInstance();
 
-    bool InitializeModel(const CHAR* strFileName);
+    bool Initialize(World* pWorld, const CHAR* strTemplateName, bool GraphicsEnabled, bool IsRemote);
 
     const Graphics::Model* GetModel() const { return m_pModel; }
-    const RigidBody* GetRigidBody() const { return m_pRigidBody; }
+    RigidBody* GetRigidBody() { return m_pRigidBody; }
+
+    bool IsRemoteNetworkObject() const;
+    bool IsLocalNetworkObject() const;
 
     void SetWorldTransform(const Math::Matrix4& Transform);
     Math::Matrix4 GetWorldTransform() const { return Math::Matrix4(XMLoadFloat4x4(&m_WorldTransform)); }
@@ -57,3 +94,24 @@ public:
 };
 
 typedef std::unordered_map<UINT32, ModelInstance*> ModelInstanceMap;
+typedef std::unordered_set<ModelInstance*> ModelInstanceSet;
+
+class World
+{
+private:
+    PhysicsWorld m_PhysicsWorld;
+    ModelInstanceSet m_ModelInstances;
+    bool m_GraphicsEnabled;
+
+public:
+    virtual ~World();
+
+    void Initialize(bool GraphicsEnabled = true);
+    void Tick(float deltaT);
+    void Render(ModelRenderContext& MRC);
+
+    ModelInstance* SpawnModelInstance(const CHAR* strTemplateName, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, bool IsRemote = false);
+
+    PhysicsWorld* GetPhysicsWorld() { return &m_PhysicsWorld; }
+
+};

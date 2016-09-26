@@ -704,6 +704,7 @@ void Graphics::Shutdown( void )
 	GraphRenderer::Shutdown();
 	ParticleEffects::Shutdown();
 	TextureManager::Shutdown();
+    LineRender::Terminate();
 
 	for (UINT i = 0; i < SWAP_CHAIN_BUFFER_COUNT; ++i)
 		g_DisplayPlane[i].Destroy();

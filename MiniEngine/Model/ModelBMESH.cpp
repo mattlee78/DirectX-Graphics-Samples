@@ -114,6 +114,7 @@ bool Model::LoadBMESH(const char *filename)
         BaseIndexOffset = (UINT64)(pIndexData - pMeshBufferSegment);
         VertexStrideBytes = Header.Meshes[0].VertexDatas[0].StrideBytes;
     }
+    m_VertexStride = VertexStrideBytes;
 
     const UINT64 VertexSegmentSizeBytes = BaseIndexOffset;
     const UINT64 IndexSegmentSizeBytes = Header.MeshBufferSegmentSizeBytes - BaseIndexOffset;
@@ -124,8 +125,11 @@ bool Model::LoadBMESH(const char *filename)
     m_Header.vertexDataByteSize = (UINT32)VertexSegmentSizeBytes;
     m_Header.indexDataByteSize = (UINT32)IndexSegmentSizeBytes;
 
-    m_VertexBuffer.Create(L"VertexBuffer", (UINT32)(VertexSegmentSizeBytes / VertexStrideBytes), VertexStrideBytes, pMeshBufferSegment);
-    m_IndexBuffer.Create(L"IndexBuffer", (UINT32)(IndexSegmentSizeBytes / 2), 2, pMeshBufferSegment + VertexSegmentSizeBytes);
+    WCHAR strResourceName[128];
+    swprintf_s(strResourceName, L"VertexBuffer %S", filename);
+    m_VertexBuffer.Create(strResourceName, (UINT32)(VertexSegmentSizeBytes / VertexStrideBytes), VertexStrideBytes, pMeshBufferSegment);
+    swprintf_s(strResourceName, L"IndexBuffer %S", filename);
+    m_IndexBuffer.Create(strResourceName, (UINT32)(IndexSegmentSizeBytes / 2), 2, pMeshBufferSegment + VertexSegmentSizeBytes);
 
     const UINT32 MaterialCount = (UINT32)Header.MaterialInstances.Count;
 
@@ -211,6 +215,9 @@ bool Model::LoadBMESH(const char *filename)
             DestMesh.boundingBox.min = Vector3(Center - Extents);
             DestMesh.boundingBox.max = Vector3(Center + Extents);
         }
+
+        m_Header.boundingBox.min = Vector3(XMVectorMin(m_Header.boundingBox.min, DestMesh.boundingBox.min));
+        m_Header.boundingBox.max = Vector3(XMVectorMax(m_Header.boundingBox.max, DestMesh.boundingBox.max));
     }
 
     free(pMeshBufferSegment);

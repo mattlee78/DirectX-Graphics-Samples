@@ -190,6 +190,57 @@
     <ClInclude Include="LineRender.h">
       <Filter>Source Files\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Network\DebugPrint.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\LineProtocol.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\NetClientBase.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\NetConstants.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\NetDecoder.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\NetEncoder.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\NetServerBase.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\NetShared.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\NetSocket.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\NetworkTransform.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\PacketQueue.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\ReliableMessage.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\SnapshotSendQueue.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\StateLinking.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\StateObjects.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\StructuredLogFile.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Network\ZoneAllocator.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
     <ClInclude Include="DynamicUploadBuffer.h">
       <Filter>Source Files\Graphics</Filter>
     </ClInclude>
@@ -333,6 +384,36 @@
     <ClCompile Include="LineRender.cpp">
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="Network\DebugPrint.cpp">
+      <Filter>Source Files\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\NetClientBase.cpp">
+      <Filter>Source Files\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\NetDecoder.cpp">
+      <Filter>Source Files\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\NetEncoder.cpp">
+      <Filter>Source Files\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\NetServerBase.cpp">
+      <Filter>Source Files\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\NetSocket.cpp">
+      <Filter>Source Files\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\SnapshotSendQueue.cpp">
+      <Filter>Source Files\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\StateLinking.cpp">
+      <Filter>Source Files\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\StateObjects.cpp">
+      <Filter>Source Files\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\StructuredLogFile.cpp">
+      <Filter>Source Files\Network</Filter>
+    </ClCompile>
     <ClCompile Include="Color.cpp">
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
@@ -388,6 +469,9 @@
     </Filter>
     <Filter Include="Shaders\GenerateMips">
       <UniqueIdentifier>{6bfe1a9c-fe27-4aa4-b232-2f6b673b1f75}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Network">
+      <UniqueIdentifier>{4dd669cc-eaa7-4841-b2a7-4199f035e4b3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
