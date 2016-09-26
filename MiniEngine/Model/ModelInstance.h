@@ -12,6 +12,13 @@ namespace Graphics
 }
 class Vehicle;
 
+enum RenderPass
+{
+    RenderPass_ZPrePass = 0,
+    RenderPass_Shadow = 1,
+    RenderPass_Color = 2,
+};
+
 struct ModelRenderContext
 {
     Math::Matrix4 ModelToShadow;
@@ -21,6 +28,8 @@ struct ModelRenderContext
     GraphicsContext* pContext;
     PsoLayoutCache* pPsoCache;
     UINT32 LastInputLayoutIndex;
+
+    RenderPass CurrentPassType;
 };
 
 struct DecomposedTransform
@@ -58,6 +67,9 @@ private:
     friend class World;
 
     DirectX::XMFLOAT4X4 m_WorldTransform;
+
+    bool m_RenderInShadowPass : 1;
+
     Graphics::Model* m_pModel;
     RigidBody* m_pRigidBody;
     CollisionShape* m_pCollisionShape;
@@ -71,6 +83,7 @@ public:
           m_pVehicle(nullptr)
     { 
         XMStoreFloat4x4(&m_WorldTransform, XMMatrixIdentity());
+        m_RenderInShadowPass = true;
     }
 
     ~ModelInstance();
