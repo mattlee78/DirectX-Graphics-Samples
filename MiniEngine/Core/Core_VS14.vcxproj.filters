@@ -241,6 +241,12 @@
     <ClInclude Include="Network\ZoneAllocator.h">
       <Filter>Source Files\Network</Filter>
     </ClInclude>
+    <ClInclude Include="DataFile.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StringID.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SystemTime.cpp">
@@ -410,6 +416,12 @@
     </ClCompile>
     <ClCompile Include="Network\StructuredLogFile.cpp">
       <Filter>Source Files\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="DataFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StringID.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

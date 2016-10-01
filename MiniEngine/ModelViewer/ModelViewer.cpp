@@ -35,6 +35,7 @@
 #include "BulletPhysics.h"
 #include "ModelInstance.h"
 #include "NetworkLayer.h"
+#include "DataFile.h"
 
 #include "CompiledShaders/DepthViewerVS.h"
 #include "CompiledShaders/DepthViewerPS.h"
@@ -104,8 +105,24 @@ NumVar ShadowDimZ("Application/Shadow Dim Z", 3000, 1000, 10000, 100 );
 BoolVar DisplayPhysicsDebug("Application/Debug Draw Physics", false);
 BoolVar DisplayServerPhysicsDebug("Application/Debug Draw Server Physics", false);
 
+struct TestData
+{
+    XMFLOAT3 Position;
+    BOOL IsEnabled;
+    FLOAT FloatValue;
+};
+
+STRUCT_TEMPLATE_START_FILE(TestData, nullptr, nullptr)
+MEMBER_VECTOR3(Position)
+MEMBER_BOOL(IsEnabled)
+MEMBER_FLOAT(FloatValue)
+STRUCT_TEMPLATE_END(TestData)
+
 void ModelViewer::Startup( void )
 {
+    DataFile::SetDataFileRootPath("Data");
+    TestData* pTestData = (TestData*)DataFile::LoadStructFromFile(STRUCT_TEMPLATE_REFERENCE(TestData), "foo");
+
 	m_RootSig.Reset(6, 2);
 	m_RootSig.InitStaticSampler(0, SamplerAnisoWrapDesc, D3D12_SHADER_VISIBILITY_PIXEL);
 	m_RootSig.InitStaticSampler(1, SamplerShadowDesc, D3D12_SHADER_VISIBILITY_PIXEL);
