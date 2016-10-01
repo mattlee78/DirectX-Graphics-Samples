@@ -84,6 +84,7 @@
     <ClInclude Include="CommandListManager.h" />
     <ClInclude Include="CommandSignature.h" />
     <ClInclude Include="d3dx12.h" />
+    <ClInclude Include="DataFile.h" />
     <ClInclude Include="dds.h" />
     <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="DepthBuffer.h" />
@@ -148,6 +149,7 @@
     <ClInclude Include="ShadowBuffer.h" />
     <ClInclude Include="ShadowCamera.h" />
     <ClInclude Include="SSAO.h" />
+    <ClInclude Include="StringID.h" />
     <ClInclude Include="SystemTime.h" />
     <ClInclude Include="TextRenderer.h" />
     <ClInclude Include="TextureManager.h" />
@@ -166,6 +168,7 @@
     <ClCompile Include="CommandContext.cpp" />
     <ClCompile Include="CommandListManager.cpp" />
     <ClCompile Include="CommandSignature.cpp" />
+    <ClCompile Include="DataFile.cpp" />
     <ClCompile Include="DDSTextureLoader.cpp" />
     <ClCompile Include="DepthBuffer.cpp" />
     <ClCompile Include="DepthOfField.cpp" />
@@ -211,6 +214,7 @@
     <ClCompile Include="ShadowBuffer.cpp" />
     <ClCompile Include="ShadowCamera.cpp" />
     <ClCompile Include="SSAO.cpp" />
+    <ClCompile Include="StringID.cpp" />
     <ClCompile Include="SystemTime.cpp" />
     <ClCompile Include="TextRenderer.cpp" />
     <ClCompile Include="TextureManager.cpp" />
