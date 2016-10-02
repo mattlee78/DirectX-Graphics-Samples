@@ -165,7 +165,7 @@ void ModelViewer::Startup( void )
     m_InstanceMap[0] = pMI;
 
     pMI = new ModelInstance();
-    pMI->InitializeModel("Models/cube.bmesh");
+    pMI->InitializeModel("Models/BeechAmerican_A_LOD0.bmesh");
     m_InstanceMap[1] = pMI;
 
 	CreateParticleEffects();
