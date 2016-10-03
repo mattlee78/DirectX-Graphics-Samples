@@ -484,7 +484,7 @@ VOID* DataFile::LoadStructFromFile( const DataStructTemplate* pTemplate, const C
     }
     else
     {
-        MSG_WARNING( "Could not load file \"%s\" with struct template \"%s\".\n", strFileName, pTemplate->strName );
+        MSG_WARNING( "Could not load file \"%s\" with struct template \"%s\".", strFileName, pTemplate->strName );
         if( !bProvidedMemory )
         {
             FreeStructMemory( pBuffer );
