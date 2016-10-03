@@ -7,11 +7,6 @@ using namespace Graphics;
 
 ModelInstance::~ModelInstance()
 {
-    if (m_pModel != nullptr)
-    {
-        delete m_pModel;
-        m_pModel = nullptr;
-    }
     if (m_pRigidBody != nullptr)
     {
         m_pRigidBody->GetPhysicsWorld()->RemoveRigidBody(m_pRigidBody);
@@ -25,59 +20,35 @@ ModelInstance::~ModelInstance()
     }
 }
 
-bool ModelInstance::Initialize(World* pWorld, const CHAR* strTemplateName, bool GraphicsEnabled, bool IsRemote)
+bool ModelInstance::Initialize(World* pWorld, ModelTemplate* pTemplate, bool GraphicsEnabled, bool IsRemote)
 {
-    m_pModel = new Model();
-    bool ModelSuccess = false;
-    bool PhysicsSuccess = false;
+    m_pTemplate = pTemplate;
 
     if (GraphicsEnabled)
     {
-        ModelSuccess = m_pModel->Load(strTemplateName);
+        m_pModel = pTemplate->GetModel();
     }
-
-    if (!ModelSuccess && strTemplateName[0] == '*')
+    else
     {
-        FLOAT Mass = 0;
-        if (_stricmp(strTemplateName + 1, "cube") == 0)
-        {
-            Vector3 HalfDimensions(5, 5, 5);
-            m_pCollisionShape = CollisionShape::CreateBox(HalfDimensions);
-            Mass = 1.0f;
-            if (GraphicsEnabled)
-            {
-                ModelSuccess = m_pModel->CreateCube(HalfDimensions);
-            }
-        }
-        else if (_stricmp(strTemplateName + 1, "plane") == 0)
-        {
-            m_pCollisionShape = CollisionShape::CreatePlane(g_XMIdentityR1);
-            if (GraphicsEnabled)
-            {
-                ModelSuccess = m_pModel->CreateXZPlane(Vector3(100, 0, 100), Vector3(20, 20, 0));
-                m_RenderInShadowPass = false;
-            }
-        }
-
-        if (m_pCollisionShape != nullptr)
-        {
-            if (IsRemote)
-            {
-                Mass = 0;
-            }
-            m_pRigidBody = new RigidBody(m_pCollisionShape, Mass, GetWorldTransform());
-            pWorld->GetPhysicsWorld()->AddRigidBody(m_pRigidBody);
-            PhysicsSuccess = true;
-        }
-    }
-
-    if (!ModelSuccess)
-    {
-        delete m_pModel;
         m_pModel = nullptr;
     }
 
-    return ModelSuccess || PhysicsSuccess || !GraphicsEnabled;
+    // TODO: get initial scale
+    const FLOAT InitialScale = 1.0f;
+    m_pCollisionShape = pTemplate->GetCollisionShape(InitialScale);
+
+    if (m_pCollisionShape != nullptr)
+    {
+        FLOAT Mass = pTemplate->GetMass();
+        if (IsRemote)
+        {
+            Mass = 0;
+        }
+        m_pRigidBody = new RigidBody(m_pCollisionShape, Mass, GetWorldTransform());
+        pWorld->GetPhysicsWorld()->AddRigidBody(m_pRigidBody);
+    }
+
+    return true;
 }
 
 bool ModelInstance::IsLocalNetworkObject() const
@@ -241,6 +212,34 @@ void World::Render(ModelRenderContext& MRC)
 
 ModelInstance* World::SpawnModelInstance(const CHAR* strTemplateName, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, bool IsRemote)
 {
+    ModelTemplate* pMT = FindOrCreateModelTemplate(strTemplateName);
+    if (pMT != nullptr)
+    {
+        return SpawnModelInstance(pMT, strInstanceName, InitialTransform, IsRemote);
+    }
+    return nullptr;
+}
+
+ModelTemplate* World::FindOrCreateModelTemplate(const CHAR* strTemplateName)
+{
+    StringID s;
+    s.SetAnsi(strTemplateName);
+    auto iter = m_ModelTemplates.find(s);
+    if (iter != m_ModelTemplates.end())
+    {
+        return iter->second;
+    }
+    ModelTemplate* pMT = ModelTemplate::Load(strTemplateName, m_GraphicsEnabled);
+    if (pMT != nullptr)
+    {
+        m_ModelTemplates[pMT->GetName()] = pMT;
+        return pMT;
+    }
+    return nullptr;
+}
+
+ModelInstance* World::SpawnModelInstance(ModelTemplate* pTemplate, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, bool IsRemote)
+{
     ModelInstance* pMI = new ModelInstance();
     if (pMI == nullptr)
     {
@@ -250,7 +249,7 @@ ModelInstance* World::SpawnModelInstance(const CHAR* strTemplateName, const CHAR
     pMI->SetWorldTransform(InitialTransform.GetMatrix());
     pMI->SetRemote((BOOL)IsRemote);
 
-    bool Success = pMI->Initialize(this, strTemplateName, m_GraphicsEnabled, IsRemote);
+    bool Success = pMI->Initialize(this, pTemplate, m_GraphicsEnabled, IsRemote);
 
     if (Success)
     {
@@ -267,12 +266,25 @@ ModelInstance* World::SpawnModelInstance(const CHAR* strTemplateName, const CHAR
 
 World::~World()
 {
-    auto iter = m_ModelInstances.begin();
-    auto end = m_ModelInstances.end();
-    while (iter != end)
     {
-        ModelInstance* pMI = *iter++;
-        delete pMI;
+        auto iter = m_ModelInstances.begin();
+        auto end = m_ModelInstances.end();
+        while (iter != end)
+        {
+            ModelInstance* pMI = *iter++;
+            delete pMI;
+        }
+        m_ModelInstances.clear();
     }
-    m_ModelInstances.clear();
+    {
+        auto iter = m_ModelTemplates.begin();
+        auto end = m_ModelTemplates.end();
+        while (iter != end)
+        {
+            ModelTemplate* pMT = iter->second;
+            delete pMT;
+            ++iter;
+        }
+        m_ModelTemplates.clear();
+    }
 }
