@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include "BulletPhysics.h"
 #include "Network\NetworkTransform.h"
+#include "ModelTemplate.h"
 
 namespace Graphics
 {
@@ -70,6 +71,7 @@ private:
 
     bool m_RenderInShadowPass : 1;
 
+    ModelTemplate* m_pTemplate;
     Graphics::Model* m_pModel;
     RigidBody* m_pRigidBody;
     CollisionShape* m_pCollisionShape;
@@ -88,7 +90,7 @@ public:
 
     ~ModelInstance();
 
-    bool Initialize(World* pWorld, const CHAR* strTemplateName, bool GraphicsEnabled, bool IsRemote);
+    bool Initialize(World* pWorld, ModelTemplate* pTemplate, bool GraphicsEnabled, bool IsRemote);
 
     const Graphics::Model* GetModel() const { return m_pModel; }
     RigidBody* GetRigidBody() { return m_pRigidBody; }
@@ -116,6 +118,8 @@ private:
     ModelInstanceSet m_ModelInstances;
     bool m_GraphicsEnabled;
 
+    ModelTemplateMap m_ModelTemplates;
+
 public:
     virtual ~World();
 
@@ -124,7 +128,9 @@ public:
     void Render(ModelRenderContext& MRC);
 
     ModelInstance* SpawnModelInstance(const CHAR* strTemplateName, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, bool IsRemote = false);
+    ModelInstance* SpawnModelInstance(ModelTemplate* pTemplate, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, bool IsRemote = false);
 
     PhysicsWorld* GetPhysicsWorld() { return &m_PhysicsWorld; }
 
+    ModelTemplate* FindOrCreateModelTemplate(const CHAR* strTemplateName);
 };

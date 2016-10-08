@@ -19,6 +19,7 @@
 #include "BufferManager.h"
 #include "CommandContext.h"
 #include "PostEffects.h"
+#include "StringID.h"
 
 #if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
 	#pragma comment(lib, "runtimeobject.lib")
@@ -45,7 +46,8 @@ namespace GameCore
 
 	void InitializeApplication( IGameApp& game )
 	{
-		Graphics::Initialize();
+        StringID::Initialize();
+        Graphics::Initialize();
 		SystemTime::Initialize();
 		GameInput::Initialize();
 		EngineTuning::Initialize();
@@ -360,6 +362,7 @@ namespace GameCore
 		Graphics::Terminate();
 		TerminateApplication(app);
 		Graphics::Shutdown();
+        StringID::Terminate();
 	}
 
 	//--------------------------------------------------------------------------------------
