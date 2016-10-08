@@ -1,0 +1,9 @@
+[submodule "MiniEngine/3rdParty/json"]
+	path = MiniEngine/3rdParty/json
+	url = https://github.com/mattlee78/json.git
+[submodule "MiniEngine/3rdParty/bullet"]
+	path = MiniEngine/3rdParty/bullet
+	url = https://github.com/mattlee78/bullet3.git
+[submodule "MiniEngine/3rdParty/ContentExporter"]
+	path = MiniEngine/3rdParty/ContentExporter
+	url = https://github.com/mattlee78/contentexporter.git
