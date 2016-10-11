@@ -46,6 +46,15 @@ using namespace GameCore;
 using namespace Math;
 using namespace Graphics;
 
+class PrintfDebugListener : public INetDebugListener
+{
+public:
+    void OutputString(BOOL Label, const CHAR* strLine) override final
+    {
+        Utility::Print(strLine);
+    }
+};
+
 class ModelViewer : public GameCore::IGameApp
 {
 public:
@@ -65,8 +74,11 @@ public:
 
 private:
 
+    void ProcessCommandLine();
+    bool ProcessCommand(const CHAR* strCommand, const CHAR* strArgument);
 	void RenderObjects(GraphicsContext& Context, const Matrix4& ViewProjMat, PsoLayoutCache* pPsoCache, RenderPass PassType);
-	void CreateParticleEffects();
+    void CreateParticleEffects();
+
 	Camera m_Camera;
 	CameraController* m_pCameraController;
 	Matrix4 m_ViewProjMatrix;
@@ -86,10 +98,14 @@ private:
 	Vector3 m_SunDirection;
 	ShadowCamera m_SunShadow;
 
+    CHAR m_strConnectToServerName[64];
+    UINT32 m_ConnectToPort;
     GameNetClient m_NetClient;
     World* m_pClientWorld;
 
+    bool m_StartServer;
     GameNetServer m_NetServer;
+    PrintfDebugListener m_ServerDebugListener;
     ModelInstance* m_pServerTestMI;
 };
 
@@ -120,6 +136,12 @@ STRUCT_TEMPLATE_END(TestData)
 
 void ModelViewer::Startup( void )
 {
+    m_StartServer = false;
+    strcpy_s(m_strConnectToServerName, "localhost");
+    m_ConnectToPort = 31338;
+
+    ProcessCommandLine();
+
     DataFile::SetDataFileRootPath("Data");
     TestData* pTestData = (TestData*)DataFile::LoadStructFromFile(STRUCT_TEMPLATE_REFERENCE(TestData), "foo");
 
@@ -207,25 +229,135 @@ void ModelViewer::Startup( void )
 	PostEffects::EnableHDR = true;
 	PostEffects::EnableAdaptation = true;
 
-    m_NetServer.Start(15, 31338, false);
-    if (m_NetServer.IsStarted())
+    m_NetServer.AddDebugListener(&m_ServerDebugListener);
+    m_NetClient.SetProcessOnMainThread(true);
+    if (m_StartServer)
     {
-        m_NetClient.SetProcessOnMainThread(true);
-        m_NetClient.Connect(15, "localhost", 31338, L"Blah", L"");
+        m_NetServer.Start(15, m_ConnectToPort, false);
+        strcpy_s(m_strConnectToServerName, "localhost");
+    }
+
+    if (m_NetServer.IsStarted() || !m_StartServer)
+    {
+        Utility::Printf("Attempting to connect to server %s on port %u...\n", m_strConnectToServerName, m_ConnectToPort);
+        m_NetClient.Connect(15, m_strConnectToServerName, m_ConnectToPort, L"", L"");
     }
 
 //     DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 100, 100), XMFLOAT4(0, 0, 0, 1), 1);
 //     m_pServerTestMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "foo", "", DT, XMFLOAT3(0, 0, 0));
     m_pServerTestMI = nullptr;
 
-    DecomposedTransform DT;
-    m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
-    m_NetServer.SpawnObject(nullptr, "Models/sponza.h3d", nullptr, DT, XMFLOAT3(0, 0, 0));
-
-    for (UINT32 i = 0; i < 20; ++i)
+    if (m_NetServer.IsStarted())
     {
-        DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 20.0f + i * 100, 0));
-        m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
+        DecomposedTransform DT;
+        m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
+        m_NetServer.SpawnObject(nullptr, "Models/sponza.h3d", nullptr, DT, XMFLOAT3(0, 0, 0));
+
+        for (UINT32 i = 0; i < 20; ++i)
+        {
+            DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 20.0f + i * 100, 0));
+            m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
+        }
+    }
+}
+
+bool ModelViewer::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument)
+{
+    bool InvalidArgument = false;
+    bool Result = true;
+
+    if (_stricmp(strCommand, "server") == 0)
+    {
+        m_StartServer = true;
+        if (strArgument != nullptr)
+        {
+            InvalidArgument = true;
+        }
+    }
+    else if (_stricmp(strCommand, "port") == 0)
+    {
+        if (strArgument != nullptr)
+        {
+            m_ConnectToPort = (UINT32)atoi(strArgument);
+            if (m_ConnectToPort < 1024 || m_ConnectToPort > 32767)
+            {
+                m_ConnectToPort = 0;
+                InvalidArgument = true;
+            }
+        }
+        else
+        {
+            InvalidArgument = true;
+        }
+    }
+    else if (_stricmp(strCommand, "connect") == 0)
+    {
+        if (strArgument != nullptr)
+        {
+            strcpy_s(m_strConnectToServerName, strArgument);
+        }
+    }
+    else
+    {
+        Utility::Printf("Invalid command: %s\n", strCommand);
+        Result = false;
+    }
+
+    if (InvalidArgument)
+    {
+        Utility::Printf("Invalid argument to command %s: %s\n", strCommand, strArgument);
+        Result = false;
+    }
+
+    return Result;
+}
+
+void ModelViewer::ProcessCommandLine()
+{
+    CHAR strCmdLine[512];
+    strcpy_s(strCmdLine, GetCommandLineA());
+
+    const CHAR* strCommand = nullptr;
+    const CHAR* strArgument = nullptr;
+
+    const CHAR* strSeparators = " ";
+    CHAR* strToken = nullptr;
+    CHAR* strNextToken = nullptr;
+
+    strToken = strtok_s(strCmdLine, strSeparators, &strNextToken);
+    while (strToken != nullptr)
+    {
+        if (strToken[0] == '-' || strToken[0] == '/')
+        {
+            if (strCommand != nullptr)
+            {
+                ProcessCommand(strCommand, strArgument);
+                strCommand = nullptr;
+                strArgument = nullptr;
+            }
+            strCommand = strToken + 1;
+        }
+        else if (strArgument == nullptr)
+        {
+            if (strCommand == nullptr)
+            {
+                Utility::Printf("Invalid command line option: %s\n", strToken);
+            }
+            else
+            {
+                strArgument = strToken;
+            }
+        }
+        else
+        {
+            Utility::Printf("Invalid command line option: %s\n", strToken);
+        }
+        strToken = strtok_s(nullptr, strSeparators, &strNextToken);
+    }
+
+    if (strCommand != nullptr)
+    {
+        ProcessCommand(strCommand, strArgument);
     }
 }
 
@@ -432,7 +564,7 @@ void ModelViewer::RenderScene( void )
 				(uint32_t)g_ShadowBuffer.GetWidth(), (uint32_t)g_ShadowBuffer.GetHeight(), 16);
 
 			g_ShadowBuffer.BeginRendering(gfxContext);
-			RenderObjects(gfxContext, m_SunShadow.GetViewProjMatrix(), &m_ShadowPSOCache, RenderPass_Shadow);
+            RenderObjects(gfxContext, m_SunShadow.GetViewProjMatrix(), &m_ShadowPSOCache, RenderPass_Shadow);
 			g_ShadowBuffer.EndRendering(gfxContext);
 		}
 
@@ -452,12 +584,13 @@ void ModelViewer::RenderScene( void )
 			gfxContext.TransitionResource(g_SceneDepthBuffer, D3D12_RESOURCE_STATE_DEPTH_READ);
 			gfxContext.SetRenderTarget(g_SceneColorBuffer.GetRTV(), g_SceneDepthBuffer.GetDSV_DepthReadOnly());
 			gfxContext.SetViewportAndScissor(m_MainViewport, m_MainScissor);
-			RenderObjects(gfxContext, m_ViewProjMatrix, &m_ModelPSOCache, RenderPass_Color);
+            gfxContext.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            RenderObjects(gfxContext, m_ViewProjMatrix, &m_ModelPSOCache, RenderPass_Color);
             LineRender::Render(gfxContext, m_ViewProjMatrix);
         }
 	}
 
-	ParticleEffects::Render(gfxContext, m_Camera, g_SceneColorBuffer, g_SceneDepthBuffer, g_LinearDepth);
+	//ParticleEffects::Render(gfxContext, m_Camera, g_SceneColorBuffer, g_SceneDepthBuffer, g_LinearDepth);
 
 	// Until I work out how to couple these two, it's "either-or".
 	if (DepthOfField::Enable)
