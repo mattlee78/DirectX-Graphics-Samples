@@ -25,7 +25,9 @@ NetClientBase::NetClientBase()
     
     do 
     {
-        m_Nonce = rand();
+        LARGE_INTEGER Time;
+        QueryPerformanceCounter(&Time);
+        m_Nonce = (USHORT)Time.LowPart;
     } while ( m_Nonce == 0 );
 
     SetName( "Client%u", (UINT)m_Nonce );

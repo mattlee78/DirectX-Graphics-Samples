@@ -264,6 +264,7 @@ void MotionBlur::RenderCameraBlur( CommandContext& BaseContext, const Matrix4& r
 			GrContext.SetConstants(0, 1.0f / Width, 1.0f / Height);
 			GrContext.SetRenderTarget(g_SceneColorBuffer.GetRTV());
 			GrContext.SetViewportAndScissor(0, 0, Width, Height);
+            GrContext.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			GrContext.Draw(3);
 		}
 	}
