@@ -74,12 +74,12 @@ void ModelInstance::SetWorldTransform(const Math::Matrix4& Transform)
     }
 }
 
-void ModelInstance::PrePhysicsUpdate(float deltaT)
+void ModelInstance::PrePhysicsUpdate(float deltaT, INT64 ClientTicks)
 {
     // Get transform from network if we're a remote network object
     if (IsRemoteNetworkObject())
     {
-        const Matrix4 matWorld = GetNetworkMatrix();
+        const Matrix4 matWorld = GetNetworkMatrix(ClientTicks);
         SetWorldTransform(matWorld);
     }
 
@@ -134,14 +134,18 @@ void ModelInstance::Render(ModelRenderContext& MRC) const
     {
         Matrix4 modelToProjection;
         Matrix4 modelToShadow;
+        Matrix4 modelToWorld;
         XMFLOAT3 viewerPos;
     } vsConstants;
 
     Matrix4 WorldTransform = GetWorldTransform();
+    XMVECTOR NewRow3 = XMVectorSelect(g_XMOne, WorldTransform.GetW() - Vector4(MRC.CameraPosition), g_XMSelect1110);
+    WorldTransform.SetW(Vector4(NewRow3));
 
     vsConstants.modelToProjection = MRC.ViewProjection * WorldTransform;
     vsConstants.modelToShadow = MRC.ModelToShadow * WorldTransform;
-    XMStoreFloat3(&vsConstants.viewerPos, MRC.CameraPosition);
+    vsConstants.modelToWorld = WorldTransform;
+    XMStoreFloat3(&vsConstants.viewerPos, g_XMZero);
 
     pContext->SetDynamicConstantBufferView(0, sizeof(vsConstants), &vsConstants);
 
@@ -176,14 +180,14 @@ void World::Initialize(bool GraphicsEnabled)
     m_PhysicsWorld.Initialize(0, XMVectorSet(0, -98.0f, 0, 0));
 }
 
-void World::Tick(float deltaT)
+void World::Tick(float deltaT, INT64 Ticks)
 {
     auto iter = m_ModelInstances.begin();
     auto end = m_ModelInstances.end();
     while (iter != end)
     {
         ModelInstance* pMI = *iter++;
-        pMI->PrePhysicsUpdate(deltaT);
+        pMI->PrePhysicsUpdate(deltaT, Ticks);
     }
 
     m_PhysicsWorld.Update(deltaT);

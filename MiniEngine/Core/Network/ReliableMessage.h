@@ -68,6 +68,7 @@ struct RMsg_ConnectAck
     USHORT Nonce;
     LARGE_INTEGER ServerTicks;
     LARGE_INTEGER ServerTickFreq;
+    LARGE_INTEGER ClientTicks;
 };
 
 struct RMsg_ClientConnected

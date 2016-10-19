@@ -43,7 +43,7 @@ VOID GameNetServer::InitializeServer()
 
 VOID GameNetServer::TickServer(FLOAT DeltaTime, DOUBLE AbsoluteTime)
 {
-    m_World.Tick(DeltaTime);
+    m_World.Tick(DeltaTime, 0);
 }
 
 VOID GameNetServer::TerminateServer()

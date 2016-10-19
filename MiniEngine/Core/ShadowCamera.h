@@ -23,7 +23,9 @@ namespace GameCore
 	{
 	public:
 
-		ShadowCamera() {}
+		ShadowCamera() : m_SceneCameraPos(kZero) {}
+
+        void SetSceneCameraPos(const Vector3& CameraPos) { m_SceneCameraPos = CameraPos; }
 
 		void UpdateMatrix( 
 			Vector3 LightDirection,		// Direction parallel to light, in direction of travel
@@ -40,6 +42,7 @@ namespace GameCore
 	private:
 
 		Matrix4 m_ShadowMatrix;
+        Vector3 m_SceneCameraPos;
 	};
 
 }

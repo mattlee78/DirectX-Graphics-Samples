@@ -118,6 +118,7 @@
     <ClInclude Include="Math\Transform.h" />
     <ClInclude Include="Math\Vector.h" />
     <ClInclude Include="MotionBlur.h" />
+    <ClInclude Include="Network\ClientPredict.h" />
     <ClInclude Include="Network\DebugPrint.h" />
     <ClInclude Include="Network\LineProtocol.h" />
     <ClInclude Include="Network\NetClientBase.h" />
@@ -190,6 +191,7 @@
     <ClCompile Include="Math\Frustum.cpp" />
     <ClCompile Include="Math\Random.cpp" />
     <ClCompile Include="MotionBlur.cpp" />
+    <ClCompile Include="Network\ClientPredict.cpp" />
     <ClCompile Include="Network\DebugPrint.cpp" />
     <ClCompile Include="Network\NetClientBase.cpp" />
     <ClCompile Include="Network\NetDecoder.cpp" />

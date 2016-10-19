@@ -3,12 +3,12 @@
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
 #include "NetConstants.h"
+#include "ClientPredict.h"
 
 using namespace DirectX;
 using namespace DirectX::PackedVector;
 
 LARGE_INTEGER g_CurrentRecvTimestamp = { 0, 0 };
-LARGE_INTEGER g_LerpThresholdTicks = { 0, UINT_MAX };
 
 SIZE_T StateNodeTypeCodec::GetExpandedSize( StateNodeType Type )
 {
@@ -29,11 +29,13 @@ SIZE_T StateNodeTypeCodec::GetExpandedSize( StateNodeType Type )
     case StateNodeType::Float3Delta:
     case StateNodeType::Float3AsHalf4Delta:
     case StateNodeType::Float3AsQwordDelta:
+    case StateNodeType::PredictFloat3:
         return sizeof(float) * 3;
     case StateNodeType::Float4:
     case StateNodeType::Float4AsByteN4:
     case StateNodeType::Float4AsHalf4:
     case StateNodeType::Float4AsHalf4Delta:
+    case StateNodeType::PredictQuaternion:
         return sizeof(float) * 4;
     case StateNodeType::Matrix43:
         return sizeof(float) * 12;
@@ -106,6 +108,18 @@ VOID StateNodeTypeCodec::Encode( StateNodeType Type, VOID* pStorageData, const V
             XMStoreHalf4( (XMHALF4*)pStorageData, pSrc->GetRawValue() );
             return;
         }
+    case StateNodeType::PredictFloat3:
+    {
+        auto* pSrc = (const PredictionFloat3*)pExpandedData;
+        XMStoreFloat3((XMFLOAT3*)pStorageData, pSrc->GetStaticValue());
+        return;
+    }
+    case StateNodeType::PredictQuaternion:
+    {
+        auto* pSrc = (const PredictionQuaternion*)pExpandedData;
+        XMStoreHalf4((XMHALF4*)pStorageData, pSrc->GetStaticValue());
+        return;
+    }
     default:
         assert( GetStorageSize( Type ) == GetExpandedSize( Type ) );
         memcpy( pStorageData, pExpandedData, GetStorageSize( Type ) );
@@ -151,6 +165,18 @@ VOID StateNodeTypeCodec::Decode( StateNodeType Type, VOID* pExpandedData, const 
             pDest->ReceiveNewValue( XMLoadHalf4( (const XMHALF4*)pStorageData ), g_CurrentRecvTimestamp );
             return;
         }
+    case StateNodeType::PredictFloat3:
+    {
+        auto* pDest = (PredictionFloat3*)pExpandedData;
+        pDest->UpdateFromNetwork(XMLoadFloat3((const XMFLOAT3*)pStorageData), g_CurrentRecvTimestamp.QuadPart);
+        return;
+    }
+    case StateNodeType::PredictQuaternion:
+    {
+        auto* pDest = (PredictionQuaternion*)pExpandedData;
+        pDest->UpdateFromNetwork(XMLoadHalf4((const XMHALF4*)pStorageData), g_CurrentRecvTimestamp.QuadPart);
+        return;
+    }
     default:
         assert( GetExpandedSize( Type ) == GetStorageSize( Type ) );
         memcpy( pExpandedData, pStorageData, GetExpandedSize( Type ) );

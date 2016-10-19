@@ -341,12 +341,17 @@ BOOL NetClientBase::HandleReliableMessage( VOID* pSenderContext, const UINT Opco
     {
     case ReliableMessageType::ConnectAck:
         {
+            LARGE_INTEGER CurrentTime;
+            QueryPerformanceCounter(&CurrentTime);
             assert( PayloadSizeBytes >= sizeof(RMsg_ConnectAck) );
             auto* pData = (const RMsg_ConnectAck*)pPayload;
             if( pData->Success != 0 )
             {
                 DbgPrint( "Server accepted connection attempt.\n" );
                 m_ConnectionState = ConnectionState::Connected;
+                m_ServerTimeBase = pData->ServerTicks.QuadPart;
+                m_ServerTickFreq = pData->ServerTickFreq.QuadPart;
+                m_ClientTimeBase = (CurrentTime.QuadPart + pData->ClientTicks.QuadPart) >> 1;
             }
             else
             {
@@ -706,4 +711,13 @@ void NetClientBase::SingleThreadedTick()
             LeaveCriticalSection(&m_PacketQueueCritSec);
         }
     }
+}
+
+INT64 NetClientBase::GetCurrentServerTimeEstimate() const
+{
+    LARGE_INTEGER CurrentClientTime;
+    QueryPerformanceCounter(&CurrentClientTime);
+    const INT64 ClientDelta = CurrentClientTime.QuadPart - m_ClientTimeBase;
+    const INT64 ServerDelta = (ClientDelta * m_ServerTickFreq) / m_PerfFreq.QuadPart;
+    return m_ServerTimeBase + ServerDelta;
 }

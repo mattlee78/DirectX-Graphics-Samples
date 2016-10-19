@@ -44,5 +44,6 @@ void GameCore::ShadowCamera::UpdateMatrix(
 	Update();
 
 	// Transform from clip space to texture space
-	m_ShadowMatrix =  Matrix4( AffineTransform( Matrix3::MakeScale( 0.5f, -0.5f, 1.0f ), Vector3(0.5f, 0.5f, 0.0f) ) ) * m_ViewProjMatrix;
+    Matrix4 SceneCameraOffset = Matrix4(AffineTransform(m_SceneCameraPos));
+	m_ShadowMatrix =  Matrix4( AffineTransform( Matrix3::MakeScale( 0.5f, -0.5f, 1.0f ), Vector3(0.5f, 0.5f, 0.0f) ) ) * (m_ViewProjMatrix * SceneCameraOffset);
 }

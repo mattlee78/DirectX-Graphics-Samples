@@ -372,6 +372,7 @@ BOOL NetServerBase::HandleReliableMessage( VOID* pSenderContext, const UINT Opco
                 pAck->Success = AckSuccess;
                 pAck->ServerTicks = pClient->m_ServerTicksAtConnect;
                 QueryPerformanceFrequency( &pAck->ServerTickFreq );
+                pAck->ClientTicks = pData->ClientTicks;
 
                 pClient->m_SendQueue.QueueReliableMessage( RMsg );
 
