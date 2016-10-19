@@ -76,7 +76,7 @@ private:
 
     void ProcessCommandLine();
     bool ProcessCommand(const CHAR* strCommand, const CHAR* strArgument);
-	void RenderObjects(GraphicsContext& Context, const Matrix4& ViewProjMat, PsoLayoutCache* pPsoCache, RenderPass PassType);
+	void RenderObjects(GraphicsContext& Context, const BaseCamera& Camera, PsoLayoutCache* pPsoCache, RenderPass PassType);
     void CreateParticleEffects();
 
 	Camera m_Camera;
@@ -237,6 +237,13 @@ void ModelViewer::Startup( void )
         strcpy_s(m_strConnectToServerName, "localhost");
     }
 
+    g_ClientPredictConstants.Correction = 0.9f;
+    g_ClientPredictConstants.Smoothing = 0.1f;
+    g_ClientPredictConstants.Prediction = 0.0f;
+    LARGE_INTEGER PerfFreq;
+    QueryPerformanceFrequency(&PerfFreq);
+    g_ClientPredictConstants.FrameTickLength = PerfFreq.QuadPart / 15;
+
     if (m_NetServer.IsStarted() || !m_StartServer)
     {
         Utility::Printf("Attempting to connect to server %s on port %u...\n", m_strConnectToServerName, m_ConnectToPort);
@@ -250,12 +257,14 @@ void ModelViewer::Startup( void )
     if (m_NetServer.IsStarted())
     {
         DecomposedTransform DT;
-        m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
         m_NetServer.SpawnObject(nullptr, "Models/sponza.h3d", nullptr, DT, XMFLOAT3(0, 0, 0));
+
+        DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(200, 0, 100));
+        m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
 
         for (UINT32 i = 0; i < 20; ++i)
         {
-            DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 20.0f + i * 100, 0));
+            DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(200, 20.0f + i * 100, 100));
             m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
         }
     }
@@ -386,7 +395,9 @@ void ModelViewer::Update( float deltaT )
     if (m_NetClient.IsConnected(nullptr))
     {
         m_NetClient.SingleThreadedTick();
-        m_pClientWorld->Tick(deltaT);
+        LARGE_INTEGER ClientTicks;
+        QueryPerformanceCounter(&ClientTicks);
+        m_pClientWorld->Tick(deltaT, ClientTicks.QuadPart);
     }
 
     if (m_pServerTestMI != nullptr)
@@ -489,13 +500,16 @@ bool ModelViewer::IsDone()
     return false;
 }
 
-void ModelViewer::RenderObjects(GraphicsContext& gfxContext, const Matrix4& ViewProjMat, PsoLayoutCache* pPsoCache, RenderPass PassType)
+void ModelViewer::RenderObjects(GraphicsContext& gfxContext, const BaseCamera& Camera, PsoLayoutCache* pPsoCache, RenderPass PassType)
 {
     ModelRenderContext MRC;
     MRC.pContext = &gfxContext;
-    MRC.CameraPosition = m_Camera.GetPosition();
+    MRC.CameraPosition = Camera.GetPosition();
     MRC.ModelToShadow = m_SunShadow.GetShadowMatrix();
-    MRC.ViewProjection = ViewProjMat;
+    Matrix4 ViewMatrix = Camera.GetViewMatrix();
+    ViewMatrix.SetW(Vector4(g_XMIdentityR3));
+    Matrix4 VPMatrix = Camera.GetProjMatrix() * ViewMatrix;
+    MRC.ViewProjection = VPMatrix;
     MRC.pPsoCache = pPsoCache;
     MRC.LastInputLayoutIndex = -1;
     MRC.CurrentPassType = PassType;
@@ -534,7 +548,7 @@ void ModelViewer::RenderScene( void )
 
 		gfxContext.SetDepthStencilTarget(g_SceneDepthBuffer.GetDSV());
 		gfxContext.SetViewportAndScissor(m_MainViewport, m_MainScissor);
-		RenderObjects(gfxContext, m_ViewProjMatrix, &m_DepthPSOCache, RenderPass_ZPrePass);
+		RenderObjects(gfxContext, m_Camera, &m_DepthPSOCache, RenderPass_ZPrePass);
 	}
 
 	SSAO::Render(gfxContext, m_Camera);
@@ -560,11 +574,12 @@ void ModelViewer::RenderScene( void )
 		{
 			ScopedTimer _prof(L"Render Shadow Map", gfxContext);
 
+            m_SunShadow.SetSceneCameraPos(m_Camera.GetPosition());
 			m_SunShadow.UpdateMatrix(-m_SunDirection, Vector3(0, -500.0f, 0), Vector3(ShadowDimX, ShadowDimY, ShadowDimZ),
 				(uint32_t)g_ShadowBuffer.GetWidth(), (uint32_t)g_ShadowBuffer.GetHeight(), 16);
 
 			g_ShadowBuffer.BeginRendering(gfxContext);
-            RenderObjects(gfxContext, m_SunShadow.GetViewProjMatrix(), &m_ShadowPSOCache, RenderPass_Shadow);
+            RenderObjects(gfxContext, m_SunShadow, &m_ShadowPSOCache, RenderPass_Shadow);
 			g_ShadowBuffer.EndRendering(gfxContext);
 		}
 
@@ -585,7 +600,7 @@ void ModelViewer::RenderScene( void )
 			gfxContext.SetRenderTarget(g_SceneColorBuffer.GetRTV(), g_SceneDepthBuffer.GetDSV_DepthReadOnly());
 			gfxContext.SetViewportAndScissor(m_MainViewport, m_MainScissor);
             gfxContext.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            RenderObjects(gfxContext, m_ViewProjMatrix, &m_ModelPSOCache, RenderPass_Color);
+            RenderObjects(gfxContext, m_Camera, &m_ModelPSOCache, RenderPass_Color);
             LineRender::Render(gfxContext, m_ViewProjMatrix);
         }
 	}

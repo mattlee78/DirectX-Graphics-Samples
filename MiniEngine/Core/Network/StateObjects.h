@@ -37,6 +37,8 @@ enum class StateNodeType
     Matrix44,
     String,
     WideString,
+    PredictFloat3,
+    PredictQuaternion,
     Float3Delta,
     Float3AsHalf4Delta,
     Float4AsHalf4Delta,
@@ -52,6 +54,8 @@ inline bool IsDeltaType( StateNodeType Type )
     case StateNodeType::Float3AsHalf4Delta:
     case StateNodeType::Float4AsHalf4Delta:
     case StateNodeType::Float3AsQwordDelta:
+    case StateNodeType::PredictFloat3:
+    case StateNodeType::PredictQuaternion:
         return true;
     default:
         return false;
@@ -118,90 +122,6 @@ inline FLOAT AdjustLerpValue( FLOAT LerpValue )
 static const FLOAT g_Smoothing = 0.25f;
 static const FLOAT g_Correction = 0.75f;
 
-template <typename T>
-struct StateDelta
-{
-private:
-    T CurrentValue;
-    T PrevValue;
-    LARGE_INTEGER CurrentRecvTimestamp;
-    LARGE_INTEGER PreviousRecvTimestamp;
-
-private:
-    static inline void StateStore( XMFLOAT3* pValue, CXMVECTOR v ) { XMStoreFloat3( pValue, v ); }
-    static inline void StateStore( XMFLOAT4* pValue, CXMVECTOR v ) { XMStoreFloat4( pValue, v ); }
-    static inline XMVECTOR StateLoad( const XMFLOAT3* pValue ) { return XMLoadFloat3( pValue ); }
-    static inline XMVECTOR StateLoad( const XMFLOAT4* pValue ) { return XMLoadFloat4( pValue ); }
-
-public:
-    StateDelta()
-    {
-        StateStore( &CurrentValue, XMVectorZero() );
-        StateStore( &PrevValue, XMVectorZero() );
-        CurrentRecvTimestamp.QuadPart = 0;
-        PreviousRecvTimestamp.QuadPart = 0;
-    }
-
-    const T* GetRawData() const { return &CurrentValue; }
-    XMVECTOR GetRawValue() const { return StateLoad( &CurrentValue ); }
-    void SetRawValue( CXMVECTOR Value ) { StateStore( &CurrentValue, Value ); }
-    INT64 GetSampleTime() const { return CurrentRecvTimestamp.QuadPart; }
-    XMVECTOR GetCurrentValue() { return Lerp( GetSampleTime() ); }
-    XMVECTOR GetCurrentValueQuaternion() { return LerpQuaternion( GetSampleTime() ); }
-
-    VOID Reset( const T& Value )
-    {
-        CurrentValue = Value;
-        PrevValue = Value;
-        CurrentRecvTimestamp.QuadPart = 0;
-        PreviousRecvTimestamp.QuadPart = 0;
-    }
-
-    VOID ReceiveNewValue( const XMVECTOR Value, LARGE_INTEGER CurrentTimestamp )
-    {
-        PrevValue = CurrentValue;
-        PreviousRecvTimestamp = CurrentRecvTimestamp;
-        StateStore( &CurrentValue, Value );
-        CurrentRecvTimestamp = CurrentTimestamp;
-    }
-
-    inline XMVECTOR Lerp( INT64 CurrentTime ) const
-    {
-        const XMVECTOR Prev = StateLoad( &PrevValue );
-        if (CurrentRecvTimestamp.QuadPart <= PreviousRecvTimestamp.QuadPart)
-        {
-            return Prev;
-        }
-        FLOAT LerpValue = (FLOAT)( (DOUBLE)( CurrentTime - CurrentRecvTimestamp.QuadPart ) / (DOUBLE)( CurrentRecvTimestamp.QuadPart - PreviousRecvTimestamp.QuadPart ) );
-        if ( ( CurrentTime - CurrentRecvTimestamp.QuadPart ) > g_LerpThresholdTicks.QuadPart)
-        {
-            LerpValue = 1.0f;
-        }
-        const XMVECTOR Current = StateLoad( &CurrentValue );
-        XMVECTOR Result = XMVectorLerp(Prev, Current, LerpValue);
-        return Result;
-    }
-
-    inline XMVECTOR LerpQuaternion( INT64 CurrentTime ) const
-    {
-        const XMVECTOR Prev = StateLoad(&PrevValue);
-        if (CurrentRecvTimestamp.QuadPart <= PreviousRecvTimestamp.QuadPart)
-        {
-            return Prev;
-        }
-        FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - CurrentRecvTimestamp.QuadPart) / (DOUBLE)(CurrentRecvTimestamp.QuadPart - PreviousRecvTimestamp.QuadPart));
-        if ((CurrentTime - CurrentRecvTimestamp.QuadPart) > g_LerpThresholdTicks.QuadPart)
-        {
-            LerpValue = 1.0f;
-        }
-        const XMVECTOR Current = StateLoad(&CurrentValue);
-        XMVECTOR Result = XMQuaternionSlerp(Prev, Current, LerpValue);
-        return Result;
-    }
-};
-
-typedef StateDelta<XMFLOAT3> StateFloat3Delta;
-typedef StateDelta<XMFLOAT4> StateFloat4Delta;
 
 struct StateNodeCreationData : public StateBlob
 {

@@ -102,7 +102,7 @@ public:
     Math::Matrix4 GetWorldTransform() const { return Math::Matrix4(XMLoadFloat4x4(&m_WorldTransform)); }
     Math::Vector3 GetWorldPosition() const { return Math::Vector3(XMLoadFloat3((XMFLOAT3*)&m_WorldTransform._41)); }
 
-    void PrePhysicsUpdate(float deltaT);
+    void PrePhysicsUpdate(float deltaT, INT64 ClientTicks);
     void PostPhysicsUpdate(float deltaT);
 
     void Render(ModelRenderContext& MRC) const;
@@ -124,7 +124,7 @@ public:
     virtual ~World();
 
     void Initialize(bool GraphicsEnabled = true);
-    void Tick(float deltaT);
+    void Tick(float deltaT, INT64 Ticks);
     void Render(ModelRenderContext& MRC);
 
     ModelInstance* SpawnModelInstance(const CHAR* strTemplateName, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, bool IsRemote = false);

@@ -18,6 +18,7 @@ cbuffer VSConstants : register(b0)
 {
 	float4x4 modelToProjection;
 	float4x4 modelToShadow;
+    float4x4 modelToWorld;
 	float3 ViewerPos;
 };
 
@@ -48,12 +49,12 @@ VSOutput main(VSInput vsInput)
 
 	vsOutput.position = mul(modelToProjection, float4(vsInput.position, 1.0));
 	vsOutput.texcoord0 = vsInput.texcoord0;
-	vsOutput.viewDir = vsInput.position - ViewerPos;
+	vsOutput.viewDir = mul(modelToWorld, float4(vsInput.position, 1.0)).xyz - ViewerPos;
 	vsOutput.shadowCoord = mul(modelToShadow, float4(vsInput.position, 1.0)).xyz;
 
-	vsOutput.normal = vsInput.normal;
-	vsOutput.tangent = vsInput.tangent;
-	vsOutput.bitangent = vsInput.bitangent;
+	vsOutput.normal = mul(modelToWorld, float4(vsInput.normal, 0.0)).xyz;
+	vsOutput.tangent = mul(modelToWorld, float4(vsInput.tangent, 0.0)).xyz;
+	vsOutput.bitangent = mul(modelToWorld, float4(vsInput.bitangent, 0.0)).xyz;
 
 	return vsOutput;
 }

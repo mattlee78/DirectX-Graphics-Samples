@@ -83,6 +83,10 @@ private:
     bool m_ProcessPacketQueueOnMainThread;
     CRITICAL_SECTION m_PacketQueueCritSec;
 
+    INT64 m_ClientTimeBase;
+    INT64 m_ServerTimeBase;
+    INT64 m_ServerTickFreq;
+
 protected:
     SnapshotSendQueue m_SendQueue;
     StateInputOutput m_StateIO;
@@ -145,6 +149,8 @@ public:
 
     BOOL IsNetworkGood() const { return !m_AckTracker.LastSnapshotFractured() && m_DataReceivedRecently; }
     UINT GetGoodSnapshotCount() const { return m_AckTracker.GetAcknowledgeCount(); }
+
+    INT64 GetCurrentServerTimeEstimate() const;
 
 protected:
     virtual VOID InitializeClient() = 0;

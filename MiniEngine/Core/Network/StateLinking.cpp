@@ -273,12 +273,14 @@ VOID StateInputOutput::LogUpdate( const StateLinkNode* pNode, LARGE_INTEGER Time
     case StateNodeType::Float3AsHalf4Delta:
     case StateNodeType::Float3AsQwordDelta:
     case StateNodeType::Float3Delta:
+    case StateNodeType::PredictFloat3:
         m_LogFile.SetFloatData( 2, 3, (FLOAT*)pNode->pData );
         break;
     case StateNodeType::Float4:
     case StateNodeType::Float4AsByteN4:
     case StateNodeType::Float4AsHalf4:
     case StateNodeType::Float4AsHalf4Delta:
+    case StateNodeType::PredictQuaternion:
         m_LogFile.SetFloatData( 2, 4, (FLOAT*)pNode->pData );
         break;
     default:

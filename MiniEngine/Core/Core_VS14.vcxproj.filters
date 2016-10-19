@@ -247,6 +247,9 @@
     <ClInclude Include="StringID.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="Network\ClientPredict.h">
+      <Filter>Source Files\Network</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SystemTime.cpp">
@@ -422,6 +425,9 @@
     </ClCompile>
     <ClCompile Include="StringID.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Network\ClientPredict.cpp">
+      <Filter>Source Files\Network</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
