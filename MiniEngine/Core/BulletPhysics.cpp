@@ -6,6 +6,48 @@
 #include "..\3rdParty\Bullet\src\btBulletCollisionCommon.h"
 #include "..\3rdParty\Bullet\src\btBulletDynamicsCommon.h"
 
+STRUCT_TEMPLATE_START_INLINE(AxleConfig, nullptr, nullptr)
+MEMBER_FLOAT(ZPos)
+MEMBER_FLOAT(YPos)
+MEMBER_FLOAT(Width)
+MEMBER_FLOAT(WheelRadius)
+MEMBER_FLOAT(SuspensionRestLength)
+MEMBER_FLOAT(SuspensionStiffness)
+MEMBER_FLOAT(SuspensionDamping)
+MEMBER_FLOAT(SuspensionCompression)
+MEMBER_FLOAT(WheelFriction)
+MEMBER_FLOAT(RollInfluence)
+MEMBER_FLOAT(SteeringMax)
+MEMBER_FLOAT(ThrottleResponse)
+MEMBER_FLOAT(SteeringResponse)
+STRUCT_TEMPLATE_END(AxleConfig)
+
+STRUCT_TEMPLATE_START_INLINE(WaterThrusterConfig, nullptr, nullptr)
+MEMBER_FLOAT(Thrust)
+MEMBER_FLOAT(SteeringMaxAngle)
+MEMBER_VECTOR3(LocalPosition)
+STRUCT_TEMPLATE_END(WaterThrusterConfig)
+
+STRUCT_TEMPLATE_START_INLINE(SeatConfig, nullptr, nullptr)
+MEMBER_VECTOR3(SeatPosition)
+MEMBER_VECTOR3(DismountPosition)
+MEMBER_UINT(ActivityFlags)
+MEMBER_VECTOR3(ViewCenter)
+MEMBER_VECTOR2(ViewConstraintYaw)
+MEMBER_VECTOR2(ViewConstraintPitch)
+STRUCT_TEMPLATE_END(SeatConfig)
+
+STRUCT_TEMPLATE_START_INLINE(VehicleConfig, nullptr, nullptr)
+MEMBER_STRUCT_STL_POINTER_VECTOR(Axles, AxleConfig)
+MEMBER_STRUCT_STL_POINTER_VECTOR(Seats, SeatConfig)
+MEMBER_STRUCT_STL_POINTER_VECTOR(WaterThrusters, WaterThrusterConfig)
+MEMBER_FLOAT(EngineForce)
+MEMBER_FLOAT(BrakingForce)
+MEMBER_FLOAT(CollectiveMagnitude)
+MEMBER_FLOAT(CyclicMagnitude)
+MEMBER_FLOAT(RudderMagnitude)
+STRUCT_TEMPLATE_END(VehicleConfig)
+
 CollisionShape::CollisionShape( btCollisionShape* pShape )
     : m_pShape( pShape ),
       m_SweptSphereRadius( 0.0f )
@@ -945,7 +987,7 @@ Vehicle::Vehicle( PhysicsWorld* pWorld, RigidBody* pChassis, const VehicleConfig
     m_pChassisRigidBody = pChassis;
     m_Config = *pConfig;
 
-    const UINT32 AxleCount = (UINT32)m_Config.AxleCount;
+    const UINT32 AxleCount = (UINT32)m_Config.Axles.size();
 
     if (AxleCount > 0)
     {
@@ -960,7 +1002,7 @@ Vehicle::Vehicle( PhysicsWorld* pWorld, RigidBody* pChassis, const VehicleConfig
         m_pVehicle->setCoordinateSystem(rightIndex, upIndex, forwardIndex);
         for (UINT32 i = 0; i < AxleCount; ++i)
         {
-            AddAxle(&m_Config.Axles[i], i == 0, i);
+            AddAxle(m_Config.Axles[i], i == 0, i);
         }
         m_pWorld->GetInternalWorld()->addVehicle(m_pVehicle);
     }
@@ -1019,9 +1061,10 @@ void Vehicle::AddAxle( const AxleConfig* pAxle, bool IsFrontAxle, UINT32 AxleInd
 
 void Vehicle::SetGasAndBrake( FLOAT Gas, FLOAT Brake )
 {
-    for (UINT32 i = 0; i < m_Config.AxleCount; ++i)
+    UINT32 AxleCount = (UINT32)m_Config.Axles.size();
+    for (UINT32 i = 0; i < AxleCount; ++i)
     {
-        const FLOAT TR = m_Config.Axles[i].ThrottleResponse;
+        const FLOAT TR = m_Config.Axles[i]->ThrottleResponse;
         if (TR <= 0)
         {
             continue;
@@ -1034,14 +1077,15 @@ void Vehicle::SetSteering( FLOAT Steering )
 {
     Steering = std::max( std::min( 1.0f, Steering ), -1.0f );
 
-    for (UINT32 i = 0; i < m_Config.AxleCount; ++i)
+    UINT32 AxleCount = (UINT32)m_Config.Axles.size();
+    for (UINT32 i = 0; i < AxleCount; ++i)
     {
-        const FLOAT SR = m_Config.Axles[i].SteeringResponse;
+        const FLOAT SR = m_Config.Axles[i]->SteeringResponse;
         if (SR <= 0)
         {
             continue;
         }
-        const FLOAT SMax = m_Config.Axles[i].SteeringMax;
+        const FLOAT SMax = m_Config.Axles[i]->SteeringMax;
         FLOAT AxleSteering = SR * Steering;
         if (AxleSteering > SMax)
         {

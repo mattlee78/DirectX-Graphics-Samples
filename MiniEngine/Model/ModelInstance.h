@@ -62,6 +62,13 @@ struct DecomposedTransform
     }
 };
 
+struct WheelData
+{
+    XMFLOAT4X4 Transform;
+    StateFloat3Delta Position;
+    StateFloat4Delta Orientation;
+};
+
 class ModelInstance : public NetworkTransform
 {
 private:
@@ -75,14 +82,19 @@ private:
     Graphics::Model* m_pModel;
     RigidBody* m_pRigidBody;
     CollisionShape* m_pCollisionShape;
+
     Vehicle* m_pVehicle;
+    UINT32 m_WheelCount;
+    WheelData* m_pWheelData;
 
 public:
     ModelInstance()
         : m_pModel(nullptr),
           m_pRigidBody(nullptr),
           m_pCollisionShape(nullptr),
-          m_pVehicle(nullptr)
+          m_pVehicle(nullptr),
+          m_WheelCount(0),
+          m_pWheelData(nullptr)
     { 
         XMStoreFloat4x4(&m_WorldTransform, XMMatrixIdentity());
         m_RenderInShadowPass = true;
@@ -106,6 +118,11 @@ public:
     void PostPhysicsUpdate(float deltaT);
 
     void Render(ModelRenderContext& MRC) const;
+
+private:
+    Math::Matrix4 GetWheelTransform(UINT32 WheelIndex) const;
+    virtual BOOL CreateDynamicChildNode(const VOID* pCreationData, const SIZE_T CreationDataSizeBytes, const StateNodeType NodeType, VOID** ppCreatedData, SIZE_T* pCreatedDataSizeBytes);
+    virtual UINT CreateAdditionalBindings(StateInputOutput* pStateIO, UINT ParentID, UINT FirstChildID);
 };
 
 typedef std::unordered_map<UINT32, ModelInstance*> ModelInstanceMap;

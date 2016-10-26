@@ -1,9 +1,12 @@
 #pragma once
 
 #include <unordered_set>
+#include <vector>
 
 #include <DirectXMath.h>
 using namespace DirectX;
+
+#include <DataFile.h>
 
 class PhysicsWorld;
 
@@ -21,6 +24,56 @@ class btTriangleIndexVertexArray;
 class btCollisionObject;
 class btDefaultVehicleRaycaster;
 class btRaycastVehicle;
+
+struct AxleConfig
+{
+    FLOAT ZPos;
+    FLOAT YPos;
+    FLOAT Width;
+    FLOAT WheelRadius;
+    FLOAT SuspensionRestLength;
+    FLOAT SuspensionStiffness;
+    FLOAT SuspensionDamping;
+    FLOAT SuspensionCompression;
+    FLOAT WheelFriction;
+    FLOAT RollInfluence;
+    FLOAT SteeringMax;
+    FLOAT ThrottleResponse;
+    FLOAT SteeringResponse;
+};
+STRUCT_TEMPLATE_EXTERNAL(AxleConfig);
+
+struct WaterThrusterConfig
+{
+    FLOAT Thrust;
+    FLOAT SteeringMaxAngle;
+    XMFLOAT3 LocalPosition;
+};
+STRUCT_TEMPLATE_EXTERNAL(WaterThrusterConfig);
+
+struct SeatConfig
+{
+    XMFLOAT3 SeatPosition;
+    XMFLOAT3 DismountPosition;
+    UINT32 ActivityFlags;
+    XMFLOAT3 ViewCenter;
+    XMFLOAT2 ViewConstraintYaw;
+    XMFLOAT2 ViewConstraintPitch;
+};
+STRUCT_TEMPLATE_EXTERNAL(SeatConfig);
+
+struct VehicleConfig
+{
+    std::vector<const AxleConfig*> Axles;
+    std::vector<const SeatConfig*> Seats;
+    std::vector<const WaterThrusterConfig*> WaterThrusters;
+    FLOAT EngineForce;
+    FLOAT BrakingForce;
+    FLOAT CollectiveMagnitude;
+    FLOAT CyclicMagnitude;
+    FLOAT RudderMagnitude;
+};
+STRUCT_TEMPLATE_EXTERNAL(VehicleConfig);
 
 struct CollisionMeshDefinition
 {
@@ -215,70 +268,6 @@ public:
     static Constraint* CreateBallSocketMidpoint( RigidBody* pBodyA, RigidBody* pBodyB );
 
     btTypedConstraint* GetInternalConstraint() const { return m_pConstraint; }
-};
-
-struct AxleConfig
-{
-    FLOAT ZPos;
-    FLOAT YPos;
-    FLOAT Width;
-    FLOAT WheelRadius;
-    FLOAT SuspensionRestLength;
-    FLOAT SuspensionStiffness;
-    FLOAT SuspensionDamping;
-    FLOAT SuspensionCompression;
-    FLOAT WheelFriction;
-    FLOAT RollInfluence;
-    FLOAT SteeringMax;
-    FLOAT ThrottleResponse;
-    FLOAT SteeringResponse;
-
-    AxleConfig()
-        : ZPos(1),
-          YPos(0),
-          Width(1),
-          WheelRadius(1),
-          SuspensionRestLength(0.5f),
-          SuspensionStiffness(20),
-          SuspensionDamping(2.3f),
-          SuspensionCompression(4.4f),
-          WheelFriction(1000.0f),
-          RollInfluence(0.1f),
-          SteeringMax(0.6f),
-          SteeringResponse(1),
-          ThrottleResponse(1)
-    { }  
-};
-
-struct SeatConfig
-{
-    XMFLOAT3 SeatPosition;
-    XMFLOAT3 DismountPosition;
-    UINT32 ActivityFlags;
-    XMFLOAT3 ViewCenter;
-    XMFLOAT2 ViewConstraintYaw;
-    XMFLOAT2 ViewConstraintPitch;
-};
-
-struct VehicleConfig
-{
-    static const UINT32 MaxAxleCount = 8;
-    AxleConfig Axles[MaxAxleCount];
-    UINT32 AxleCount;
-
-    static const UINT32 MaxSeatCount = 8;
-    SeatConfig Seats[MaxSeatCount];
-    UINT32 SeatCount;
-
-    FLOAT EngineForce;
-    FLOAT BrakingForce;
-
-    VehicleConfig()
-        : AxleCount(0),
-          SeatCount(0),
-          EngineForce(750.0f),
-          BrakingForce(50.0f)
-    { }
 };
 
 class Vehicle

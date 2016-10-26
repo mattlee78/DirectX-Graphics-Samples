@@ -3,13 +3,14 @@
 #include "DataFile.h"
 #include "StringID.h"
 #include <unordered_map>
-#include <DirectXMath.h>
+#include "VectorMath.h"
 
 namespace Graphics
 {
     class Model;
 }
 class CollisionShape;
+struct VehicleConfig;
 
 enum ModelShapeType
 {
@@ -92,6 +93,7 @@ struct ModelRigidBodyDesc
 {
     FLOAT Mass;
     ModelShapeData Shape;
+    VehicleConfig* pVehicleConfig;
 };
 STRUCT_TEMPLATE_EXTERNAL(ModelRigidBodyDesc);
 
@@ -100,6 +102,8 @@ struct ModelDesc
     const CHAR* strModelFileName;
     ModelRigidBodyDesc* pRigidBody;
     BOOL NoRenderInShadowPass;
+    DirectX::XMFLOAT3 RenderOffset;
+    const CHAR* strWheelModelFileName;
 };
 STRUCT_TEMPLATE_EXTERNAL(ModelDesc);
 
@@ -109,14 +113,16 @@ private:
     StringID m_Name;
     ModelDesc* m_pDesc;
     Graphics::Model* m_pModel;
+    Graphics::Model* m_pWheelModel;
 
     UINT32 m_DescIsLocallyAllocated : 1;
 
 public:
     ModelTemplate()
         : m_pDesc(nullptr),
-          m_pModel(nullptr)
-    { 
+        m_pModel(nullptr),
+        m_pWheelModel(nullptr)
+    {
         m_DescIsLocallyAllocated = 0;
     }
     ~ModelTemplate();
@@ -126,15 +132,16 @@ public:
     static ModelTemplate* Load(const CHAR* strName, bool GraphicsEnabled);
 
     Graphics::Model* GetModel() { return m_pModel; }
+    Graphics::Model* GetWheelModel() { return m_pWheelModel; }
     CollisionShape* GetCollisionShape(FLOAT Scale);
     FLOAT GetMass() const;
+    const ModelRigidBodyDesc* GetRigidBodyDesc() const { return m_pDesc->pRigidBody; }
+    Math::Vector3 GetRenderOffset() const { return Math::Vector3(XMLoadFloat3(&m_pDesc->RenderOffset)); }
 
 private:
     bool CreateDefaultTemplate(const CHAR* strName, bool GraphicsEnabled);
     bool CreateMeshOnlyTemplate(const CHAR* strName);
     bool CreateDescTemplate(ModelDesc* pMD, bool GraphicsEnabled);
-
-    void CreateCollisionShape();
 };
 
 typedef std::unordered_map<const WCHAR*, ModelTemplate*> ModelTemplateMap;

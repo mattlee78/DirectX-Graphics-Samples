@@ -1013,12 +1013,6 @@ const DataMemberTemplate* DataFileParser::FindMember( const WCHAR* strName, UINT
     return pMember;
 }
 
-inline const CHAR* JsonString(const json& Value)
-{
-    assert(Value.is_string());
-    return ((const std::string&)Value).c_str();
-}
-
 VOID DataFileParser::ProcessMember( const DataMemberTemplate* pTemplate, const json& Value )
 {
     // Compute this member's destination address
@@ -1037,7 +1031,8 @@ VOID DataFileParser::ProcessMember( const DataMemberTemplate* pTemplate, const j
                 if( pStruct->Location == SL_File )
                 {
                     // Load from a new file
-                    strcpy_s( strStructName, JsonString(Value));
+                    const std::string& s = Value;
+                    strcpy_s( strStructName, s.c_str());
                     VOID* pData = DataFile::LoadStructFromFile( pStruct, strStructName, (VOID*)pDestination );
                     return;
                 }
@@ -1075,7 +1070,8 @@ VOID DataFileParser::ProcessMember( const DataMemberTemplate* pTemplate, const j
                 if( pStruct->Location == SL_File )
                 {
                     // Load from a new file
-                    strcpy_s( strStructName, JsonString(Value));
+                    const std::string& s = Value;
+                    strcpy_s( strStructName, s.c_str());
                     VOID* pData = DataFile::LoadStructFromFile( pStruct, strStructName, NULL );
                     *(VOID**)pDestination = pData;
                     return;
@@ -1148,7 +1144,8 @@ VOID DataFileParser::ProcessMember( const DataMemberTemplate* pTemplate, const j
                     {
                         for (UINT32 i = 0; i < Value.size(); ++i)
                         {
-                            strcpy_s(strStructName, JsonString(Value[i]));
+                            const std::string& s = Value[i];
+                            strcpy_s(strStructName, s.c_str());
                             VOID* pData = DataFile::LoadStructFromFile(pStruct, strStructName, NULL);
                             if (pData != nullptr)
                             {
@@ -1158,7 +1155,8 @@ VOID DataFileParser::ProcessMember( const DataMemberTemplate* pTemplate, const j
                     }
                     else
                     { 
-                        strcpy_s(strStructName, JsonString(Value));
+                        const std::string& s = Value;
+                        strcpy_s(strStructName, s.c_str());
                         VOID* pData = DataFile::LoadStructFromFile(pStruct, strStructName, NULL);
                         if (pData != nullptr)
                         {
@@ -1244,7 +1242,8 @@ VOID DataFileParser::ProcessMember( const DataMemberTemplate* pTemplate, const j
                 if( pStruct->Location == SL_File )
                 {
                     // Load from a new file
-                    strcpy_s( strStructName, JsonString(Value));
+                    const std::string& s = Value;
+                    strcpy_s( strStructName, s.c_str());
                     VOID* pData = DataFile::LoadStructFromFile( pStruct, strStructName, NULL );
                     Destination.push_back( pData );
                     return;
@@ -1313,7 +1312,8 @@ VOID DataFileParser::ProcessMember( const DataMemberTemplate* pTemplate, const j
                 if( pStruct->Location == SL_File )
                 {
                     // Load from a new file
-                    strcpy_s( strStructName, JsonString(Value));
+                    const std::string& s = Value;
+                    strcpy_s( strStructName, s.c_str());
                     CHAR* pNewElement = ArrayBase.AddEmpty();
                     StructInitialize( pNewElement, pStruct );
                     VOID* pData = DataFile::LoadStructFromFile( pStruct, strStructName, pNewElement );
@@ -1405,7 +1405,8 @@ VOID DataFileParser::ParseString( const DataMemberTemplate* pTemplate, const jso
     VOID* pDest = (VOID*)( GetCurrentBuffer() + OffsetOverride );
 
     // Convert string into an ansi string
-    const CHAR* strSrc = JsonString(Value);
+    const std::string& s = Value;
+    const CHAR* strSrc = s.c_str();
     const UINT ValueLen = (UINT)strlen( strSrc );
     CHAR* pBuffer = (CHAR*)AllocateStructMemory( ValueLen + 1 );
     strcpy_s( pBuffer, ValueLen + 1, strSrc );
@@ -1425,7 +1426,8 @@ VOID DataFileParser::ParseWideString( const DataMemberTemplate* pTemplate, const
     }
     VOID* pDest = (VOID*)( GetCurrentBuffer() + OffsetOverride );
 
-    const CHAR* strValue = JsonString(Value);
+    const std::string& s = Value;
+    const CHAR* strValue = s.c_str();
     const UINT ValueLen = (UINT)strlen( strValue );
     if( pTemplate->Type == DT_WString )
     {
@@ -1460,7 +1462,8 @@ VOID DataFileParser::ParseBuffer( const DataMemberTemplate* pTemplate, const jso
     Buffer& DestBuffer = *(Buffer*)( GetCurrentBuffer() + OffsetOverride );
 
     // Build the filename
-    const CHAR* strValueTemp = JsonString(FileNameValue);
+    const std::string& s = FileNameValue;
+    const CHAR* strValueTemp = s.c_str();
 
     // Load file into buffer
     //HRESULT hr = LoadFileA( strValueTemp, &DestBuffer.pBuffer, (UINT*)&DestBuffer.dwBufferSize );
@@ -1506,7 +1509,8 @@ VOID DataFileParser::ParseStringIntoGrowableArray( const DataMemberTemplate* pTe
     CHAR** ppDest = (CHAR**)ArrayBase.AddEmpty();
 
     // Alloc and convert string 
-    const CHAR* strSrc = JsonString(Value);
+    const std::string& s = Value;
+    const CHAR* strSrc = s.c_str();
     const UINT ValueLen = (UINT)strlen( strSrc );
     CHAR* pBuffer = (CHAR*)AllocateStructMemory( ValueLen + 1 );
     strcpy_s( pBuffer, ValueLen + 1, strSrc );
@@ -1519,7 +1523,8 @@ VOID DataFileParser::ParseWideStringIntoGrowableArray( const DataMemberTemplate*
     // Strings can only be scalar
     assert( pTemplate->dwArraySize == 1 );
 
-    const CHAR* strValue = JsonString(Value);
+    const std::string& s = Value;
+    const CHAR* strValue = s.c_str();
     const UINT ValueLen = (UINT)strlen( strValue );
     if( pTemplate->Type == DT_WString )
     {
@@ -1554,7 +1559,8 @@ VOID DataFileParser::ParseBufferIntoGrowableArray( const DataMemberTemplate* pTe
     Buffer& DestBuffer = *(Buffer*)ArrayBase.AddEmpty();
 
     // Build the filename
-    const CHAR* strValueTemp = JsonString(FileNameValue);
+    const std::string& s = FileNameValue;
+    const CHAR* strValueTemp = s.c_str();
 
     // Load file into buffer
     //HRESULT hr = LoadFileA( strValueTemp, &DestBuffer.pBuffer, (UINT*)&DestBuffer.dwBufferSize );
@@ -1597,7 +1603,8 @@ VOID* DataFileParser::ParseScalarValue( DataType Type, const json& Value, VOID* 
         if( pEnums != NULL )
         {
             WCHAR strValue[128];
-            const CHAR* strNarrowValue = JsonString(Value);
+            const std::string& s = Value;
+            const CHAR* strNarrowValue = s.c_str();
             MultiByteToWideChar( CP_ACP, 0, strNarrowValue, (INT)strlen(strNarrowValue) + 1, strValue, ARRAYSIZE(strValue) );
             ParseEnum( (INT*)pDest, strValue, pEnums );
         }
@@ -1642,7 +1649,8 @@ VOID* DataFileParser::ParseScalarValue( DataType Type, const json& Value, VOID* 
         }
         else if (Value.is_string())
         {
-            const CHAR* strValue = JsonString(Value);
+            const std::string& s = Value;
+            const CHAR* strValue = s.c_str();
             *(BOOL*)pDest = (strValue[0] == 't' || strValue[0] == 'T' || strValue[0] == '1');
         }
         else
