@@ -46,9 +46,117 @@ bool ModelInstance::Initialize(World* pWorld, ModelTemplate* pTemplate, bool Gra
         }
         m_pRigidBody = new RigidBody(m_pCollisionShape, Mass, GetWorldTransform());
         pWorld->GetPhysicsWorld()->AddRigidBody(m_pRigidBody);
+
+        const ModelRigidBodyDesc* pRBDesc = pTemplate->GetRigidBodyDesc();
+        assert(pRBDesc != nullptr);
+        if (pRBDesc->pVehicleConfig != nullptr)
+        {
+            const VehicleConfig* pVC = pRBDesc->pVehicleConfig;
+            if (IsRemote)
+            {
+                m_WheelCount = (UINT32)pVC->Axles.size() * 2;
+            }
+            else
+            {
+                m_pVehicle = new Vehicle(pWorld->GetPhysicsWorld(), m_pRigidBody, pVC);
+                m_WheelCount = m_pVehicle->GetWheelCount();
+                m_pVehicle->SetSteering(0.1f);
+                m_pVehicle->SetGasAndBrake(0.2f, 0);
+            }
+            if (m_WheelCount > 0)
+            {
+                m_pWheelData = new WheelData[m_WheelCount];
+                ZeroMemory(m_pWheelData, m_WheelCount * sizeof(WheelData));
+            }
+        }
     }
 
     return true;
+}
+
+struct AdditionalBindingDesc
+{
+    UINT32 Type : 8;
+    UINT32 Context : 24;
+};
+
+enum AdditionalBindingType
+{
+    ABT_Invalid = 0,
+    ABT_VehicleWheelPosition = 1,
+    ABT_VehicleWheelOrientation = 2,
+};
+
+UINT ModelInstance::CreateAdditionalBindings(StateInputOutput* pStateIO, UINT ParentID, UINT FirstChildID)
+{
+    assert(IsLocalNetworkObject());
+
+    UINT32 ChildID = FirstChildID;
+
+    if (m_pWheelData != nullptr)
+    {
+        AdditionalBindingDesc ABD = {};
+
+        for (UINT32 i = 0; i < m_WheelCount; ++i)
+        {
+            WheelData& WD = m_pWheelData[i];
+            ABD.Context = i;
+            ABD.Type = ABT_VehicleWheelPosition;
+
+            pStateIO->CreateNode(
+                ParentID,
+                ChildID++,
+                StateNodeType::Float3AsQwordDelta,
+                &WD.Position,
+                sizeof(WD.Position),
+                0,
+                &ABD,
+                sizeof(ABD),
+                TRUE);
+
+            ABD.Type = ABT_VehicleWheelOrientation;
+            pStateIO->CreateNode(
+                ParentID,
+                ChildID++,
+                StateNodeType::Float4AsHalf4Delta,
+                &WD.Orientation,
+                sizeof(WD.Orientation),
+                0,
+                &ABD,
+                sizeof(ABD),
+                TRUE);
+        }
+    }
+
+    return ChildID;
+}
+
+BOOL ModelInstance::CreateDynamicChildNode(const VOID* pCreationData, const SIZE_T CreationDataSizeBytes, const StateNodeType NodeType, VOID** ppCreatedData, SIZE_T* pCreatedDataSizeBytes)
+{
+    if (CreationDataSizeBytes == sizeof(AdditionalBindingDesc))
+    {
+        const AdditionalBindingDesc* pABD = (const AdditionalBindingDesc*)pCreationData;
+        switch (pABD->Type)
+        {
+        case ABT_VehicleWheelPosition:
+            if (pABD->Context >= m_WheelCount)
+            {
+                return FALSE;
+            }
+            *ppCreatedData = &m_pWheelData[pABD->Context].Position;
+            *pCreatedDataSizeBytes = sizeof(m_pWheelData[pABD->Context].Position);
+            return TRUE;
+        case ABT_VehicleWheelOrientation:
+            if (pABD->Context >= m_WheelCount)
+            {
+                return FALSE;
+            }
+            *ppCreatedData = &m_pWheelData[pABD->Context].Orientation;
+            *pCreatedDataSizeBytes = sizeof(m_pWheelData[pABD->Context].Orientation);
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 bool ModelInstance::IsLocalNetworkObject() const
@@ -79,8 +187,31 @@ void ModelInstance::PrePhysicsUpdate(float deltaT, INT64 ClientTicks)
     // Get transform from network if we're a remote network object
     if (IsRemoteNetworkObject())
     {
+        assert(ClientTicks != 0);
         const Matrix4 matWorld = GetNetworkMatrix(ClientTicks);
         SetWorldTransform(matWorld);
+        for (UINT32 i = 0; i < m_WheelCount; ++i)
+        {
+            WheelData& WD = m_pWheelData[i];
+            XMVECTOR PredictedPosition = WD.Position.Lerp(ClientTicks);
+            XMVECTOR PredictedOrientation = WD.Orientation.LerpQuaternion(ClientTicks);
+            Matrix4 m;
+            m.Compose(Vector3(PredictedPosition), 1, Vector4(PredictedOrientation));
+
+            static const XMMATRIX LeftWheelTransform = { g_XMIdentityR1, -g_XMIdentityR0, g_XMIdentityR2, g_XMIdentityR3 };
+            static const XMMATRIX RightWheelTransform = { -g_XMIdentityR1, g_XMIdentityR0, g_XMIdentityR2, g_XMIdentityR3 };
+
+            if (i % 2 == 0)
+            {
+                m = m * Matrix4(LeftWheelTransform);
+            }
+            else
+            {
+                m = m * Matrix4(RightWheelTransform);
+            }
+
+            XMStoreFloat4x4(&WD.Transform, m);
+        }
     }
 
     // Copy world transform to rigid body if the rigid body is kinematic
@@ -97,12 +228,82 @@ void ModelInstance::PostPhysicsUpdate(float deltaT)
     {
         const Matrix4 matWorld(m_pRigidBody->GetWorldTransform());
         XMStoreFloat4x4(&m_WorldTransform, matWorld);
+
+        if (m_pVehicle != nullptr && m_WheelCount > 0)
+        {
+            assert(m_pWheelData != nullptr);
+            for (UINT32 i = 0; i < m_WheelCount; ++i)
+            {
+                XMFLOAT3 Position;
+                XMFLOAT4 Orientation;
+                m_pVehicle->GetWheelTransform(i, &Orientation, &Position);
+                m_pWheelData[i].Position.SetRawValue(XMLoadFloat3(&Position));
+                m_pWheelData[i].Orientation.SetRawValue(XMLoadFloat4(&Orientation));
+            }
+        }
     }
 
     // Send world transform to network transform if we're a local network object
     if (IsLocalNetworkObject())
     {
         SetNetworkMatrix(GetWorldTransform());
+    }
+}
+
+void RenderModel(ModelRenderContext &MRC, Graphics::Model* pModel, const Matrix4& WorldTransform)
+{
+    GraphicsContext* pContext = MRC.pContext;
+
+    assert(pModel->m_InputLayoutIndex != -1);
+    if (MRC.LastInputLayoutIndex != pModel->m_InputLayoutIndex)
+    {
+        GraphicsPSO* pPso = MRC.pPsoCache->SpecializePso(pModel->m_InputLayoutIndex);
+        pContext->SetPipelineState(*pPso);
+        MRC.LastInputLayoutIndex = pModel->m_InputLayoutIndex;
+    }
+    UINT32 LastInputLayoutIndex = -1;
+
+    struct VSConstants
+    {
+        Matrix4 modelToProjection;
+        Matrix4 modelToShadow;
+        Matrix4 modelToWorld;
+        XMFLOAT3 viewerPos;
+    } vsConstants;
+
+    XMVECTOR NewRow3 = XMVectorSelect(g_XMOne, WorldTransform.GetW() - Vector4(MRC.CameraPosition), g_XMSelect1110);
+    Matrix4 WT(WorldTransform);
+    WT.SetW(Vector4(NewRow3));
+
+    vsConstants.modelToProjection = MRC.ViewProjection * WT;
+    vsConstants.modelToShadow = MRC.ModelToShadow * WT;
+    vsConstants.modelToWorld = WT;
+    XMStoreFloat3(&vsConstants.viewerPos, g_XMZero);
+
+    pContext->SetDynamicConstantBufferView(0, sizeof(vsConstants), &vsConstants);
+
+    uint32_t materialIdx = 0xFFFFFFFFul;
+
+    uint32_t VertexStride = pModel->m_VertexStride;
+
+    pContext->SetIndexBuffer(pModel->m_IndexBuffer.IndexBufferView());
+    pContext->SetVertexBuffer(0, pModel->m_VertexBuffer.VertexBufferView());
+
+    for (unsigned int meshIndex = 0; meshIndex < pModel->m_Header.meshCount; meshIndex++)
+    {
+        const Model::Mesh& mesh = pModel->m_pMesh[meshIndex];
+
+        uint32_t indexCount = mesh.indexCount;
+        uint32_t startIndex = mesh.indexDataByteOffset / sizeof(uint16_t);
+        uint32_t baseVertex = mesh.vertexDataByteOffset / VertexStride;
+
+        if (mesh.materialIndex != materialIdx)
+        {
+            materialIdx = mesh.materialIndex;
+            pContext->SetDynamicDescriptors(3, 0, 6, pModel->GetSRVs(materialIdx));
+        }
+
+        pContext->DrawIndexed(indexCount, startIndex, baseVertex);
     }
 }
 
@@ -119,65 +320,35 @@ void ModelInstance::Render(ModelRenderContext& MRC) const
         return;
     }
 
-    GraphicsContext* pContext = MRC.pContext;
-
-    assert(m_pModel->m_InputLayoutIndex != -1);
-    if (MRC.LastInputLayoutIndex != m_pModel->m_InputLayoutIndex)
-    {
-        GraphicsPSO* pPso = MRC.pPsoCache->SpecializePso(m_pModel->m_InputLayoutIndex);
-        pContext->SetPipelineState(*pPso);
-        MRC.LastInputLayoutIndex = m_pModel->m_InputLayoutIndex;
-    }
-    UINT32 LastInputLayoutIndex = -1;
-
-    struct VSConstants
-    {
-        Matrix4 modelToProjection;
-        Matrix4 modelToShadow;
-        Matrix4 modelToWorld;
-        XMFLOAT3 viewerPos;
-    } vsConstants;
-
     Matrix4 WorldTransform = GetWorldTransform();
-    XMVECTOR NewRow3 = XMVectorSelect(g_XMOne, WorldTransform.GetW() - Vector4(MRC.CameraPosition), g_XMSelect1110);
-    WorldTransform.SetW(Vector4(NewRow3));
+    Matrix4 RenderOffset(AffineTransform(m_pTemplate->GetRenderOffset()));
+    Matrix4 RenderTransform = WorldTransform * RenderOffset;
+    RenderModel(MRC, m_pModel, RenderTransform);
 
-    vsConstants.modelToProjection = MRC.ViewProjection * WorldTransform;
-    vsConstants.modelToShadow = MRC.ModelToShadow * WorldTransform;
-    vsConstants.modelToWorld = WorldTransform;
-    XMStoreFloat3(&vsConstants.viewerPos, g_XMZero);
-
-    pContext->SetDynamicConstantBufferView(0, sizeof(vsConstants), &vsConstants);
-
-    uint32_t materialIdx = 0xFFFFFFFFul;
-
-    uint32_t VertexStride = m_pModel->m_VertexStride;
-
-    pContext->SetIndexBuffer(m_pModel->m_IndexBuffer.IndexBufferView());
-    pContext->SetVertexBuffer(0, m_pModel->m_VertexBuffer.VertexBufferView());
-
-    for (unsigned int meshIndex = 0; meshIndex < m_pModel->m_Header.meshCount; meshIndex++)
+    if (m_WheelCount > 0 && m_pTemplate->GetWheelModel() != nullptr)
     {
-        const Model::Mesh& mesh = m_pModel->m_pMesh[meshIndex];
-
-        uint32_t indexCount = mesh.indexCount;
-        uint32_t startIndex = mesh.indexDataByteOffset / sizeof(uint16_t);
-        uint32_t baseVertex = mesh.vertexDataByteOffset / VertexStride;
-
-        if (mesh.materialIndex != materialIdx)
+        Model* pWM = m_pTemplate->GetWheelModel();
+        for (UINT32 i = 0; i < m_WheelCount; ++i)
         {
-            materialIdx = mesh.materialIndex;
-            pContext->SetDynamicDescriptors(3, 0, 6, m_pModel->GetSRVs(materialIdx));
+            Matrix4 WheelTransform = GetWheelTransform(i);
+            RenderModel(MRC, pWM, WheelTransform);
         }
-
-        pContext->DrawIndexed(indexCount, startIndex, baseVertex);
     }
+}
+
+Matrix4 ModelInstance::GetWheelTransform(UINT32 WheelIndex) const
+{
+    if (WheelIndex >= m_WheelCount)
+    {
+        return Matrix4();
+    }
+    return Matrix4(XMLoadFloat4x4(&m_pWheelData[WheelIndex].Transform));
 }
 
 void World::Initialize(bool GraphicsEnabled)
 {
     m_GraphicsEnabled = GraphicsEnabled;
-    m_PhysicsWorld.Initialize(0, XMVectorSet(0, -98.0f, 0, 0));
+    m_PhysicsWorld.Initialize(0, XMVectorSet(0, -9.8f, 0, 0));
 }
 
 void World::Tick(float deltaT, INT64 Ticks)

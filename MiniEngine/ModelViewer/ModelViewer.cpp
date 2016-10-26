@@ -119,7 +119,7 @@ NumVar ShadowDimX("Application/Shadow Dim X", 5000, 100, 10000, 100 );
 NumVar ShadowDimY("Application/Shadow Dim Y", 3000, 100, 10000, 100 );
 NumVar ShadowDimZ("Application/Shadow Dim Z", 3000, 1000, 10000, 100 );
 BoolVar DisplayPhysicsDebug("Application/Debug Draw Physics", false);
-BoolVar DisplayServerPhysicsDebug("Application/Debug Draw Server Physics", false);
+BoolVar DisplayServerPhysicsDebug("Application/Debug Draw Server Physics", true);
 
 struct TestData
 {
@@ -209,7 +209,7 @@ void ModelViewer::Startup( void )
 
 	//CreateParticleEffects();
 
-    Vector3 eye(50, 100, -100);
+    Vector3 eye(100, 100, -100);
     if (pMI != nullptr)
     {
         const Model* pModel = pMI->GetModel();
@@ -261,6 +261,9 @@ void ModelViewer::Startup( void )
 
         DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(200, 0, 100));
         m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
+
+        DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 3, 100));
+        m_NetServer.SpawnObject(nullptr, "Vehicle1", nullptr, DT, XMFLOAT3(0, 0, 0));
 
         for (UINT32 i = 0; i < 20; ++i)
         {

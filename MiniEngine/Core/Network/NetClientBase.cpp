@@ -32,7 +32,7 @@ NetClientBase::NetClientBase()
 
     SetName( "Client%u", (UINT)m_Nonce );
     QueryPerformanceFrequency( &m_PerfFreq );
-    g_LerpThresholdTicks.QuadPart = m_PerfFreq.QuadPart / 4;
+    g_LerpThresholdTicks.QuadPart = m_PerfFreq.QuadPart;
     InitializeWinsock();
     InitializeCriticalSection(&m_PacketQueueCritSec);
     m_pCurrentPacketQueue = new PacketQueue();

@@ -65,12 +65,15 @@ STRUCT_TEMPLATE_END(ModelShapeData)
 STRUCT_TEMPLATE_START_INLINE(ModelRigidBodyDesc, nullptr, nullptr)
 MEMBER_FLOAT(Mass)
 MEMBER_STRUCT_VALUE(Shape, ModelShapeData)
+MEMBER_STRUCT_POINTER(VehicleConfig, VehicleConfig)
 STRUCT_TEMPLATE_END(ModelRigidBodyDesc)
 
 STRUCT_TEMPLATE_START_FILE(ModelDesc, nullptr, nullptr)
 MEMBER_STRING(ModelFileName)
 MEMBER_STRUCT_POINTER(RigidBody, ModelRigidBodyDesc)
 MEMBER_BOOL(NoRenderInShadowPass)
+MEMBER_VECTOR3(RenderOffset)
+MEMBER_STRING(WheelModelFileName)
 STRUCT_TEMPLATE_END(ModelDesc)
 
 ModelTemplate::~ModelTemplate()
@@ -79,6 +82,11 @@ ModelTemplate::~ModelTemplate()
     {
         delete m_pModel;
         m_pModel = nullptr;
+    }
+    if (m_pWheelModel != nullptr)
+    {
+        delete m_pWheelModel;
+        m_pWheelModel = nullptr;
     }
     if (m_pDesc != nullptr)
     {
@@ -90,11 +98,11 @@ ModelTemplate::~ModelTemplate()
         }
         else
         {
-            if (m_pDesc->pRigidBody != nullptr)
-            {
-                DataFile::Unload(m_pDesc->pRigidBody);
-            }
-            DataFile::Unload(m_pDesc);            
+//             if (m_pDesc->pRigidBody != nullptr)
+//             {
+//                 DataFile::Unload(m_pDesc->pRigidBody);
+//             }
+//             DataFile::Unload(m_pDesc);            
         }
         m_pDesc = nullptr;
     }
@@ -145,8 +153,11 @@ ModelTemplate* ModelTemplate::Load(const CHAR* strName, bool GraphicsEnabled)
         delete pMT;
         pMT = nullptr;
     }
+    else
+    {
+        pMT->m_Name.SetAnsi(strName);
+    }
 
-    pMT->m_Name.SetAnsi(strName);
     return pMT;
 }
 
@@ -235,17 +246,31 @@ bool ModelTemplate::CreateMeshOnlyTemplate(const CHAR* strName)
 bool ModelTemplate::CreateDescTemplate(ModelDesc* pMD, bool GraphicsEnabled)
 {
     m_pDesc = pMD;
-    if (GraphicsEnabled && m_pDesc->strModelFileName != nullptr)
+    bool Result = true;
+    if (GraphicsEnabled)
     {
-        m_pModel = new Model();
-        if (!m_pModel->Load(m_pDesc->strModelFileName))
+        if (m_pDesc->strModelFileName != nullptr)
         {
-            delete m_pModel;
-            m_pModel = nullptr;
-            return false;
+            m_pModel = new Model();
+            if (!m_pModel->Load(m_pDesc->strModelFileName))
+            {
+                delete m_pModel;
+                m_pModel = nullptr;
+                Result = false;
+            }
+        }
+        if (m_pDesc->strWheelModelFileName != nullptr)
+        {
+            m_pWheelModel = new Model();
+            if (!m_pWheelModel->Load(m_pDesc->strWheelModelFileName))
+            {
+                delete m_pWheelModel;
+                m_pWheelModel = nullptr;
+                Result = false;
+            }
         }
     }
-    return true;
+    return Result;
 }
 
 CollisionShape* ModelTemplate::GetCollisionShape(FLOAT Scale)

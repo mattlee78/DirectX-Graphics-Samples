@@ -11,8 +11,11 @@ INetworkObject* GameNetClient::CreateRemoteObject(INetworkObject* pParentObject,
     {
         const RMsg_SpawnObject* pMsg = (const RMsg_SpawnObject*)pCreationData;
         ModelInstance* pMI = m_World.SpawnModelInstance(pMsg->strTemplateName, pMsg->strObjectName, pMsg->Transform, true);
-        pMI->SetRemote(TRUE);
-        pMI->SetNodeID(ID);
+        if (pMI != nullptr)
+        {
+            pMI->SetRemote(TRUE);
+            pMI->SetNodeID(ID);
+        }
         return pMI;
     }
     return nullptr;
@@ -89,6 +92,8 @@ INetworkObject* GameNetServer::SpawnObject(ConnectedClient* pClient, const RMsg_
                 pRB->ApplyLinearImpulse(XMLoadFloat3(&pMsg->LinearImpulse));
             }
         }
+
+        m_NextObjectID = pNO->CreateAdditionalBindings(&m_StateIO, pNO->GetNodeID(), m_NextObjectID);
     }
 
     return pNO;

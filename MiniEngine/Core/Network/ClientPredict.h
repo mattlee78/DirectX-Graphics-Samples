@@ -74,6 +74,7 @@ private:
     T PrevValue;
     LARGE_INTEGER CurrentRecvTimestamp;
     LARGE_INTEGER PreviousRecvTimestamp;
+    FLOAT PrevLerpValue;
 
 private:
     static inline void StateStore(XMFLOAT3* pValue, CXMVECTOR v) { XMStoreFloat3(pValue, v); }
@@ -88,6 +89,7 @@ public:
         StateStore(&PrevValue, XMVectorZero());
         CurrentRecvTimestamp.QuadPart = 0;
         PreviousRecvTimestamp.QuadPart = 0;
+        PrevLerpValue = 0;
     }
 
     const T* GetRawData() const { return &CurrentValue; }
@@ -103,6 +105,7 @@ public:
         PrevValue = Value;
         CurrentRecvTimestamp.QuadPart = 0;
         PreviousRecvTimestamp.QuadPart = 0;
+        PrevLerpValue = 0;
     }
 
     VOID ReceiveNewValue(const XMVECTOR Value, LARGE_INTEGER CurrentTimestamp)
@@ -111,37 +114,58 @@ public:
         PreviousRecvTimestamp = CurrentRecvTimestamp;
         StateStore(&CurrentValue, Value);
         CurrentRecvTimestamp = CurrentTimestamp;
+        PrevLerpValue = 0;
     }
 
-    inline XMVECTOR Lerp(INT64 CurrentTime) const
+    inline XMVECTOR Lerp(INT64 CurrentTime)
     {
         const XMVECTOR Prev = StateLoad(&PrevValue);
         if (CurrentRecvTimestamp.QuadPart <= PreviousRecvTimestamp.QuadPart)
         {
             return Prev;
         }
-        FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - CurrentRecvTimestamp.QuadPart) / (DOUBLE)(CurrentRecvTimestamp.QuadPart - PreviousRecvTimestamp.QuadPart));
+        //FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - CurrentRecvTimestamp.QuadPart) / (DOUBLE)(CurrentRecvTimestamp.QuadPart - PreviousRecvTimestamp.QuadPart));
+        FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - CurrentRecvTimestamp.QuadPart) / (DOUBLE)(g_ClientPredictConstants.FrameTickLength));
+        if (LerpValue > 1.0f)
+        {
+            FLOAT FracLerp = (LerpValue - 1.0f) * 0.5f;
+            LerpValue = 1.0f + FracLerp;
+        }
         if ((CurrentTime - CurrentRecvTimestamp.QuadPart) > g_LerpThresholdTicks.QuadPart)
         {
-            LerpValue = 1.0f;
+            LARGE_INTEGER CT;
+            CT.QuadPart = CurrentTime;
+            ReceiveNewValue(GetCurrentValue(), CT);
+            CurrentRecvTimestamp.QuadPart = 0;
         }
+        PrevLerpValue = LerpValue;
         const XMVECTOR Current = StateLoad(&CurrentValue);
         XMVECTOR Result = XMVectorLerp(Prev, Current, LerpValue);
         return Result;
     }
 
-    inline XMVECTOR LerpQuaternion(INT64 CurrentTime) const
+    inline XMVECTOR LerpQuaternion(INT64 CurrentTime)
     {
         const XMVECTOR Prev = StateLoad(&PrevValue);
         if (CurrentRecvTimestamp.QuadPart <= PreviousRecvTimestamp.QuadPart)
         {
             return Prev;
         }
-        FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - CurrentRecvTimestamp.QuadPart) / (DOUBLE)(CurrentRecvTimestamp.QuadPart - PreviousRecvTimestamp.QuadPart));
+        //FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - CurrentRecvTimestamp.QuadPart) / (DOUBLE)(CurrentRecvTimestamp.QuadPart - PreviousRecvTimestamp.QuadPart));
+        FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - CurrentRecvTimestamp.QuadPart) / (DOUBLE)(g_ClientPredictConstants.FrameTickLength));
+        if (LerpValue > 1.0f)
+        {
+            FLOAT FracLerp = (LerpValue - 1.0f) * 0.5f;
+            LerpValue = 1.0f + FracLerp;
+        }
         if ((CurrentTime - CurrentRecvTimestamp.QuadPart) > g_LerpThresholdTicks.QuadPart)
         {
-            LerpValue = 1.0f;
+            LARGE_INTEGER CT;
+            CT.QuadPart = CurrentTime;
+            ReceiveNewValue(GetCurrentValue(), CT);
+            CurrentRecvTimestamp.QuadPart = 0;
         }
+        PrevLerpValue = LerpValue;
         const XMVECTOR Current = StateLoad(&CurrentValue);
         XMVECTOR Result = XMQuaternionSlerp(Prev, Current, LerpValue);
         return Result;
