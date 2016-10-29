@@ -10,8 +10,7 @@ NetClientBase::NetClientBase()
       m_Disconnect( FALSE ),
       m_DataReceivedRecently( TRUE ),
       m_LastReliableMessageIndex( 0 ),
-      m_PacketDiscardFraction( 0 ),
-      m_ProcessPacketQueueOnMainThread(false)
+      m_PacketDiscardFraction( 0 )
 {
     m_pNullSnapshot = new StateSnapshot( 0 );
     m_SendQueue.Initialize( m_pNullSnapshot );
@@ -69,7 +68,7 @@ VOID NetClientBase::Connect( UINT FramesPerSecond, const CHAR* strServerName, US
 
     assert( m_hThread == INVALID_HANDLE_VALUE );
     assert( m_ConnectionState == ConnectionState::Disconnected );
-    m_ConnectionState = ConnectionState::Connecting;
+    m_ConnectionState = ConnectionState::EstablishingHostname;
 
     strcpy_s( m_strServerName, strServerName );
     m_ServerPort = PortNum;
@@ -109,7 +108,7 @@ VOID NetClientBase::HashPassword( const WCHAR* strPassword )
 DWORD NetClientBase::ThreadEntry( VOID* pParam )
 {
     NetClientBase* pClient = (NetClientBase*)pParam;
-    return pClient->Loop();
+    return pClient->LookupServerHostname();
 }
 
 VOID NetClientBase::DisconnectAndWait()
@@ -123,9 +122,9 @@ VOID NetClientBase::DisconnectAndWait()
     m_ConnectionState = ConnectionState::Disconnected;
 }
 
-DWORD NetClientBase::Loop()
+DWORD NetClientBase::LookupServerHostname()
 {
-    assert( m_ConnectionState == ConnectionState::Connecting );
+    assert( m_ConnectionState == ConnectionState::EstablishingHostname );
 
     SOCKADDR_IN ServerAddress;
     HRESULT hr = NetUdpSocket::DnsLookupHostname( m_strServerName, m_ServerPort, &ServerAddress );
@@ -145,130 +144,7 @@ DWORD NetClientBase::Loop()
     m_Encoder.Initialize( &m_Socket, nullptr );
     m_SendSnapshotIndex = 1;
 
-    const UINT64 ConnectTimeoutMsec = 2000;
-
-    // Attempt connection:
-    ReliableMessage ConnectMsg;
-    ZeroMemory( &ConnectMsg, sizeof(ConnectMsg) );
-    ConnectMsg.Opcode = (UINT)ReliableMessageType::ConnectAttempt;
-    ConnectMsg.BufferSizeBytes = sizeof(RMsg_ConnectAttempt);
-    auto* pCA = (RMsg_ConnectAttempt*)ConnectMsg.Buffer;
-    pCA->ProtocolVersion = NET_PROTOCOL_VERSION;
-    pCA->Nonce = m_Nonce;
-    pCA->ClientTicks.QuadPart = 0;
-    QueryPerformanceFrequency( &pCA->ClientTickFreq );
-    wcscpy_s( pCA->strUserName, m_strUserName );
-    wcscpy_s( pCA->strHashedPassword, m_strHashedPassword );
-
-    m_CurrentTime = 0;
-    m_LastRecvTime = 0;
-
-    while( m_ConnectAttempts < 5 && m_ConnectionState == ConnectionState::Connecting )
-    {
-        UINT64 EndTime = GetTickCount64() + ConnectTimeoutMsec;
-
-        // Send connect attempt:
-        StateSnapshot* pSnapshot = new StateSnapshot( m_SendSnapshotIndex++ );
-        m_SendQueue.QueueSnapshot( pSnapshot );
-        QueryPerformanceCounter( &pCA->ClientTicks );
-        m_SendQueue.QueueReliableMessage( ConnectMsg );
-        m_SendQueue.SendUpdate( &m_Encoder, nullptr );
-
-        while( GetTickCount64() < EndTime )
-        {
-            // Try to receive connect attempt:
-            Sleep(1);
-
-            HRESULT hr = ReceiveFromServer();
-            if( m_ConnectionState != ConnectionState::Connecting )
-            {
-                break;
-            }
-        }
-
-        ++m_ConnectAttempts;
-    }
-
-    if( m_ConnectionState != ConnectionState::Connected )
-    {
-        m_ConnectionState = ConnectionState::Timeout;
-        return 0;
-    }
-
-    LARGE_INTEGER StartTime;
-    QueryPerformanceCounter( &StartTime );
-    LARGE_INTEGER CurrentTime;
-    CurrentTime.QuadPart = StartTime.QuadPart;
-    INT64 NextTime = CurrentTime.QuadPart;
-    INT64 LastTime = CurrentTime.QuadPart;
-
-    m_LastRecvTime = CurrentTime.QuadPart;
-
-    const DOUBLE SecondsPerTick = 1.0 / (DOUBLE)m_PerfFreq.QuadPart;
-
-    InitializeClient();
-
-    m_StateIO.SetSnapshotIndex( m_SendSnapshotIndex );
-
-    // Client simulation loop:
-    while( !m_Disconnect )
-    {
-        while( CurrentTime.QuadPart < NextTime )
-        {
-            Sleep(1);
-            if( m_Disconnect )
-            {
-                break;
-            }
-            QueryPerformanceCounter( &CurrentTime );
-        }
-
-        m_CurrentTime = CurrentTime.QuadPart;
-
-        assert( m_pCurrentStats != nullptr );
-        m_pCurrentStats->Timestamp.QuadPart = CurrentTime.QuadPart;
-
-        NextTime = CurrentTime.QuadPart + m_FrameTicks;
-
-        INT64 DeltaTicks = CurrentTime.QuadPart - LastTime;
-        DeltaTicks = std::min( DeltaTicks, m_FrameTicks );
-        DOUBLE AbsoluteTime = (DOUBLE)( CurrentTime.QuadPart - StartTime.QuadPart ) * SecondsPerTick;
-        FLOAT DeltaTime = (FLOAT)( (DOUBLE)( CurrentTime.QuadPart - LastTime ) * SecondsPerTick );
-        LastTime = CurrentTime.QuadPart;
-
-        g_CurrentRecvTimestamp = CurrentTime;
-        HRESULT hr = ReceiveFromServer();
-        if( FAILED(hr) )
-        {
-            m_Disconnect = TRUE;
-        }
-
-        StateSnapshot* pCurrentSnapshot = m_StateIO.CreateSnapshot();
-
-        // Add locally generated state to snapshot and queue any reliable messages:
-        TickClient( DeltaTime, AbsoluteTime, pCurrentSnapshot, &m_SendQueue );
-
-        m_SendQueue.QueueSnapshot( pCurrentSnapshot );
-
-        m_SendQueue.SendUpdate( &m_Encoder, m_pCurrentStats );
-
-        pCurrentSnapshot->Release();
-
-        NextStatisticsFrame();
-    }
-
-    if( m_ConnectionState == ConnectionState::Connected )
-    {
-        m_SendQueue.QueueReliableMessage( (UINT)ReliableMessageType::Disconnect );
-        StateSnapshot* pCurrentSnapshot = m_StateIO.CreateSnapshot();
-        m_SendQueue.QueueSnapshot( pCurrentSnapshot );
-        m_SendQueue.SendUpdate( &m_Encoder, nullptr );
-        pCurrentSnapshot->Release();
-    }
-
-    m_ConnectionState = ConnectionState::Disconnected;
-
-    TerminateClient();
+    m_ConnectionState = ConnectionState::Connecting;
 
     return 0;
 }
@@ -634,25 +510,10 @@ void NetClientBase::CompletePacketQueue(bool IsQueueGood)
 
     if (IsQueueGood && m_pCurrentPacketQueue->GetUsedSizeBytes() > 0)
     {
-        if (m_ProcessPacketQueueOnMainThread)
-        {
-            EnterCriticalSection(&m_PacketQueueCritSec);
-            m_PacketQueues.push_back(m_pCurrentPacketQueue);
-            LeaveCriticalSection(&m_PacketQueueCritSec);
-            m_pCurrentPacketQueue = nullptr;
-        }
-        else
-        {
-            const BYTE* pBuffer = nullptr;
-            SIZE_T SizeBytes = 0;
-            m_pCurrentPacketQueue->GetBuffer(&pBuffer, &SizeBytes);
-            NetDecoder::DecodePacket(nullptr, nullptr, &m_DecodeHandlers, &m_StateIO, pBuffer, (UINT32)SizeBytes, nullptr, nullptr, nullptr);
-        }
-    }
-
-    if (!m_ProcessPacketQueueOnMainThread)
-    {
-        m_pCurrentPacketQueue->Reset();
+        EnterCriticalSection(&m_PacketQueueCritSec);
+        m_PacketQueues.push_back(m_pCurrentPacketQueue);
+        LeaveCriticalSection(&m_PacketQueueCritSec);
+        m_pCurrentPacketQueue = nullptr;
     }
 }
 
@@ -662,8 +523,6 @@ PacketQueue* NetClientBase::AllocatePacketQueue()
     {
         return m_pCurrentPacketQueue;
     }
-
-    assert(m_ProcessPacketQueueOnMainThread);
 
     EnterCriticalSection(&m_PacketQueueCritSec);
     if (!m_UnusedPacketQueues.empty())
@@ -683,7 +542,57 @@ PacketQueue* NetClientBase::AllocatePacketQueue()
 
 void NetClientBase::SingleThreadedTick()
 {
-    assert(m_ProcessPacketQueueOnMainThread);
+    LARGE_INTEGER CurrentTime;
+    QueryPerformanceCounter(&CurrentTime);
+
+    if (m_ConnectionState == ConnectionState::Connecting)
+    {
+        SingleThreadedConnectingTick(CurrentTime);
+    }
+    else if (m_ConnectionState == ConnectionState::Connected)
+    {
+        SingleThreadedConnectedTick(CurrentTime);
+    }
+}
+
+void NetClientBase::SingleThreadedConnectedTick(LARGE_INTEGER &CurrentTime)
+{
+    m_CurrentTime = CurrentTime.QuadPart;
+
+    g_CurrentRecvTimestamp = CurrentTime;
+    HRESULT hr = ReceiveFromServer();
+    if (FAILED(hr))
+    {
+        m_Disconnect = TRUE;
+    }
+
+    if (CurrentTime.QuadPart >= m_NextSendTime)
+    {
+        m_NextSendTime = CurrentTime.QuadPart + m_FrameTicks;
+
+        assert(m_pCurrentStats != nullptr);
+        m_pCurrentStats->Timestamp = CurrentTime;
+
+        StateSnapshot* pCurrentSnapshot = m_StateIO.CreateSnapshot();
+
+        INT64 DeltaTicks = CurrentTime.QuadPart - m_ClientLastTime;
+        DeltaTicks = std::min(DeltaTicks, m_FrameTicks);
+        const DOUBLE SecondsPerTick = 1.0 / (DOUBLE)m_PerfFreq.QuadPart;
+        DOUBLE AbsoluteTime = (DOUBLE)(CurrentTime.QuadPart - m_ClientStartTime) * SecondsPerTick;
+        FLOAT DeltaTime = (FLOAT)((DOUBLE)(CurrentTime.QuadPart - m_ClientLastTime) * SecondsPerTick);
+        m_ClientLastTime = CurrentTime.QuadPart;
+
+        // Add locally generated state to snapshot and queue any reliable messages:
+        TickClient(DeltaTime, AbsoluteTime, pCurrentSnapshot, &m_SendQueue);
+
+        m_SendQueue.QueueSnapshot(pCurrentSnapshot);
+
+        m_SendQueue.SendUpdate(&m_Encoder, m_pCurrentStats);
+
+        pCurrentSnapshot->Release();
+
+        NextStatisticsFrame();
+    }
 
     // apply latest snapshots now
     while (!m_PacketQueues.empty())
@@ -710,6 +619,62 @@ void NetClientBase::SingleThreadedTick()
             m_UnusedPacketQueues.push_back(pPQ);
             LeaveCriticalSection(&m_PacketQueueCritSec);
         }
+    }
+
+    if (m_Disconnect)
+    {
+        m_SendQueue.QueueReliableMessage((UINT)ReliableMessageType::Disconnect);
+        StateSnapshot* pCurrentSnapshot = m_StateIO.CreateSnapshot();
+        m_SendQueue.QueueSnapshot(pCurrentSnapshot);
+        m_SendQueue.SendUpdate(&m_Encoder, nullptr);
+        pCurrentSnapshot->Release();
+        m_ConnectionState = ConnectionState::Disconnected;
+    }
+}
+
+void NetClientBase::SingleThreadedConnectingTick(LARGE_INTEGER &CurrentTime)
+{
+    if (CurrentTime.QuadPart >= m_NextSendTime)
+    {
+        if (m_ConnectAttempts >= 5)
+        {
+            m_ConnectionState = ConnectionState::Timeout;
+            return;
+        }
+
+        ReliableMessage ConnectMsg;
+        ZeroMemory(&ConnectMsg, sizeof(ConnectMsg));
+        ConnectMsg.Opcode = (UINT)ReliableMessageType::ConnectAttempt;
+        ConnectMsg.BufferSizeBytes = sizeof(RMsg_ConnectAttempt);
+        auto* pCA = (RMsg_ConnectAttempt*)ConnectMsg.Buffer;
+        pCA->ProtocolVersion = NET_PROTOCOL_VERSION;
+        pCA->Nonce = m_Nonce;
+        pCA->ClientTicks = CurrentTime;
+        QueryPerformanceFrequency(&pCA->ClientTickFreq);
+        wcscpy_s(pCA->strUserName, m_strUserName);
+        wcscpy_s(pCA->strHashedPassword, m_strHashedPassword);
+
+        // Send connect attempt:
+        StateSnapshot* pSnapshot = new StateSnapshot(m_SendSnapshotIndex++);
+        m_SendQueue.QueueSnapshot(pSnapshot);
+        QueryPerformanceCounter(&pCA->ClientTicks);
+        m_SendQueue.QueueReliableMessage(ConnectMsg);
+        m_SendQueue.SendUpdate(&m_Encoder, nullptr);
+
+        ++m_ConnectAttempts;
+        m_NextSendTime = CurrentTime.QuadPart + m_PerfFreq.QuadPart;
+    }
+
+    HRESULT hr = ReceiveFromServer();
+
+    if (m_ConnectionState == ConnectionState::Connected)
+    {
+        InitializeClient();
+        m_StateIO.SetSnapshotIndex(m_SendSnapshotIndex);
+        m_CurrentTime = CurrentTime.QuadPart;
+        m_LastRecvTime = CurrentTime.QuadPart;
+        m_ClientLastTime = CurrentTime.QuadPart;
+        m_ClientStartTime = CurrentTime.QuadPart;
     }
 }
 

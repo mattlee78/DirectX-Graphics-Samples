@@ -230,7 +230,6 @@ void ModelViewer::Startup( void )
 	PostEffects::EnableAdaptation = true;
 
     m_NetServer.AddDebugListener(&m_ServerDebugListener);
-    m_NetClient.SetProcessOnMainThread(true);
     if (m_StartServer)
     {
         m_NetServer.Start(15, m_ConnectToPort, false);
@@ -395,12 +394,15 @@ void ModelViewer::Update( float deltaT )
 {
 	ScopedTimer _prof(L"Update State");
 
-    if (m_NetClient.IsConnected(nullptr))
     {
         m_NetClient.SingleThreadedTick();
-        LARGE_INTEGER ClientTicks;
-        QueryPerformanceCounter(&ClientTicks);
-        m_pClientWorld->Tick(deltaT, ClientTicks.QuadPart);
+
+        if (m_NetClient.IsConnected(nullptr))
+        {
+            LARGE_INTEGER ClientTicks;
+            QueryPerformanceCounter(&ClientTicks);
+            m_pClientWorld->Tick(deltaT, ClientTicks.QuadPart);
+        }
     }
 
     if (m_pServerTestMI != nullptr)
