@@ -16,6 +16,7 @@
 enum class ConnectionState
 {
     Disconnected = 0,
+    EstablishingHostname,
     Connecting,
     Connected,
     InvalidHostname,
@@ -80,7 +81,6 @@ private:
     std::deque<PacketQueue*> m_PacketQueues;
     std::deque<PacketQueue*> m_UnusedPacketQueues;
     PacketQueue* m_pCurrentPacketQueue;
-    bool m_ProcessPacketQueueOnMainThread;
     CRITICAL_SECTION m_PacketQueueCritSec;
 
     INT64 m_ClientTimeBase;
@@ -91,6 +91,9 @@ protected:
     SnapshotSendQueue m_SendQueue;
     StateInputOutput m_StateIO;
     INT64 m_CurrentTime;
+    INT64 m_ClientStartTime;
+    INT64 m_ClientLastTime;
+    INT64 m_NextSendTime;
     FLOAT m_AverageDeltaTime;
 
 public:
@@ -113,7 +116,6 @@ public:
 
     USHORT GetNonce() const { return m_Nonce; }
 
-    void SetProcessOnMainThread(bool Enabled) { m_ProcessPacketQueueOnMainThread = Enabled; }
     VOID Connect( UINT FramesPerSecond, const CHAR* strServerName, USHORT PortNum, const WCHAR* strUserName, const WCHAR* strPassword );
     VOID DisconnectAndWait();
     VOID RequestDisconnect() { m_Disconnect = TRUE; }
@@ -172,7 +174,7 @@ protected:
 
 private:
     static DWORD WINAPI ThreadEntry( VOID* pParam );
-    DWORD Loop();
+    DWORD LookupServerHostname();
     HRESULT ReceiveFromServer();
 
     INetworkObject* CreateRemoteProxyObject( INetworkObject* pParentObject, UINT ID, const VOID* pCreationData, SIZE_T CreationDataSizeBytes );
@@ -184,5 +186,8 @@ private:
 
     void CompletePacketQueue(bool IsQueueGood);
     PacketQueue* AllocatePacketQueue();
+
+    void SingleThreadedConnectedTick(LARGE_INTEGER &CurrentTime);
+    void SingleThreadedConnectingTick(LARGE_INTEGER &CurrentTime);
 };
 
