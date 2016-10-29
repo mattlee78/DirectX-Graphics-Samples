@@ -119,7 +119,7 @@ NumVar ShadowDimX("Application/Shadow Dim X", 5000, 100, 10000, 100 );
 NumVar ShadowDimY("Application/Shadow Dim Y", 3000, 100, 10000, 100 );
 NumVar ShadowDimZ("Application/Shadow Dim Z", 3000, 1000, 10000, 100 );
 BoolVar DisplayPhysicsDebug("Application/Debug Draw Physics", false);
-BoolVar DisplayServerPhysicsDebug("Application/Debug Draw Server Physics", true);
+BoolVar DisplayServerPhysicsDebug("Application/Debug Draw Server Physics", false);
 
 struct TestData
 {
