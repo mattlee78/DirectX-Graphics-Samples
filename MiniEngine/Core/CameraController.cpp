@@ -126,3 +126,54 @@ void CameraController::ApplyMomentum( float& oldValue, float& newValue, float de
 	oldValue = blendedValue;
 	newValue = blendedValue;
 }
+
+FollowCameraController::FollowCameraController(Camera& TargetCamera, const Vector3& CameraOffset, float XZRadius, float YDistance, float TargetYOffset)
+    : m_TargetCamera(TargetCamera)
+{
+    m_CameraOffsetModelSpace = CameraOffset;
+    m_MaxXZDistance = XZRadius;
+    m_MaxYDistance = YDistance;
+    m_TargetYOffset = TargetYOffset;
+    m_CameraMoveSpeed = 1.0f;
+    m_TargetMoveSpeed = 1.0f;
+}
+
+void FollowCameraController::Update(Matrix4& TargetWorldTransform, float DeltaTime)
+{
+    Vector3 CurrentCameraPos = m_TargetCamera.GetPosition();
+    XMVECTOR Det;
+    XMMATRIX InvTargetWorld = XMMatrixInverse(&Det, TargetWorldTransform);
+    XMVECTOR CameraPosLocal = XMVector3TransformCoord(CurrentCameraPos, InvTargetWorld);
+    XMVECTOR CameraOffset = CameraPosLocal - m_CameraOffsetModelSpace;
+    XMVECTOR CameraOffsetXZ = XMVectorSwizzle<0, 2, 3, 3>(CameraOffset);
+    float CameraOffsetY = XMVectorGetY(CameraOffset);
+
+    XMVECTOR TargetCameraPosLocal = CameraPosLocal;
+    XMVECTOR DistXZSquared = XMVector2LengthSq(CameraOffsetXZ);
+    if (XMVectorGetX(DistXZSquared) > (m_MaxXZDistance * m_MaxXZDistance))
+    {
+        XMVECTOR NormOffsetXZ = XMVector2Normalize(CameraOffsetXZ);
+        XMVECTOR OffsetXZ = NormOffsetXZ * m_MaxXZDistance;
+        TargetCameraPosLocal = XMVectorSelect(TargetCameraPosLocal, XMVectorSwizzle<0, 0, 1, 1>(OffsetXZ), g_XMSelect1010);
+        TargetCameraPosLocal += m_CameraOffsetModelSpace;
+    }
+    
+    if (CameraOffsetY > m_MaxYDistance)
+    {
+        CameraOffsetY = m_MaxYDistance;
+    }
+    else if (CameraOffsetY < -m_MaxYDistance)
+    {
+        CameraOffsetY = -m_MaxYDistance;
+    }
+    TargetCameraPosLocal = XMVectorSetY(TargetCameraPosLocal, CameraOffsetY + m_CameraOffsetModelSpace.GetY());
+
+    FLOAT LerpValue = std::min(1.0f, DeltaTime * m_CameraMoveSpeed);
+    XMVECTOR NewCameraPosLocal = XMVectorLerp(CameraPosLocal, TargetCameraPosLocal, LerpValue);
+    XMVECTOR NewCameraPos = XMVector3TransformCoord(NewCameraPosLocal, TargetWorldTransform);
+
+    Vector3 NewEyePos = Vector3(TargetWorldTransform.GetW());
+    NewEyePos += Vector3(TargetWorldTransform.GetY() * m_TargetYOffset);
+    m_TargetCamera.SetEyeAtUp(Vector3(NewCameraPos), NewEyePos, Vector3(kYUnitVector));
+    m_TargetCamera.Update();
+}

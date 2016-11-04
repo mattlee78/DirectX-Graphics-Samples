@@ -69,6 +69,17 @@ struct WheelData
     StateFloat4Delta Orientation;
 };
 
+struct NetworkInputState
+{
+    FLOAT XAxis0;
+    FLOAT YAxis0;
+    FLOAT XAxis1;
+    FLOAT YAxis1;
+    FLOAT LeftTrigger;
+    FLOAT RightTrigger;
+    bool Buttons[8];
+};
+
 class ModelInstance : public NetworkTransform
 {
 private:
@@ -104,6 +115,7 @@ public:
 
     bool Initialize(World* pWorld, ModelTemplate* pTemplate, bool GraphicsEnabled, bool IsRemote);
 
+    const ModelTemplate* GetTemplate() const { return m_pTemplate; }
     const Graphics::Model* GetModel() const { return m_pModel; }
     RigidBody* GetRigidBody() { return m_pRigidBody; }
 
@@ -116,6 +128,8 @@ public:
 
     void PrePhysicsUpdate(float deltaT, INT64 ClientTicks);
     void PostPhysicsUpdate(float deltaT);
+
+    void ServerProcessInput(const NetworkInputState& InputState, FLOAT DeltaTime, DOUBLE AbsoluteTime);
 
     void Render(ModelRenderContext& MRC) const;
 

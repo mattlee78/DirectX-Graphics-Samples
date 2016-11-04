@@ -155,7 +155,7 @@ protected:
     INetworkObject* FindRemoteProxyObject( UINT ID );
     VOID DeleteRemoteProxyObject( UINT ID );
 
-private:
+protected:
     virtual BOOL HandleReliableMessage( VOID* pSenderContext, const UINT Opcode, const UINT UniqueIndex, const BYTE* pPayload, const UINT PayloadSizeBytes );
     virtual BOOL HandleAcknowledge( VOID* pSenderContext, const UINT SnapshotIndex );
     virtual BOOL HandleBeginSnapshot( VOID* pSenderContext, const UINT SnapshotIndex );
