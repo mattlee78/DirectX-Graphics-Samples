@@ -55,13 +55,15 @@ public:
     }
 };
 
-class ModelViewer : public GameCore::IGameApp
+class ModelViewer : public GameCore::IGameApp, public IClientNotifications
 {
 public:
 
 	ModelViewer()
-		: m_pCameraController(nullptr)
+		: m_pCameraController(nullptr),
+          m_pInputRemoting(nullptr)
 	{
+        m_ClientObjectsCreated = false;
 	}
 
 	virtual void Startup( void ) override;
@@ -79,8 +81,12 @@ private:
 	void RenderObjects(GraphicsContext& Context, const BaseCamera& Camera, PsoLayoutCache* pPsoCache, RenderPass PassType);
     void CreateParticleEffects();
 
+    void RemoteObjectCreated(ModelInstance* pModelInstance, UINT ParentObjectID);
+    void RemoteObjectDeleted(ModelInstance* pModelInstance);
+
 	Camera m_Camera;
 	CameraController* m_pCameraController;
+    FollowCameraController* m_pFollowCameraController;
 	Matrix4 m_ViewProjMatrix;
 	D3D12_VIEWPORT m_MainViewport;
 	D3D12_RECT m_MainScissor;
@@ -102,11 +108,14 @@ private:
     UINT32 m_ConnectToPort;
     GameNetClient m_NetClient;
     World* m_pClientWorld;
+    InputRemotingObject* m_pInputRemoting;
+
+    bool m_ClientObjectsCreated;
+    std::set<ModelInstance*> m_OwnedModelInstances;
 
     bool m_StartServer;
     GameNetServer m_NetServer;
     PrintfDebugListener m_ServerDebugListener;
-    ModelInstance* m_pServerTestMI;
 };
 
 CREATE_APPLICATION( ModelViewer )
@@ -222,6 +231,7 @@ void ModelViewer::Startup( void )
 	m_Camera.SetEyeAtUp( eye, Vector3(kZero), Vector3(kYUnitVector) );
 	m_Camera.SetZRange( 1.0f, 10000.0f );
 	m_pCameraController = new CameraController(m_Camera, Vector3(kYUnitVector));
+    m_pFollowCameraController = new FollowCameraController(m_Camera, Vector3(0, 3, -4), 2, 0.5f, 1.5f);
 
 	MotionBlur::Enable = true;
 	TemporalAA::Enable = true;
@@ -246,12 +256,9 @@ void ModelViewer::Startup( void )
     if (m_NetServer.IsStarted() || !m_StartServer)
     {
         Utility::Printf("Attempting to connect to server %s on port %u...\n", m_strConnectToServerName, m_ConnectToPort);
+        m_NetClient.SetNotificationClient(this);
         m_NetClient.Connect(15, m_strConnectToServerName, m_ConnectToPort, L"", L"");
     }
-
-//     DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 100, 100), XMFLOAT4(0, 0, 0, 1), 1);
-//     m_pServerTestMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "foo", "", DT, XMFLOAT3(0, 0, 0));
-    m_pServerTestMI = nullptr;
 
     if (m_NetServer.IsStarted())
     {
@@ -261,8 +268,8 @@ void ModelViewer::Startup( void )
         DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(200, 0, 100));
         m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
 
-        DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 3, 100));
-        m_NetServer.SpawnObject(nullptr, "Vehicle1", nullptr, DT, XMFLOAT3(0, 0, 0));
+        //DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 3, 100));
+        //m_NetServer.SpawnObject(nullptr, "Vehicle1", nullptr, DT, XMFLOAT3(0, 0, 0));
 
         for (UINT32 i = 0; i < 20; ++i)
         {
@@ -383,6 +390,35 @@ void ModelViewer::Cleanup( void )
 
 	delete m_pCameraController;
 	m_pCameraController = nullptr;
+
+    delete m_pFollowCameraController;
+    m_pFollowCameraController = nullptr;
+}
+
+void ModelViewer::RemoteObjectCreated(ModelInstance* pModelInstance, UINT ParentObjectID)
+{
+    if (ParentObjectID == m_NetClient.GetClientBaseObjectID())
+    {
+        StringID TemplateName = pModelInstance->GetTemplate()->GetName();
+        if (_wcsicmp(TemplateName, L"Vehicle1") == 0)
+        {
+            m_OwnedModelInstances.insert(pModelInstance);
+            m_pInputRemoting->ClientSetTargetNodeID(pModelInstance->GetNodeID());
+        }
+    }
+}
+
+void ModelViewer::RemoteObjectDeleted(ModelInstance* pModelInstance)
+{
+    auto iter = m_OwnedModelInstances.find(pModelInstance);
+    if (iter != m_OwnedModelInstances.end())
+    {
+        m_OwnedModelInstances.erase(iter);
+        if (m_pInputRemoting->ClientGetTargetNodeID() == pModelInstance->GetNodeID())
+        {
+            m_pInputRemoting->ClientSetTargetNodeID(0);
+        }
+    }
 }
 
 namespace Graphics
@@ -399,20 +435,63 @@ void ModelViewer::Update( float deltaT )
 
         if (m_NetClient.IsConnected(nullptr))
         {
+            if (!m_ClientObjectsCreated && m_NetClient.CanSpawnObjects())
+            {
+                m_ClientObjectsCreated = true;
+                DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 3, 100));
+                m_NetClient.SpawnObjectOnServer("Vehicle1", nullptr, DT, XMFLOAT3(0, 0, 0));
+            }
+
+            if (m_pInputRemoting == nullptr)
+            {
+                m_pInputRemoting = (InputRemotingObject*)m_NetClient.SpawnObjectOnClient(InputRemotingObject::GetTemplateName());
+            }
+            else
+            {
+                if (GameInput::IsMouseExclusive())
+                {
+                    NetworkInputState InputState = {};
+                    float forward = (
+                        GameInput::GetAnalogInput(GameInput::kAnalogLeftStickY) +
+                        (GameInput::IsPressed(GameInput::kKey_w) ? 1.0f : 0.0f) +
+                        (GameInput::IsPressed(GameInput::kKey_s) ? -1.0f : 0.0f)
+                        );
+                    float strafe = (
+                        GameInput::GetAnalogInput(GameInput::kAnalogLeftStickX) +
+                        (GameInput::IsPressed(GameInput::kKey_d) ? 1.0f : 0.0f) +
+                        (GameInput::IsPressed(GameInput::kKey_a) ? -1.0f : 0.0f)
+                        );
+                    float ascent = (
+                        GameInput::GetTimeCorrectedAnalogInput(GameInput::kAnalogRightTrigger) -
+                        GameInput::GetTimeCorrectedAnalogInput(GameInput::kAnalogLeftTrigger) +
+                        (GameInput::IsPressed(GameInput::kKey_e) ? 1.0f : 0.0f) +
+                        (GameInput::IsPressed(GameInput::kKey_q) ? -1.0f : 0.0f)
+                        );
+                    float lt = (
+                        GameInput::GetAnalogInput(GameInput::kAnalogLeftTrigger) +
+                        (GameInput::IsPressed(GameInput::kKey_s) ? 1.0f : 0.0f)
+                        );
+                    float rt = (
+                        GameInput::GetAnalogInput(GameInput::kAnalogRightTrigger) +
+                        (GameInput::IsPressed(GameInput::kKey_w) ? 1.0f : 0.0f)
+                        );
+                    InputState.XAxis0 = strafe;
+                    InputState.YAxis0 = forward;
+                    InputState.YAxis1 = ascent;
+                    InputState.LeftTrigger = lt;
+                    InputState.RightTrigger = rt;
+                    m_pInputRemoting->ClientUpdate(InputState);
+                }
+                else
+                {
+                    m_pInputRemoting->ClientZero();
+                }
+            }
+
             LARGE_INTEGER ClientTicks;
             QueryPerformanceCounter(&ClientTicks);
             m_pClientWorld->Tick(deltaT, ClientTicks.QuadPart);
         }
-    }
-
-    if (m_pServerTestMI != nullptr)
-    {
-        static float s_AbsTime = 0;
-        s_AbsTime += deltaT;
-        float XPos = 100.0f * sinf(s_AbsTime);
-        float ZPos = 100.0f * cosf(s_AbsTime);
-        Matrix4 m = Matrix4(XMMatrixTranslation(XPos, 100.0f, ZPos));
-        m_pServerTestMI->SetWorldTransform(m);
     }
 
     if (DisplayPhysicsDebug)
@@ -437,7 +516,16 @@ void ModelViewer::Update( float deltaT )
         }
     }
 
-    m_pCameraController->Update(deltaT);
+    if (m_OwnedModelInstances.empty())
+    {
+        m_pCameraController->Update(deltaT);
+    }
+    else
+    {
+        auto iter = m_OwnedModelInstances.begin();
+        ModelInstance* pFirstMI = *iter;
+        m_pFollowCameraController->Update(pFirstMI->GetWorldTransform(), deltaT);
+    }
 	m_ViewProjMatrix = m_Camera.GetViewProjMatrix();
 
 	float costheta = cosf(m_SunOrientation);

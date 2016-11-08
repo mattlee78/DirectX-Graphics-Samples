@@ -345,6 +345,23 @@ Matrix4 ModelInstance::GetWheelTransform(UINT32 WheelIndex) const
     return Matrix4(XMLoadFloat4x4(&m_pWheelData[WheelIndex].Transform));
 }
 
+void ModelInstance::ServerProcessInput(const NetworkInputState& InputState, FLOAT DeltaTime, DOUBLE AbsoluteTime)
+{
+    if (m_pVehicle != nullptr)
+    {
+        float Gas = InputState.RightTrigger;
+        float Brake = InputState.LeftTrigger;
+        if (m_pVehicle->GetSpeedMSec() < 0.5f && Brake > Gas)
+        {
+            Utility::Printf("Reverse drive %0.3f\n", m_pVehicle->GetSpeedMSec());
+            Gas = -InputState.LeftTrigger;
+            Brake = InputState.RightTrigger;
+        }
+        m_pVehicle->SetGasAndBrake(Gas, Brake);
+        m_pVehicle->SetSteering(-InputState.XAxis0);
+    }
+}
+
 void World::Initialize(bool GraphicsEnabled)
 {
     m_GraphicsEnabled = GraphicsEnabled;
