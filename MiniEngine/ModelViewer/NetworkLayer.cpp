@@ -431,3 +431,8 @@ void InputRemotingObject::ServerTick(GameNetServer* pServer, FLOAT DeltaTime, DO
         m_pTargetModelInstance->ServerProcessInput(IS, DeltaTime, AbsoluteTime);
     }
 }
+
+VOID GameNetServer::ClientConnected(ConnectedClient* pClient)
+{
+
+}
