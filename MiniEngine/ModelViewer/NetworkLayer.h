@@ -46,4 +46,5 @@ private:
     virtual VOID TerminateServer();
     virtual INetworkObject* CreateRemoteObject(VOID* pSenderContext, INetworkObject* pParentObject, UINT ID, const VOID* pCreationData, SIZE_T CreationDataSizeBytes);
     virtual VOID DeleteRemoteObject(INetworkObject* pObject);
+    virtual VOID ClientConnected(ConnectedClient* pClient);
 };

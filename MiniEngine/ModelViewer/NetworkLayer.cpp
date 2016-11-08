@@ -108,3 +108,8 @@ VOID GameNetServer::DeleteRemoteObject(INetworkObject* pObject)
 {
 
 }
+
+VOID GameNetServer::ClientConnected(ConnectedClient* pClient)
+{
+
+}
