@@ -71,6 +71,7 @@ namespace GameCore
     class FollowCameraController
     {
     private:
+        void* m_pLastTargetObject;
         Vector3 m_CameraOffsetModelSpace;
         float m_MaxXZDistance;
         float m_MaxYDistance;
@@ -78,10 +79,11 @@ namespace GameCore
         float m_TargetMoveSpeed;
         float m_TargetYOffset;
         Camera& m_TargetCamera;
+        Vector3 m_LastTargetPos;
 
     public:
         FollowCameraController(Camera& TargetCamera, const Vector3& CameraOffset, float XZRadius, float YDistance, float TargetYOffset);
 
-        void Update(Matrix4& TargetWorldTransform, float DeltaTime);
+        void Update(Matrix4& TargetWorldTransform, float DeltaTime, void* pTargetObject);
     };
 }

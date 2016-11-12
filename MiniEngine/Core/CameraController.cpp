@@ -129,11 +129,16 @@ FollowCameraController::FollowCameraController(Camera& TargetCamera, const Vecto
     m_MaxYDistance = YDistance;
     m_TargetYOffset = TargetYOffset;
     m_CameraMoveSpeed = 1.0f;
-    m_TargetMoveSpeed = 1.0f;
+    m_TargetMoveSpeed = 10.0f;
+    m_LastTargetPos = Vector3(0, 0, 0);
+    m_pLastTargetObject = nullptr;
 }
 
-void FollowCameraController::Update(Matrix4& TargetWorldTransform, float DeltaTime)
+void FollowCameraController::Update(Matrix4& TargetWorldTransform, float DeltaTime, void* pTargetObject)
 {
+    const bool ResetCamera = (m_pLastTargetObject != pTargetObject);
+    m_pLastTargetObject = pTargetObject;
+
     Vector3 CurrentCameraPos = m_TargetCamera.GetPosition();
     XMVECTOR Det;
     XMMATRIX InvTargetWorld = XMMatrixInverse(&Det, TargetWorldTransform);
@@ -163,11 +168,24 @@ void FollowCameraController::Update(Matrix4& TargetWorldTransform, float DeltaTi
     TargetCameraPosLocal = XMVectorSetY(TargetCameraPosLocal, CameraOffsetY + m_CameraOffsetModelSpace.GetY());
 
     FLOAT LerpValue = std::min(1.0f, DeltaTime * m_CameraMoveSpeed);
+    if (ResetCamera)
+    {
+        LerpValue = 1.0f;
+    }
     XMVECTOR NewCameraPosLocal = XMVectorLerp(CameraPosLocal, TargetCameraPosLocal, LerpValue);
     XMVECTOR NewCameraPos = XMVector3TransformCoord(NewCameraPosLocal, TargetWorldTransform);
 
     Vector3 NewEyePos = Vector3(TargetWorldTransform.GetW());
     NewEyePos += Vector3(TargetWorldTransform.GetY() * m_TargetYOffset);
+
+    LerpValue = std::min(1.0f, DeltaTime * m_TargetMoveSpeed);
+    if (ResetCamera)
+    {
+        LerpValue = 1.0f;
+    }
+    NewEyePos = Vector3(XMVectorLerp(m_LastTargetPos, NewEyePos, LerpValue));
+    m_LastTargetPos = NewEyePos;
+
     m_TargetCamera.SetEyeAtUp(Vector3(NewCameraPos), NewEyePos, Vector3(kYUnitVector));
     m_TargetCamera.Update();
 }

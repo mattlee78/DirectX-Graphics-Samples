@@ -64,6 +64,7 @@ public:
           m_pInputRemoting(nullptr)
 	{
         m_ClientObjectsCreated = false;
+        m_FollowCameraEnabled = false;
 	}
 
 	virtual void Startup( void ) override;
@@ -71,6 +72,7 @@ public:
 
 	virtual void Update( float deltaT ) override;
 	virtual void RenderScene( void ) override;
+    virtual void RenderUI(class GraphicsContext& Context) override;
 
     virtual bool IsDone(void) override;
 
@@ -87,6 +89,7 @@ private:
 	Camera m_Camera;
 	CameraController* m_pCameraController;
     FollowCameraController* m_pFollowCameraController;
+    bool m_FollowCameraEnabled;
 	Matrix4 m_ViewProjMatrix;
 	D3D12_VIEWPORT m_MainViewport;
 	D3D12_RECT m_MainScissor;
@@ -116,6 +119,8 @@ private:
     bool m_StartServer;
     GameNetServer m_NetServer;
     PrintfDebugListener m_ServerDebugListener;
+
+    Vector3 DebugVector;
 };
 
 CREATE_APPLICATION( ModelViewer )
@@ -404,6 +409,7 @@ void ModelViewer::RemoteObjectCreated(ModelInstance* pModelInstance, UINT Parent
         {
             m_OwnedModelInstances.insert(pModelInstance);
             m_pInputRemoting->ClientSetTargetNodeID(pModelInstance->GetNodeID());
+            m_FollowCameraEnabled = true;
         }
     }
 }
@@ -448,7 +454,7 @@ void ModelViewer::Update( float deltaT )
             }
             else
             {
-                if (GameInput::IsMouseExclusive())
+                if (GameInput::IsMouseExclusive() && m_FollowCameraEnabled)
                 {
                     NetworkInputState InputState = {};
                     float forward = (
@@ -516,7 +522,12 @@ void ModelViewer::Update( float deltaT )
         }
     }
 
-    if (m_OwnedModelInstances.empty())
+    if (GameInput::IsFirstPressed(GameInput::kKey_c))
+    {
+        m_FollowCameraEnabled = !m_FollowCameraEnabled;
+    }
+
+    if (m_OwnedModelInstances.empty() || !m_FollowCameraEnabled)
     {
         m_pCameraController->Update(deltaT);
     }
@@ -524,7 +535,11 @@ void ModelViewer::Update( float deltaT )
     {
         auto iter = m_OwnedModelInstances.begin();
         ModelInstance* pFirstMI = *iter;
-        m_pFollowCameraController->Update(pFirstMI->GetWorldTransform(), deltaT);
+        static Vector3 LastWorldPos(0, 0, 0);
+        Vector3 WorldPos = pFirstMI->GetWorldPosition();
+        DebugVector = (WorldPos - LastWorldPos) * 1000.0f;
+        LastWorldPos = WorldPos;
+        m_pFollowCameraController->Update(pFirstMI->GetWorldTransform(), deltaT, pFirstMI);
     }
 	m_ViewProjMatrix = m_Camera.GetViewProjMatrix();
 
@@ -707,6 +722,17 @@ void ModelViewer::RenderScene( void )
 		MotionBlur::RenderCameraBlur(gfxContext, m_Camera);
 
 	gfxContext.Finish();
+}
+
+void ModelViewer::RenderUI(class GraphicsContext& Context)
+{
+    TextContext Text(Context);
+    Text.Begin();
+
+    Text.SetCursorY(30);
+    Text.DrawFormattedString("Debug Vector: %10.3f %10.3f %10.3f", (FLOAT)DebugVector.GetX(), (FLOAT)DebugVector.GetY(), (FLOAT)DebugVector.GetZ());
+
+    Text.End();
 }
 
 void ModelViewer::CreateParticleEffects()
