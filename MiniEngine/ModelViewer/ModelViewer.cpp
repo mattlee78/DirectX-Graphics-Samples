@@ -273,14 +273,13 @@ void ModelViewer::Startup( void )
         DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(200, 0, 100));
         m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
 
-        //DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 3, 100));
-        //m_NetServer.SpawnObject(nullptr, "Vehicle1", nullptr, DT, XMFLOAT3(0, 0, 0));
+        //for (UINT32 i = 0; i < 20; ++i)
+        //{
+        //    DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(200, 20.0f + i * 100, 100));
+        //    m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
+        //}
 
-        for (UINT32 i = 0; i < 20; ++i)
-        {
-            DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(200, 20.0f + i * 100, 100));
-            m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
-        }
+        m_NetServer.SpawnObject(nullptr, "ramp1", nullptr, DT, XMFLOAT3(0, 0, 0));
     }
 }
 
@@ -405,7 +404,7 @@ void ModelViewer::RemoteObjectCreated(ModelInstance* pModelInstance, UINT Parent
     if (ParentObjectID == m_NetClient.GetClientBaseObjectID())
     {
         StringID TemplateName = pModelInstance->GetTemplate()->GetName();
-        if (_wcsicmp(TemplateName, L"Vehicle1") == 0)
+        if (_wcsicmp(TemplateName, L"Vehicle2") == 0)
         {
             m_OwnedModelInstances.insert(pModelInstance);
             m_pInputRemoting->ClientSetTargetNodeID(pModelInstance->GetNodeID());
@@ -445,7 +444,7 @@ void ModelViewer::Update( float deltaT )
             {
                 m_ClientObjectsCreated = true;
                 DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 3, 100));
-                m_NetClient.SpawnObjectOnServer("Vehicle1", nullptr, DT, XMFLOAT3(0, 0, 0));
+                m_NetClient.SpawnObjectOnServer("Vehicle2", nullptr, DT, XMFLOAT3(0, 0, 0));
             }
 
             if (m_pInputRemoting == nullptr)

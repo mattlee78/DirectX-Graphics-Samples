@@ -270,6 +270,20 @@ bool ModelTemplate::CreateDescTemplate(ModelDesc* pMD, bool GraphicsEnabled)
             }
         }
     }
+    if (pMD->pRigidBody != nullptr)
+    {
+        const ModelShapeData& SD = pMD->pRigidBody->Shape;
+        if (SD.ShapeType == ModelShapeType_ConvexMesh || SD.ShapeType == ModelShapeType_PolyMesh)
+        {
+            m_pCollisionMesh = new CollisionMesh();
+            if (!m_pCollisionMesh->Load(SD.strMeshName, SD.ShapeType == ModelShapeType_ConvexMesh))
+            {
+                delete m_pCollisionMesh;
+                m_pCollisionMesh = nullptr;
+                Result = false;
+            }
+        }
+    }
     return Result;
 }
 
@@ -319,6 +333,15 @@ CollisionShape* ModelTemplate::GetCollisionShape(FLOAT Scale)
     {
         const ModelPlaneShape& Plane = ShapeData.PlaneShape();
         pShape = CollisionShape::CreatePlane(XMLoadFloat4(&Plane.PlaneVector));
+        break;
+    }
+    case ModelShapeType_ConvexMesh:
+    {
+        if (m_pCollisionMesh != nullptr)
+        {
+            assert(m_pCollisionMesh->pIndexData == nullptr && m_pCollisionMesh->pVertexData != nullptr);
+            pShape = CollisionShape::CreateConvexHull((const XMFLOAT3*)m_pCollisionMesh->pVertexData, m_pCollisionMesh->VertexCount, m_pCollisionMesh->VertexStrideBytes);
+        }
         break;
     }
     default:

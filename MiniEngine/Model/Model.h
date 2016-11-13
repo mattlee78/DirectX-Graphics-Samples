@@ -245,4 +245,16 @@ private:
     void CompleteCommon(const WCHAR* strName);
 };
 
+struct CollisionMesh
+{
+    void* pVertexData;
+    void* pIndexData;
+    UINT32 VertexStrideBytes;
+    UINT32 VertexCount;
+    UINT32 IndexCount;
+
+    bool Load(const CHAR* strBMeshFilename, bool IsConvex);
+    void Unload();
+};
+
 }

@@ -45,6 +45,130 @@ UINT32 CreateInputLayoutIndex(const BMESH_MESH* pMesh)
     return LayoutIndex;
 }
 
+struct BMESHLoader
+{
+    BMESH_HEADER Header;
+
+    BYTE* pPersistentBuffer;
+    BYTE* pMeshBufferSegment;
+
+    BYTE* pDataSegment;
+    BYTE* pStringSegment;
+    BYTE* pAnimBufferSegment;
+    UINT64 BaseIndexOffset;
+    UINT32 VertexStrideBytes;
+
+    UINT64 VertexSegmentSizeBytes;
+    UINT64 IndexSegmentSizeBytes;
+    BYTE* pVertexBaseAddress;
+    BYTE* pIndexBaseAddress;
+
+    bool LoadBMESH(const char* filename)
+    {
+        ZeroMemory(this, sizeof(*this));
+
+        FILE *file = nullptr;
+        if (0 != fopen_s(&file, filename, "rb"))
+            return false;
+
+        size_t result = fread_s(&Header, sizeof(Header), sizeof(Header), 1, file);
+        if (result != 1)
+        {
+            goto ErrorExit;
+        }
+
+        if (Header.Magic != BMESH_MAGIC ||
+            Header.Version != BMESH_VERSION)
+        {
+            goto ErrorExit;
+        }
+
+        if (Header.HeaderSizeBytes != sizeof(Header))
+        {
+            goto ErrorExit;
+        }
+
+        size_t BmeshPersistentDataSizeBytes = Header.DataSegmentSizeBytes + Header.StringsSizeBytes + Header.AnimBufferSegmentSizeBytes;
+        pPersistentBuffer = (BYTE*)malloc(BmeshPersistentDataSizeBytes);
+        if (pPersistentBuffer == nullptr)
+        {
+            goto ErrorExit;
+        }
+
+        pMeshBufferSegment = (BYTE*)malloc(Header.MeshBufferSegmentSizeBytes);
+        if (pMeshBufferSegment == nullptr)
+        {
+            goto ErrorExit;
+        }
+
+        result = fread_s(pPersistentBuffer, BmeshPersistentDataSizeBytes, BmeshPersistentDataSizeBytes, 1, file);
+        if (result != 1)
+        {
+            goto ErrorExit;
+        }
+
+        result = fread_s(pMeshBufferSegment, Header.MeshBufferSegmentSizeBytes, Header.MeshBufferSegmentSizeBytes, 1, file);
+        if (result != 1)
+        {
+            goto ErrorExit;
+        }
+
+        fclose(file);
+        file = nullptr;
+
+        pDataSegment = pPersistentBuffer;
+        pStringSegment = pPersistentBuffer + Header.DataSegmentSizeBytes;
+        pAnimBufferSegment = pStringSegment + Header.StringsSizeBytes;
+
+        BMesh::FixupPointers(&Header, pDataSegment, pStringSegment, pAnimBufferSegment, pMeshBufferSegment);
+
+        BaseIndexOffset = 0;
+        VertexStrideBytes = 1;
+        if (Header.Meshes.Count > 0)
+        {
+            const BYTE* pIndexData = Header.Meshes[0].IndexData.ByteBuffer.pFirstObject;
+            BaseIndexOffset = (UINT64)(pIndexData - pMeshBufferSegment);
+            VertexStrideBytes = Header.Meshes[0].VertexDatas[0].StrideBytes;
+        }
+
+        VertexSegmentSizeBytes = BaseIndexOffset;
+        IndexSegmentSizeBytes = Header.MeshBufferSegmentSizeBytes - BaseIndexOffset;
+
+        pVertexBaseAddress = pMeshBufferSegment;
+        pIndexBaseAddress = pVertexBaseAddress + VertexSegmentSizeBytes;
+
+        return true;
+
+    ErrorExit:
+        Unload();
+
+        if (file != nullptr)
+        {
+            fclose(file);
+            file = nullptr;
+        }
+
+        return false;
+    }
+
+    void Unload()
+    {
+        if (pPersistentBuffer != nullptr)
+        {
+            free(pPersistentBuffer);
+            pPersistentBuffer = nullptr;
+        }
+
+        if (pMeshBufferSegment != nullptr)
+        {
+            free(pMeshBufferSegment);
+            pMeshBufferSegment = nullptr;
+        }
+
+        ZeroMemory(this, sizeof(*this));
+    }
+};
+
 bool Model::LoadBMESH(const char *filename)
 {
     BYTE* pPersistentBuffer = nullptr;
@@ -251,3 +375,54 @@ ErrorExit:
 
     return false;
 }
+
+bool CollisionMesh::Load(const CHAR* strBMeshFilename, bool IsConvex)
+{
+    ZeroMemory(this, sizeof(*this));
+
+    if (strBMeshFilename == nullptr)
+    {
+        return false;
+    }
+
+    BMESHLoader Loader;
+    if (!Loader.LoadBMESH(strBMeshFilename))
+    {
+        return false;
+    }
+
+    bool Success = true;
+
+    if (Loader.VertexStrideBytes < 12)
+    {
+        Success = false;
+    }
+
+    if (Loader.Header.Meshes.Count == 0 ||
+        Loader.Header.Meshes[0].Subsets.Count == 0)
+    {
+        Success = false;
+    }
+
+    if (Success)
+    {
+        if (IsConvex)
+        {
+            pVertexData = new BYTE[Loader.VertexSegmentSizeBytes];
+            memcpy(pVertexData, Loader.pVertexBaseAddress, Loader.VertexSegmentSizeBytes);
+            VertexStrideBytes = Loader.VertexStrideBytes;
+            VertexCount = Loader.Header.Meshes[0].Subsets[0].VertexCount;
+            pIndexData = nullptr;
+            IndexCount = 0;
+        }
+        else
+        {
+            Success = false;
+        }
+    }
+
+    Loader.Unload();
+
+    return Success;
+}
+
