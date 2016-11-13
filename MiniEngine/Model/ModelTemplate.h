@@ -8,6 +8,7 @@
 namespace Graphics
 {
     class Model;
+    struct CollisionMesh;
 }
 class CollisionShape;
 struct VehicleConfig;
@@ -114,6 +115,7 @@ private:
     ModelDesc* m_pDesc;
     Graphics::Model* m_pModel;
     Graphics::Model* m_pWheelModel;
+    Graphics::CollisionMesh* m_pCollisionMesh;
 
     UINT32 m_DescIsLocallyAllocated : 1;
 
