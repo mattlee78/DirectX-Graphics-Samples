@@ -178,7 +178,7 @@ bool ModelTemplate::CreateDefaultTemplate(const CHAR* strName, bool GraphicsEnab
 
     if (_stricmp(strName, "cube") == 0)
     {
-        Vector3 HalfDimensions(5, 5, 5);
+        Vector3 HalfDimensions(1.0f, 1.0f, 1.0f);
         pMD->pRigidBody->Shape.ShapeType = ModelShapeType_AABB;
         XMStoreFloat3(&pMD->pRigidBody->Shape.AABBShape().HalfSize, HalfDimensions);
         pMD->pRigidBody->Mass = 1.0f;
