@@ -2,6 +2,7 @@
     "ModelFileName" : "models/truck1.bmesh",
     "WheelModelFileName" : "models/tire2.bmesh",
     "RenderOffset" : [ 0.0, 1.5, 0.0 ],
+    "IsPlayerControllable" : "true",
     "RigidBody" : {
         "Mass" : 400.0,
         "Shape" : {

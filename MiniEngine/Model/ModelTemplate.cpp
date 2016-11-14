@@ -74,6 +74,7 @@ MEMBER_STRUCT_POINTER(RigidBody, ModelRigidBodyDesc)
 MEMBER_BOOL(NoRenderInShadowPass)
 MEMBER_VECTOR3(RenderOffset)
 MEMBER_STRING(WheelModelFileName)
+MEMBER_BOOL(IsPlayerControllable)
 STRUCT_TEMPLATE_END(ModelDesc)
 
 ModelTemplate::~ModelTemplate()

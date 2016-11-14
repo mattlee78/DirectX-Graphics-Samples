@@ -114,7 +114,7 @@ private:
     InputRemotingObject* m_pInputRemoting;
 
     bool m_ClientObjectsCreated;
-    std::set<ModelInstance*> m_OwnedModelInstances;
+    std::set<ModelInstance*> m_ControllableModelInstances;
 
     bool m_StartServer;
     GameNetServer m_NetServer;
@@ -428,10 +428,9 @@ void ModelViewer::RemoteObjectCreated(ModelInstance* pModelInstance, UINT Parent
 {
     if (ParentObjectID == m_NetClient.GetClientBaseObjectID())
     {
-        StringID TemplateName = pModelInstance->GetTemplate()->GetName();
-        if (_wcsicmp(TemplateName, L"Vehicle2") == 0)
+        if (pModelInstance->GetTemplate()->IsPlayerControllable())
         {
-            m_OwnedModelInstances.insert(pModelInstance);
+            m_ControllableModelInstances.insert(pModelInstance);
             m_pInputRemoting->ClientSetTargetNodeID(pModelInstance->GetNodeID());
             m_FollowCameraEnabled = true;
         }
@@ -440,10 +439,10 @@ void ModelViewer::RemoteObjectCreated(ModelInstance* pModelInstance, UINT Parent
 
 void ModelViewer::RemoteObjectDeleted(ModelInstance* pModelInstance)
 {
-    auto iter = m_OwnedModelInstances.find(pModelInstance);
-    if (iter != m_OwnedModelInstances.end())
+    auto iter = m_ControllableModelInstances.find(pModelInstance);
+    if (iter != m_ControllableModelInstances.end())
     {
-        m_OwnedModelInstances.erase(iter);
+        m_ControllableModelInstances.erase(iter);
         if (m_pInputRemoting->ClientGetTargetNodeID() == pModelInstance->GetNodeID())
         {
             m_pInputRemoting->ClientSetTargetNodeID(0);
@@ -560,13 +559,13 @@ void ModelViewer::Update( float deltaT )
         }
     }
 
-    if (m_OwnedModelInstances.empty() || !m_FollowCameraEnabled)
+    if (m_ControllableModelInstances.empty() || !m_FollowCameraEnabled)
     {
         m_pCameraController->Update(deltaT);
     }
     else
     {
-        auto iter = m_OwnedModelInstances.begin();
+        auto iter = m_ControllableModelInstances.begin();
         ModelInstance* pFirstMI = *iter;
         static Vector3 LastWorldPos(0, 0, 0);
         Vector3 WorldPos = pFirstMI->GetWorldPosition();
