@@ -117,6 +117,13 @@ public:
         PrevLerpValue = 0;
     }
 
+    void ResetPrediction()
+    {
+        PrevValue = CurrentValue;
+        PreviousRecvTimestamp = CurrentRecvTimestamp;
+        PrevLerpValue = 0;
+    }
+
     inline XMVECTOR Lerp(INT64 CurrentTime)
     {
         const XMVECTOR Prev = StateLoad(&PrevValue);

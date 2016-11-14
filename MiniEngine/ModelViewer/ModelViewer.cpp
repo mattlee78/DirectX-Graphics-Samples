@@ -119,6 +119,7 @@ private:
     bool m_StartServer;
     GameNetServer m_NetServer;
     PrintfDebugListener m_ServerDebugListener;
+    std::vector<ModelInstance*> m_PlacedModelInstances;
 
     Vector3 DebugVector;
 };
@@ -147,6 +148,29 @@ MEMBER_VECTOR3(Position)
 MEMBER_BOOL(IsEnabled)
 MEMBER_FLOAT(FloatValue)
 STRUCT_TEMPLATE_END(TestData)
+
+static const UINT32 g_RingSize = 8;
+DecomposedTransform CreateCylinderTransform(UINT32 Index, XMFLOAT3 CenterPos)
+{
+    const FLOAT CubeSize = 2.0f;
+    const FLOAT RingRadius = CubeSize * 2;
+    const FLOAT RingTheta = XM_2PI / ((FLOAT)g_RingSize);
+
+    const UINT32 YLevel = Index / g_RingSize;
+    FLOAT Theta = RingTheta * (FLOAT)(Index % g_RingSize);
+    if (YLevel % 2 == 1)
+    {
+        Theta += RingTheta * 0.5f;
+    }
+    const FLOAT Ypos = ((FLOAT)YLevel + 0.5f) * CubeSize + CenterPos.y;
+    const FLOAT Xpos = RingRadius * sinf(Theta) + CenterPos.x;
+    const FLOAT Zpos = RingRadius * cosf(Theta) + CenterPos.z;
+
+    XMFLOAT4 Orientation;
+    XMStoreFloat4(&Orientation, XMQuaternionRotationRollPitchYaw(0, Theta, 0));
+
+    return DecomposedTransform::CreateFromComponents(XMFLOAT3(Xpos, Ypos, Zpos), Orientation);
+}
 
 void ModelViewer::Startup( void )
 {
@@ -272,14 +296,15 @@ void ModelViewer::Startup( void )
 
         DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(200, 0, 100));
         m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
-
-        //for (UINT32 i = 0; i < 20; ++i)
-        //{
-        //    DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(200, 20.0f + i * 100, 100));
-        //    m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
-        //}
-
         m_NetServer.SpawnObject(nullptr, "ramp1", nullptr, DT, XMFLOAT3(0, 0, 0));
+
+        XMFLOAT3 CenterPos(200, 0, 150);
+        for (UINT32 i = 0; i < (g_RingSize * 8); ++i)
+        {
+            DT = CreateCylinderTransform(i, CenterPos);
+            ModelInstance* pMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
+            m_PlacedModelInstances.push_back(pMI);
+        }
     }
 }
 
@@ -435,68 +460,66 @@ void ModelViewer::Update( float deltaT )
 {
 	ScopedTimer _prof(L"Update State");
 
+    m_NetClient.SingleThreadedTick();
+
+    if (m_NetClient.IsConnected(nullptr))
     {
-        m_NetClient.SingleThreadedTick();
-
-        if (m_NetClient.IsConnected(nullptr))
+        if (!m_ClientObjectsCreated && m_NetClient.CanSpawnObjects())
         {
-            if (!m_ClientObjectsCreated && m_NetClient.CanSpawnObjects())
-            {
-                m_ClientObjectsCreated = true;
-                DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 3, 100));
-                m_NetClient.SpawnObjectOnServer("Vehicle2", nullptr, DT, XMFLOAT3(0, 0, 0));
-            }
+            m_ClientObjectsCreated = true;
+            DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 3, 100));
+            m_NetClient.SpawnObjectOnServer("Vehicle2", nullptr, DT, XMFLOAT3(0, 0, 0));
+        }
 
-            if (m_pInputRemoting == nullptr)
+        if (m_pInputRemoting == nullptr)
+        {
+            m_pInputRemoting = (InputRemotingObject*)m_NetClient.SpawnObjectOnClient(InputRemotingObject::GetTemplateName());
+        }
+        else
+        {
+            if (GameInput::IsMouseExclusive() && m_FollowCameraEnabled)
             {
-                m_pInputRemoting = (InputRemotingObject*)m_NetClient.SpawnObjectOnClient(InputRemotingObject::GetTemplateName());
+                NetworkInputState InputState = {};
+                float forward = (
+                    GameInput::GetAnalogInput(GameInput::kAnalogLeftStickY) +
+                    (GameInput::IsPressed(GameInput::kKey_w) ? 1.0f : 0.0f) +
+                    (GameInput::IsPressed(GameInput::kKey_s) ? -1.0f : 0.0f)
+                    );
+                float strafe = (
+                    GameInput::GetAnalogInput(GameInput::kAnalogLeftStickX) +
+                    (GameInput::IsPressed(GameInput::kKey_d) ? 1.0f : 0.0f) +
+                    (GameInput::IsPressed(GameInput::kKey_a) ? -1.0f : 0.0f)
+                    );
+                float ascent = (
+                    GameInput::GetTimeCorrectedAnalogInput(GameInput::kAnalogRightTrigger) -
+                    GameInput::GetTimeCorrectedAnalogInput(GameInput::kAnalogLeftTrigger) +
+                    (GameInput::IsPressed(GameInput::kKey_e) ? 1.0f : 0.0f) +
+                    (GameInput::IsPressed(GameInput::kKey_q) ? -1.0f : 0.0f)
+                    );
+                float lt = (
+                    GameInput::GetAnalogInput(GameInput::kAnalogLeftTrigger) +
+                    (GameInput::IsPressed(GameInput::kKey_s) ? 1.0f : 0.0f)
+                    );
+                float rt = (
+                    GameInput::GetAnalogInput(GameInput::kAnalogRightTrigger) +
+                    (GameInput::IsPressed(GameInput::kKey_w) ? 1.0f : 0.0f)
+                    );
+                InputState.XAxis0 = strafe;
+                InputState.YAxis0 = forward;
+                InputState.YAxis1 = ascent;
+                InputState.LeftTrigger = lt;
+                InputState.RightTrigger = rt;
+                m_pInputRemoting->ClientUpdate(InputState);
             }
             else
             {
-                if (GameInput::IsMouseExclusive() && m_FollowCameraEnabled)
-                {
-                    NetworkInputState InputState = {};
-                    float forward = (
-                        GameInput::GetAnalogInput(GameInput::kAnalogLeftStickY) +
-                        (GameInput::IsPressed(GameInput::kKey_w) ? 1.0f : 0.0f) +
-                        (GameInput::IsPressed(GameInput::kKey_s) ? -1.0f : 0.0f)
-                        );
-                    float strafe = (
-                        GameInput::GetAnalogInput(GameInput::kAnalogLeftStickX) +
-                        (GameInput::IsPressed(GameInput::kKey_d) ? 1.0f : 0.0f) +
-                        (GameInput::IsPressed(GameInput::kKey_a) ? -1.0f : 0.0f)
-                        );
-                    float ascent = (
-                        GameInput::GetTimeCorrectedAnalogInput(GameInput::kAnalogRightTrigger) -
-                        GameInput::GetTimeCorrectedAnalogInput(GameInput::kAnalogLeftTrigger) +
-                        (GameInput::IsPressed(GameInput::kKey_e) ? 1.0f : 0.0f) +
-                        (GameInput::IsPressed(GameInput::kKey_q) ? -1.0f : 0.0f)
-                        );
-                    float lt = (
-                        GameInput::GetAnalogInput(GameInput::kAnalogLeftTrigger) +
-                        (GameInput::IsPressed(GameInput::kKey_s) ? 1.0f : 0.0f)
-                        );
-                    float rt = (
-                        GameInput::GetAnalogInput(GameInput::kAnalogRightTrigger) +
-                        (GameInput::IsPressed(GameInput::kKey_w) ? 1.0f : 0.0f)
-                        );
-                    InputState.XAxis0 = strafe;
-                    InputState.YAxis0 = forward;
-                    InputState.YAxis1 = ascent;
-                    InputState.LeftTrigger = lt;
-                    InputState.RightTrigger = rt;
-                    m_pInputRemoting->ClientUpdate(InputState);
-                }
-                else
-                {
-                    m_pInputRemoting->ClientZero();
-                }
+                m_pInputRemoting->ClientZero();
             }
-
-            LARGE_INTEGER ClientTicks;
-            QueryPerformanceCounter(&ClientTicks);
-            m_pClientWorld->Tick(deltaT, ClientTicks.QuadPart);
         }
+
+        LARGE_INTEGER ClientTicks;
+        QueryPerformanceCounter(&ClientTicks);
+        m_pClientWorld->Tick(deltaT, ClientTicks.QuadPart);
     }
 
     if (DisplayPhysicsDebug)
@@ -526,6 +549,17 @@ void ModelViewer::Update( float deltaT )
         m_FollowCameraEnabled = !m_FollowCameraEnabled;
     }
 
+    if (GameInput::IsFirstPressed(GameInput::kKey_p))
+    {
+        const UINT32 Count = m_PlacedModelInstances.size();
+        XMFLOAT3 CenterPos(200, 0, 150);
+        for (UINT32 i = 0; i < Count; ++i)
+        {
+            DecomposedTransform DT = CreateCylinderTransform(i, CenterPos);
+            m_PlacedModelInstances[i]->SetWorldTransform(DT.GetMatrix());
+        }
+    }
+
     if (m_OwnedModelInstances.empty() || !m_FollowCameraEnabled)
     {
         m_pCameraController->Update(deltaT);
@@ -536,7 +570,7 @@ void ModelViewer::Update( float deltaT )
         ModelInstance* pFirstMI = *iter;
         static Vector3 LastWorldPos(0, 0, 0);
         Vector3 WorldPos = pFirstMI->GetWorldPosition();
-        DebugVector = (WorldPos - LastWorldPos) * 1000.0f;
+        //DebugVector = (WorldPos - LastWorldPos) * 1000.0f;
         LastWorldPos = WorldPos;
         m_pFollowCameraController->Update(pFirstMI->GetWorldTransform(), deltaT, pFirstMI);
     }
@@ -729,7 +763,7 @@ void ModelViewer::RenderUI(class GraphicsContext& Context)
     Text.Begin();
 
     Text.SetCursorY(30);
-    Text.DrawFormattedString("Debug Vector: %10.3f %10.3f %10.3f", (FLOAT)DebugVector.GetX(), (FLOAT)DebugVector.GetY(), (FLOAT)DebugVector.GetZ());
+    //Text.DrawFormattedString("Debug Vector: %10.3f %10.3f %10.3f", (FLOAT)DebugVector.GetX(), (FLOAT)DebugVector.GetY(), (FLOAT)DebugVector.GetZ());
 
     Text.End();
 }

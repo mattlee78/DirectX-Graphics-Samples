@@ -174,7 +174,7 @@ void ModelInstance::SetWorldTransform(const Math::Matrix4& Transform)
     XMStoreFloat4x4(&m_WorldTransform, Transform);
     if (IsLocalNetworkObject())
     {
-        SetNetworkMatrix(Transform);
+        SetNetworkMatrix(Transform, true);
     }
     if (m_pRigidBody != nullptr)
     {
@@ -246,7 +246,7 @@ void ModelInstance::PostPhysicsUpdate(float deltaT)
     // Send world transform to network transform if we're a local network object
     if (IsLocalNetworkObject())
     {
-        SetNetworkMatrix(GetWorldTransform());
+        SetNetworkMatrix(GetWorldTransform(), false);
     }
 }
 
@@ -353,7 +353,7 @@ void ModelInstance::ServerProcessInput(const NetworkInputState& InputState, FLOA
         float Brake = InputState.LeftTrigger;
         if (m_pVehicle->GetSpeedMSec() < 0.5f && Brake > Gas)
         {
-            Utility::Printf("Reverse drive %0.3f\n", m_pVehicle->GetSpeedMSec());
+            //Utility::Printf("Reverse drive %0.3f\n", m_pVehicle->GetSpeedMSec());
             Gas = -InputState.LeftTrigger;
             Brake = InputState.RightTrigger;
         }
@@ -438,8 +438,8 @@ ModelInstance* World::SpawnModelInstance(ModelTemplate* pTemplate, const CHAR* s
         return nullptr;
     }
 
-    pMI->SetWorldTransform(InitialTransform.GetMatrix());
     pMI->SetRemote((BOOL)IsRemote);
+    pMI->SetWorldTransform(InitialTransform.GetMatrix());
 
     bool Success = pMI->Initialize(this, pTemplate, m_GraphicsEnabled, IsRemote);
 

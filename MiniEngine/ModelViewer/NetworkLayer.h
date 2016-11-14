@@ -131,42 +131,6 @@ public:
     }
 };
 
-class NetworkSequence
-{
-private:
-    UINT32 m_CurrentValue;
-    UINT32 m_LastCheckedValue;
-
-public:
-    NetworkSequence()
-        : m_CurrentValue(0),
-          m_LastCheckedValue(0)
-    { }
-
-    UINT32* GetRemotedValue() { return &m_CurrentValue; }
-    UINT32 GetCurrentValue() const { return m_CurrentValue; }
-
-    void SourceUpdate()
-    {
-        ++m_CurrentValue;
-    }
-    void SourceSetValue(UINT32 Value)
-    {
-        m_CurrentValue = Value;
-    }
-
-    bool DestinationCheckAndUpdate(UINT32* pValue = nullptr)
-    {
-        bool Changed = (m_CurrentValue != m_LastCheckedValue);
-        m_LastCheckedValue = m_CurrentValue;
-        if (pValue != nullptr)
-        {
-            *pValue = m_CurrentValue;
-        }
-        return Changed;
-    }
-};
-
 class InputRemotingObject : public SystemNetworkObject
 {
 private:
