@@ -182,7 +182,7 @@ void ModelInstance::SetWorldTransform(const Math::Matrix4& Transform)
     }
 }
 
-void ModelInstance::PrePhysicsUpdate(float deltaT, INT64 ClientTicks)
+bool ModelInstance::PrePhysicsUpdate(float deltaT, INT64 ClientTicks)
 {
     // Get transform from network if we're a remote network object
     if (IsRemoteNetworkObject())
@@ -219,6 +219,19 @@ void ModelInstance::PrePhysicsUpdate(float deltaT, INT64 ClientTicks)
     {
         m_pRigidBody->SetWorldTransform(GetWorldTransform());
     }
+
+    bool StillAlive = true;
+    if (m_LifetimeRemaining >= 0)
+    {
+        m_LifetimeRemaining -= deltaT;
+        if (m_LifetimeRemaining <= 0)
+        {
+            m_LifetimeRemaining = 0;
+            StillAlive = false;
+        }
+    }
+
+    return StillAlive;
 }
 
 void ModelInstance::PostPhysicsUpdate(float deltaT)
@@ -374,8 +387,16 @@ void World::Tick(float deltaT, INT64 Ticks)
     auto end = m_ModelInstances.end();
     while (iter != end)
     {
-        ModelInstance* pMI = *iter++;
-        pMI->PrePhysicsUpdate(deltaT, Ticks);
+        ModelInstance* pMI = *iter;
+        auto nextiter = iter;
+        ++nextiter;
+        bool StillAlive = pMI->PrePhysicsUpdate(deltaT, Ticks);
+        if (!StillAlive)
+        {
+            m_ModelInstances.erase(iter);
+            delete pMI;
+        }
+        iter = nextiter;
     }
 
     m_PhysicsWorld.Update(deltaT);
