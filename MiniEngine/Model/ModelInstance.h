@@ -89,6 +89,8 @@ private:
 
     bool m_RenderInShadowPass : 1;
 
+    FLOAT m_LifetimeRemaining;
+
     ModelTemplate* m_pTemplate;
     Graphics::Model* m_pModel;
     RigidBody* m_pRigidBody;
@@ -105,7 +107,8 @@ public:
           m_pCollisionShape(nullptr),
           m_pVehicle(nullptr),
           m_WheelCount(0),
-          m_pWheelData(nullptr)
+          m_pWheelData(nullptr),
+          m_LifetimeRemaining(-1)
     { 
         XMStoreFloat4x4(&m_WorldTransform, XMMatrixIdentity());
         m_RenderInShadowPass = true;
@@ -114,6 +117,8 @@ public:
     ~ModelInstance();
 
     bool Initialize(World* pWorld, ModelTemplate* pTemplate, bool GraphicsEnabled, bool IsRemote);
+    void SetLifetimeRemaining(FLOAT LifetimeRemaining) { m_LifetimeRemaining = LifetimeRemaining; }
+    void MarkForDeletion() { SetLifetimeRemaining(0); }
 
     const ModelTemplate* GetTemplate() const { return m_pTemplate; }
     const Graphics::Model* GetModel() const { return m_pModel; }
@@ -126,7 +131,7 @@ public:
     Math::Matrix4 GetWorldTransform() const { return Math::Matrix4(XMLoadFloat4x4(&m_WorldTransform)); }
     Math::Vector3 GetWorldPosition() const { return Math::Vector3(XMLoadFloat3((XMFLOAT3*)&m_WorldTransform._41)); }
 
-    void PrePhysicsUpdate(float deltaT, INT64 ClientTicks);
+    bool PrePhysicsUpdate(float deltaT, INT64 ClientTicks);
     void PostPhysicsUpdate(float deltaT);
 
     void ServerProcessInput(const NetworkInputState& InputState, FLOAT DeltaTime, DOUBLE AbsoluteTime);

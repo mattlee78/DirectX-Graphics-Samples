@@ -305,6 +305,10 @@ void ModelViewer::Startup( void )
             ModelInstance* pMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
             m_PlacedModelInstances.push_back(pMI);
         }
+
+        DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 50, 0));
+        ModelInstance* pMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
+        pMI->SetLifetimeRemaining(10);
     }
 }
 
