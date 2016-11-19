@@ -6,6 +6,8 @@
 #include "..\3rdParty\Bullet\src\btBulletCollisionCommon.h"
 #include "..\3rdParty\Bullet\src\btBulletDynamicsCommon.h"
 
+static const USHORT WaterCollisionGroupFlag = 0x8000;
+
 STRUCT_TEMPLATE_START_INLINE(AxleConfig, nullptr, nullptr)
 MEMBER_FLOAT(ZPos)
 MEMBER_FLOAT(YPos)
@@ -140,6 +142,12 @@ CollisionShape* CollisionShape::CreateMesh( const XMFLOAT3* pPositionArray, DWOR
     return new MeshCollisionShape( pTriangleShape, pTriangleArray, pVBCopy, pIBCopy );
 }
 
+CollisionShape* CollisionShape::CreateHeightfield(const FLOAT* pHeightArray, UINT32 Width, UINT32 Height, FLOAT MinHeight, FLOAT MaxHeight, FLOAT HeightScale)
+{
+    btHeightfieldTerrainShape* pHFS = new btHeightfieldTerrainShape(Width, Height, pHeightArray, HeightScale, MinHeight, MaxHeight, 1, PHY_FLOAT, true);
+    return new CollisionShape(pHFS);
+}
+
 MeshCollisionShape::~MeshCollisionShape()
 {
 	delete m_pTriangleArray;
@@ -251,6 +259,11 @@ VOID RigidBody::Initialize( CollisionShape* pShape, FLOAT Mass, CXMMATRIX matTra
 
     m_pWorld = NULL;
     m_strCollisionCallbackName[0] = '\0';
+
+    m_IsUnderwater = 0;
+    m_BuoyancyFraction = 0.5f;
+    SetDefaultDamping(0, 0);
+    ApplyDefaultDamping();
 }
 
 RigidBody::~RigidBody()
@@ -262,6 +275,16 @@ RigidBody::~RigidBody()
     }
     delete m_pMotionState;
     delete m_pRigidBody;
+}
+
+RigidBody* RigidBody::Promote(void* pObject)
+{
+    btRigidBody* pInternalRB = btRigidBody::upcast((btCollisionObject*)pObject);
+    if (pInternalRB != nullptr)
+    {
+        return (RigidBody*)pInternalRB->getUserPointer();
+    }
+    return nullptr;
 }
 
 XMMATRIX RigidBody::GetWorldTransform() const
@@ -644,6 +667,55 @@ bool RigidBody::ApplyControls2D(FLOAT DeltaTime, FLOAT ForwardSpeed, FLOAT Straf
     return true;
 }
 
+void RigidBody::SetWaterRigidBody()
+{
+    btBroadphaseProxy* pHandle = m_pRigidBody->getBroadphaseHandle();
+    assert(pHandle != nullptr);
+    pHandle->m_collisionFilterGroup |= WaterCollisionGroupFlag;
+}
+
+void RigidBody::GetLocalAABB(XMVECTOR* pAABBMin, XMVECTOR* pAABBMax) const
+{
+    btVector3 aabbMin, aabbMax;
+    m_pRigidBody->getCollisionShape()->getAabb(btTransform::getIdentity(), aabbMin, aabbMax);
+    *pAABBMin = *(XMVECTOR*)&aabbMin;
+    *pAABBMax = *(XMVECTOR*)&aabbMax;
+}
+
+void RigidBody::GetWorldAABB(XMVECTOR* pAABBMin, XMVECTOR* pAABBMax) const
+{
+    btVector3 aabbMin, aabbMax;
+    m_pRigidBody->getAabb(aabbMin, aabbMax);
+    *pAABBMin = *(XMVECTOR*)&aabbMin;
+    *pAABBMax = *(XMVECTOR*)&aabbMax;
+}
+
+void RigidBody::AccumulateUnderwater(FLOAT Underwater)
+{
+    m_IsUnderwater = std::min(1.0f, m_IsUnderwater + Underwater);
+    m_pRigidBody->setDamping(m_IsUnderwater * 0.75f, std::min(1.0f, m_IsUnderwater * 0.9f));
+}
+
+void RigidBody::ResetUnderwater()
+{
+    m_IsUnderwater = 0;
+    ApplyDefaultDamping();
+}
+
+void RigidBody::SetBuoyancyFraction(FLOAT Fraction)
+{
+    if (Fraction <= 0.0f)
+    {
+        Fraction = 0.5f;
+    }
+    m_BuoyancyFraction = Fraction;
+}
+
+void RigidBody::ApplyDefaultDamping()
+{
+    m_pRigidBody->setDamping(m_DefaultLinearDamping, m_DefaultAngularDamping);
+}
+
 class PhysicsDebugDrawer : public btIDebugDraw
 {
 protected:
@@ -714,6 +786,7 @@ void PhysicsWorld::Initialize(DWORD Flags, XMVECTOR vGravity)
     m_Speed = 1.0f;
     m_pCollisionConfiguration = new btDefaultCollisionConfiguration();
     m_pDispatcher = new btCollisionDispatcher(m_pCollisionConfiguration);
+    m_pDispatcher->setNearCallback((btNearCallback)NearCollisionCallback);
     m_pOverlappingPairCache = new btDbvtBroadphase();
     m_pSolver = new btSequentialImpulseConstraintSolver();
     m_pDynamicsWorld = new btDiscreteDynamicsWorld(m_pDispatcher, m_pOverlappingPairCache, m_pSolver, m_pCollisionConfiguration);
@@ -776,10 +849,148 @@ PhysicsWorld::~PhysicsWorld()
 VOID PhysicsWorld::Update( FLOAT DeltaTime )
 {
     ClearContactPoints();
+
+    {
+        auto iter = m_FloatingCorners.begin();
+        auto end = m_FloatingCorners.end();
+        while (iter != end)
+        {
+            RigidBody* pRB = iter->first;
+            ++iter;
+            pRB->ResetUnderwater();
+        }
+        m_FloatingCorners.clear();
+    }
+
     m_pDynamicsWorld->setWorldUserInfo( this );
     if( m_Speed > 0.0f )
     {
         m_pDynamicsWorld->stepSimulation( DeltaTime * m_Speed, 6 );
+    }
+}
+
+void PhysicsWorld::NearCollisionCallback(btBroadphasePair& collisionPair, btCollisionDispatcher& dispatcher, btDispatcherInfo& dispatchInfo)
+{
+    const btBroadphaseProxy* p0 = collisionPair.m_pProxy0;
+    const btBroadphaseProxy* p1 = collisionPair.m_pProxy1;
+    const bool p0water = (p0 != nullptr && (p0->m_collisionFilterGroup & WaterCollisionGroupFlag) != 0);
+    const bool p1water = (p1 != nullptr && (p1->m_collisionFilterGroup & WaterCollisionGroupFlag) != 0);
+    if (p0water && !p1water)
+    {
+        ApplyBuoyancyForce(RigidBody::Promote(p0->m_clientObject), RigidBody::Promote(p1->m_clientObject));
+    }
+    else if (p1water && !p0water)
+    {
+        ApplyBuoyancyForce(RigidBody::Promote(p1->m_clientObject), RigidBody::Promote(p0->m_clientObject));
+    }
+    else if (p0water && p1water)
+    {
+        return;
+    }
+    else
+    {
+        dispatcher.defaultNearCallback(collisionPair, dispatcher, dispatchInfo);
+    }
+}
+
+void PhysicsWorld::ApplyBuoyancyForce(RigidBody* pWaterRB, RigidBody* pOtherRB)
+{
+    assert((pWaterRB->GetInternalRigidBody()->getBroadphaseHandle()->m_collisionFilterGroup & WaterCollisionGroupFlag) != 0);
+    assert((pOtherRB->GetInternalRigidBody()->getBroadphaseHandle()->m_collisionFilterGroup & WaterCollisionGroupFlag) == 0);
+
+    XMVECTOR WaterMin, WaterMax;
+    pWaterRB->GetWorldAABB(&WaterMin, &WaterMax);
+    XMVECTOR WaterCenter = (WaterMax + WaterMin) * g_XMOneHalf;
+    XMVECTOR WaterTopCenter = XMVectorSelect(WaterMax, WaterCenter, g_XMSelect1010);
+    XMVECTOR WaterHalfSize = (WaterMax - WaterMin) * g_XMOneHalf;
+    const FLOAT WaterExtentsX = XMVectorGetX(WaterHalfSize);
+    const FLOAT WaterExtentsZ = XMVectorGetZ(WaterHalfSize);
+
+    XMVECTOR ObjectLocalMin, ObjectLocalMax;
+    pOtherRB->GetLocalAABB(&ObjectLocalMin, &ObjectLocalMax);
+    XMVECTOR ObjectHalfSize = (ObjectLocalMax - ObjectLocalMin) * g_XMOneHalf;
+    const FLOAT BuoyancyHalfDepth = XMVectorGetY(ObjectHalfSize) * 0.5f;
+    const FLOAT CrossSectionalArea = XMVectorGetX(ObjectHalfSize) * XMVectorGetZ(ObjectHalfSize);
+    const XMVECTOR LocalPositionAdjustment = XMVectorSet(BuoyancyHalfDepth, BuoyancyHalfDepth, BuoyancyHalfDepth, 0);
+    XMMATRIX ObjectTransform = pOtherRB->GetWorldTransform();
+    XMMATRIX OriginalObjTransform = ObjectTransform;
+
+    // relocate object world transform to be relative to the top center of the water AABB
+    // this way, transformed XZ coordinates can be easily checked against AABB X and Z bounds, and transformed Y < 0 means underwater
+    XMVECTOR ObjectPos = ObjectTransform.r[3];
+    ObjectPos -= WaterTopCenter;
+    ObjectTransform.r[3] = XMVectorSelect(g_XMOne, ObjectPos, g_XMSelect1110);
+
+    XMVECTOR Det;
+    XMMATRIX matInvTransform = XMMatrixInverse(&Det, ObjectTransform);
+    btRigidBody* pIRB = pOtherRB->GetInternalRigidBody();
+    const FLOAT InvMass = pIRB->getInvMass();
+    btVector3 GravityForce = pIRB->getGravity() * (1.0f / InvMass);
+    XMVECTOR ObjectLocalUp = XMVector3TransformNormal(g_XMIdentityR1, matInvTransform);
+
+    const FLOAT BuoyancyInvMass = pOtherRB->GetInverseMass();
+
+    UINT8 CornerCompleteMask = pOtherRB->GetPhysicsWorld()->GetFloatingCornerMask(pOtherRB);
+
+    const FLOAT BuoyancyPerCorner = 0.125f / pOtherRB->GetBuoyancyFraction();
+
+    bool Floating = false;
+    FLOAT AccumUnderwater = 0;
+    for (UINT32 i = 0; i < 8; ++i)
+    {
+        const UINT8 CornerMask = 1 << i;
+        if (CornerCompleteMask & CornerMask)
+        {
+            continue;
+        }
+
+        XMVECTOR SelectControl = XMVectorSelectControl(i & 1, (i & 2) >> 1, (i & 4) >> 2, 0);
+        XMVECTOR LocalCorner = XMVectorSelect(ObjectLocalMin, ObjectLocalMax, SelectControl);
+        XMVECTOR CornerOffset = XMVectorSelect(LocalPositionAdjustment, -LocalPositionAdjustment, SelectControl);
+        LocalCorner += CornerOffset;
+        XMVECTOR WorldCorner = XMVector3TransformCoord(LocalCorner, ObjectTransform);
+        FLOAT CornerDepth = XMVectorGetY(WorldCorner);
+
+        // Check if corner volume is underwater at all
+        if (CornerDepth > BuoyancyHalfDepth)
+        {
+            continue;
+        }
+
+        // Check if corner is within water AABB XZ extents
+        const FLOAT CornerX = fabsf(XMVectorGetX(WorldCorner));
+        const FLOAT CornerZ = fabsf(XMVectorGetZ(WorldCorner));
+        if (CornerX > WaterExtentsX || CornerZ > WaterExtentsZ)
+        {
+            continue;
+        }
+
+        Floating = true;
+        CornerCompleteMask |= CornerMask;
+
+        // Corner is inside AABB and at least partially underwater.
+        FLOAT BuoyancyFraction = (BuoyancyHalfDepth - CornerDepth) / (BuoyancyHalfDepth * 2);
+        assert(BuoyancyFraction >= 0.0f);
+        if (BuoyancyFraction > 1.0f)
+        {
+            BuoyancyFraction = 1.0f;
+        }
+        AccumUnderwater += 0.125f;
+
+        // Apply buoyancy force to corner, scaled to give enough lift to submerge the object based on its buoyancy fraction.
+        FLOAT BuoyancyForceMagnitude = BuoyancyFraction * BuoyancyPerCorner;
+        btVector3 linearForce = GravityForce * -BuoyancyForceMagnitude;
+        XMVECTOR RelativeCorner = XMVector3TransformNormal(LocalCorner, ObjectTransform);
+
+        btVector3 totalForce = linearForce;
+
+        pIRB->applyForce(totalForce, *(btVector3*)&RelativeCorner);
+    }
+
+    if (Floating)
+    {
+        pOtherRB->AccumulateUnderwater(AccumUnderwater);
+        pOtherRB->GetPhysicsWorld()->SetFloatingCornerMask(pOtherRB, CornerCompleteMask);
     }
 }
 
@@ -882,6 +1093,11 @@ VOID PhysicsWorld::AddRigidBody( RigidBody* pRigidBody, BOOL WorldOwn )
 
 VOID PhysicsWorld::RemoveRigidBody( RigidBody* pRigidBody )
 {
+    auto iter = m_FloatingCorners.find(pRigidBody);
+    if (iter != m_FloatingCorners.end())
+    {
+        m_FloatingCorners.erase(iter);
+    }
     m_pDynamicsWorld->removeRigidBody( pRigidBody->GetInternalRigidBody() );
     pRigidBody->SetPhysicsWorld( NULL );
 }
@@ -980,19 +1196,114 @@ XMVECTOR PhysicsWorld::ShootRay( CXMVECTOR Origin, CXMVECTOR Ray, BOOL* pHit, Ri
     }
 }
 
+UINT8 PhysicsWorld::GetFloatingCornerMask(RigidBody* pRB) const
+{
+    auto iter = m_FloatingCorners.find(pRB);
+    if (iter != m_FloatingCorners.end())
+    {
+        return iter->second;
+    }
+    return 0;
+}
+
+void PhysicsWorld::SetFloatingCornerMask(RigidBody* pRB, UINT8 Mask)
+{
+    m_FloatingCorners[pRB] = Mask;
+}
+
+struct ClosestNoWaterRayResultCallback : public btCollisionWorld::RayResultCallback
+{
+    ClosestNoWaterRayResultCallback(const btVector3& rayFromWorld, const btVector3& rayToWorld)
+        :m_rayFromWorld(rayFromWorld),
+        m_rayToWorld(rayToWorld)
+    {
+    }
+
+    btVector3	m_rayFromWorld;//used to calculate hitPointWorld from hitFraction
+    btVector3	m_rayToWorld;
+
+    btVector3	m_hitNormalWorld;
+    btVector3	m_hitPointWorld;
+
+    virtual	btScalar	addSingleResult(btCollisionWorld::LocalRayResult& rayResult, bool normalInWorldSpace)
+    {
+        const btBroadphaseProxy* pBP = rayResult.m_collisionObject->getBroadphaseHandle();
+        if (pBP->m_collisionFilterGroup & WaterCollisionGroupFlag)
+        {
+            return 1.0f;
+        }
+
+        //caller already does the filter on the m_closestHitFraction
+        btAssert(rayResult.m_hitFraction <= m_closestHitFraction);
+
+        m_closestHitFraction = rayResult.m_hitFraction;
+        m_collisionObject = rayResult.m_collisionObject;
+        if (normalInWorldSpace)
+        {
+            m_hitNormalWorld = rayResult.m_hitNormalLocal;
+        }
+        else
+        {
+            ///need to transform normal into worldspace
+            m_hitNormalWorld = m_collisionObject->getWorldTransform().getBasis()*rayResult.m_hitNormalLocal;
+        }
+        m_hitPointWorld.setInterpolate3(m_rayFromWorld, m_rayToWorld, rayResult.m_hitFraction);
+        return rayResult.m_hitFraction;
+    }
+};
+
+class CustomVehicleRaycaster : public btVehicleRaycaster
+{
+    btDynamicsWorld*	m_dynamicsWorld;
+public:
+    CustomVehicleRaycaster(btDynamicsWorld* world)
+        :m_dynamicsWorld(world)
+    {
+    }
+
+    virtual void* castRay(const btVector3& from, const btVector3& to, btVehicleRaycasterResult& result)
+    {
+        ClosestNoWaterRayResultCallback rayCallback(from, to);
+
+        m_dynamicsWorld->rayTest(from, to, rayCallback);
+
+        if (rayCallback.hasHit())
+        {
+
+            const btRigidBody* body = btRigidBody::upcast(rayCallback.m_collisionObject);
+            if (body && body->hasContactResponse())
+            {
+                result.m_hitPointInWorld = rayCallback.m_hitPointWorld;
+                result.m_hitNormalInWorld = rayCallback.m_hitNormalWorld;
+                result.m_hitNormalInWorld.normalize();
+                result.m_distFraction = rayCallback.m_closestHitFraction;
+                return (void*)body;
+            }
+        }
+        return nullptr;
+    }
+};
+
 Vehicle::Vehicle( PhysicsWorld* pWorld, RigidBody* pChassis, const VehicleConfig* pConfig )
 {
     m_pWorld = pWorld;
     m_DeathClock = 0;
     m_pChassisRigidBody = pChassis;
     m_Config = *pConfig;
+    m_LastSteering = 0;
+
+    if (IsAircraft())
+    {
+        m_pChassisRigidBody->SetDefaultDamping(0.25f, 0.75f);
+        m_pChassisRigidBody->ApplyDefaultDamping();
+    }
 
     const UINT32 AxleCount = (UINT32)m_Config.Axles.size();
 
     if (AxleCount > 0)
     {
         btRaycastVehicle::btVehicleTuning VehicleTuning;
-        m_pRaycaster = new btDefaultVehicleRaycaster(pWorld->GetInternalWorld());
+        m_pRaycaster = new CustomVehicleRaycaster(pWorld->GetInternalWorld());
         m_pVehicle = new btRaycastVehicle(VehicleTuning, m_pChassisRigidBody->GetInternalRigidBody(), m_pRaycaster);
         m_pChassisRigidBody->DisableDeactivation();
 
@@ -1070,12 +1381,39 @@ void Vehicle::SetGasAndBrake( FLOAT Gas, FLOAT Brake )
             continue;
         }
         SetAxleGasAndBrake( i, TR * Gas, TR * Brake );
+    } 
+
+    if (IsBoat())
+    {
+        const FLOAT ThrustFactor = std::min(1.0f, m_pChassisRigidBody->GetUnderwaterAmount() * 2.0f);
+        if (ThrustFactor > 0)
+        {
+            XMMATRIX matTransform = m_pChassisRigidBody->GetWorldTransform();
+            for (UINT32 i = 0; i < (UINT32)m_Config.WaterThrusters.size(); ++i)
+            {
+                const WaterThrusterConfig* pWT = m_Config.WaterThrusters[i];
+                const FLOAT ThrustForce = pWT->Thrust * ThrustFactor * Gas;
+                FLOAT Steering = -m_LastSteering;
+                if (Gas < 0)
+                {
+                    Steering = 0;
+                }
+                FLOAT XComponent = sinf(Steering * pWT->SteeringMaxAngle) * ThrustForce;
+                FLOAT ZComponent = cosf(Steering * pWT->SteeringMaxAngle) * ThrustForce;
+                XMVECTOR ForceVector = XMVectorSet(XComponent, 0, ZComponent, 0);
+                XMVECTOR LocalPos = XMLoadFloat3(&pWT->LocalPosition);
+                LocalPos = XMVector3TransformNormal(LocalPos, matTransform);
+                ForceVector = XMVector3TransformNormal(ForceVector, matTransform);
+                m_pChassisRigidBody->GetInternalRigidBody()->applyForce(*(btVector3*)&ForceVector, *(btVector3*)&LocalPos);
+            }
+        }
     }
 }
 
 void Vehicle::SetSteering( FLOAT Steering )
 {
     Steering = std::max( std::min( 1.0f, Steering ), -1.0f );
+    m_LastSteering = Steering;
 
     UINT32 AxleCount = (UINT32)m_Config.Axles.size();
     for (UINT32 i = 0; i < AxleCount; ++i)
@@ -1096,6 +1434,66 @@ void Vehicle::SetSteering( FLOAT Steering )
             AxleSteering = -SMax;
         }
         SetAxleSteering( i, AxleSteering );
+    }
+}
+
+void Vehicle::TickFlightControls(FLOAT Collective, FLOAT CyclicForward, FLOAT CyclicSideways, FLOAT Rudder)
+{
+    if (!IsAircraft())
+    {
+        return;
+    }
+
+    const FLOAT ContactAmount = GetGroundContactAmount();
+    const bool IsAirborne = (ContactAmount < 0.5f) && !m_pChassisRigidBody->IsUnderwater();
+    FLOAT CollectiveTarget = 0.0f;
+    if (IsAirborne)
+    {
+        if (Collective < 0)
+        {
+            CollectiveTarget = 0.9f;
+        }
+        else
+        {
+            CollectiveTarget = 1.0f;
+        }
+    }
+    if (Collective > 0)
+    {
+        CollectiveTarget = 1.0f + 0.1f * m_Config.CollectiveMagnitude;
+    }
+
+    assert(m_pChassisRigidBody->IsDynamic());
+    btRigidBody* pIRB = m_pChassisRigidBody->GetInternalRigidBody();
+    const FLOAT Mass = 1.0f / pIRB->getInvMass();
+    const FLOAT Gravity = -pIRB->getGravity().getY();
+    const XMMATRIX matWorld = m_pChassisRigidBody->GetWorldTransform();
+    FLOAT CollectiveForce = Mass * Gravity * CollectiveTarget;
+    XMVECTOR CollectiveForceVector = XMVectorSet(0, CollectiveForce, 0, 0);
+
+    XMVECTOR RotorPos = XMVector3TransformNormal(XMVectorSet(0, 2, 0, 0), matWorld);
+
+    XMVECTOR ForceVector = CollectiveForceVector;
+
+    if (IsAirborne && (CyclicForward != 0 || CyclicSideways != 0))
+    {
+        XMVECTOR CurrentLinearVelocity = m_pChassisRigidBody->GetLinearVelocity();
+        CurrentLinearVelocity = XMVectorSelect(g_XMZero, CurrentLinearVelocity, g_XMSelect1010);
+        XMVECTOR FlatForward = XMVector3Normalize(XMVectorSelect(g_XMZero, matWorld.r[2], g_XMSelect1010));
+        XMVECTOR FlatRight = XMVector3Cross(g_XMIdentityR1, FlatForward);
+        XMVECTOR ForwardVelocity = FlatForward * m_Config.CyclicMagnitude * CyclicForward;
+        XMVECTOR RightVelocity = FlatRight * m_Config.CyclicMagnitude * CyclicSideways;
+        XMVECTOR DesiredLinearVelocity = ForwardVelocity + RightVelocity;
+        XMVECTOR Impulse = (DesiredLinearVelocity - CurrentLinearVelocity) * Mass;
+        m_pChassisRigidBody->ApplyLinearImpulse(Impulse);
+    }
+
+    pIRB->applyForce(*(btVector3*)&ForceVector, *(btVector3*)&RotorPos);
+
+    if (Rudder != 0)
+    {
+        btVector3 rudderTorque(0, Rudder * Mass * Gravity * m_Config.RudderMagnitude, 0);
+        pIRB->applyTorque(rudderTorque);
     }
 }
 
@@ -1147,6 +1545,26 @@ void Vehicle::GetWheelTransform( UINT32 WheelIndex, XMFLOAT4* pOrientation, XMFL
     const btTransform& WT = m_pVehicle->getWheelInfo( WheelIndex ).m_worldTransform;
     *pOrientation = (XMFLOAT4)WT.getRotation();
     *pTranslation = (XMFLOAT3)WT.getOrigin();
+}
+
+FLOAT Vehicle::GetGroundContactAmount() const
+{
+    const UINT32 WheelCount = GetWheelCount();
+    UINT32 ContactWheelCount = 0;
+    for (UINT32 i = 0; i < WheelCount; ++i)
+    {
+        bool IsContact = (m_pVehicle->getWheelInfo(i).m_raycastInfo.m_groundObject != nullptr);
+        if (IsContact)
+        {
+            ++ContactWheelCount;
+        }
+    }
+
+    if (WheelCount > 0)
+    {
+        return (FLOAT)ContactWheelCount / (FLOAT)WheelCount;
+    }
+    return 0;
 }
 
 void Vehicle::EnableDeathClock( bool Enable )

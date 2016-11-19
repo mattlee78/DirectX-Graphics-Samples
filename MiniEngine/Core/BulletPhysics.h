@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
 #include <DirectXMath.h>
@@ -24,6 +25,9 @@ class btTriangleIndexVertexArray;
 class btCollisionObject;
 class btDefaultVehicleRaycaster;
 class btRaycastVehicle;
+struct btBroadphasePair;
+struct btDispatcherInfo;
+struct btVehicleRaycaster;
 
 struct AxleConfig
 {
@@ -126,6 +130,7 @@ public:
     static CollisionShape* CreateCapsule( FLOAT Radius, FLOAT TotalHeight );
     static CollisionShape* CreateConvexHull( const XMFLOAT3* pPositionArray, DWORD PositionCount, DWORD StrideBytes );
 	static CollisionShape* CreateMesh( const XMFLOAT3* pPositionArray, DWORD PositionStrideBytes, DWORD VertexCount, const UINT* pTriangleListIndexArray, DWORD TriangleCount );
+    static CollisionShape* CreateHeightfield(const FLOAT* pHeightArray, UINT32 Width, UINT32 Height, FLOAT MinHeight, FLOAT MaxHeight, FLOAT HeightScale = 1.0f);
 
     btCollisionShape* GetInternalShape() const { return m_pShape; }
     FLOAT GetSweptSphereRadius() const { return m_SweptSphereRadius; }
@@ -191,11 +196,17 @@ protected:
     DWORD m_dwActiveContactPoints;
     CHAR m_strCollisionCallbackName[32];
     UINT32 m_CollisionMask;
+    FLOAT m_IsUnderwater;
+    FLOAT m_BuoyancyFraction;
+    FLOAT m_DefaultLinearDamping;
+    FLOAT m_DefaultAngularDamping;
 
 public:
     RigidBody( CollisionShape* pShape, FLOAT Mass, CXMMATRIX matTransform );
     RigidBody( CollisionShape* pShape, FLOAT Mass, CXMMATRIX matTransform, CXMVECTOR vLocalInertia );
     ~RigidBody();
+
+    static RigidBody* Promote(void* pObject);
 
     XMMATRIX GetWorldTransform() const;
     XMVECTOR GetWorldPosition() const;
@@ -247,6 +258,23 @@ public:
 
     bool ApplyControls2D(FLOAT DeltaTime, FLOAT ForwardSpeed, FLOAT StrafeSpeed, FLOAT YawSpeed, FLOAT MaxSpeed, FLOAT MaxTurnSpeed);
 
+    void SetWaterRigidBody();
+    void GetLocalAABB(XMVECTOR* pAABBMin, XMVECTOR* pAABBMax) const;
+    void GetWorldAABB(XMVECTOR* pAABBMin, XMVECTOR* pAABBMax) const;
+
+    bool IsUnderwater() const { return m_IsUnderwater > 0.0f; }
+    FLOAT GetUnderwaterAmount() const { return m_IsUnderwater; }
+    void AccumulateUnderwater(FLOAT Underwater);
+    void ResetUnderwater();
+    FLOAT GetBuoyancyFraction() const { return m_BuoyancyFraction; }
+    void SetBuoyancyFraction(FLOAT Fraction);
+    void SetDefaultDamping(FLOAT Linear, FLOAT Angular)
+    {
+        m_DefaultLinearDamping = Linear;
+        m_DefaultAngularDamping = Angular;
+    }
+    void ApplyDefaultDamping();
+
 protected:
     VOID Initialize( CollisionShape* pShape, FLOAT Mass, CXMMATRIX matTransform, CXMVECTOR vLocalInertia );
     VOID ClearContactPoints();
@@ -275,11 +303,13 @@ class Vehicle
 private:
     PhysicsWorld* m_pWorld;
     btRaycastVehicle* m_pVehicle;
-    btDefaultVehicleRaycaster* m_pRaycaster;
+    btVehicleRaycaster* m_pRaycaster;
     RigidBody* m_pChassisRigidBody;
     FLOAT m_EngineForce;
     FLOAT m_BrakingForce;
     FLOAT m_DeathClock;
+
+    FLOAT m_LastSteering;
 
     VehicleConfig m_Config;
 
@@ -292,9 +322,17 @@ public:
     FLOAT GetSpeedKmHour() const;
     FLOAT GetSpeedMSec() const { return GetSpeedKmHour() * 0.27777777f; }
 
+    bool IsAircraft() const { return m_Config.CollectiveMagnitude > 0; }
+    void TickFlightControls(FLOAT Collective, FLOAT CyclicForward, FLOAT CyclicSideways, FLOAT Rudder);
+
     UINT32 GetWheelCount() const;
     XMMATRIX GetWheelTransform( UINT32 WheelIndex );
     void GetWheelTransform( UINT32 WheelIndex, XMFLOAT4* pOrientation, XMFLOAT3* pTranslation );
+    FLOAT GetGroundContactAmount() const;
+    bool IsInGroundContact() const { return GetGroundContactAmount() > 0; }
+
+    bool IsBoat() const { return m_Config.WaterThrusters.size() > 0; }
+    bool IsActiveBoat() const { return IsBoat() && m_pChassisRigidBody->IsUnderwater(); }
 
     void EnableDeathClock( bool Enable );
     bool Tick( FLOAT DeltaTime, bool Occupied );
@@ -324,6 +362,9 @@ protected:
 
     FLOAT m_Speed;
 
+    typedef std::unordered_map<RigidBody*, UINT8> FloatingCornerMaskMap;
+    FloatingCornerMaskMap m_FloatingCorners;
+
 public:
     PhysicsWorld();
     ~PhysicsWorld();
@@ -351,8 +392,13 @@ public:
     XMVECTOR ShootRay( RigidBody* pRigidBody, CXMVECTOR Ray, BOOL* pHit );
     XMVECTOR ShootRay( CXMVECTOR Origin, CXMVECTOR Ray, BOOL* pHit, RigidBody** ppHitRigidBody );
 
+    UINT8 GetFloatingCornerMask(RigidBody* pRB) const;
+    void SetFloatingCornerMask(RigidBody* pRB, UINT8 Mask);
+
 protected:
     static VOID SimulationTickCallback( btDynamicsWorld* pDynamicsWorld, FLOAT timeStep );
+    static VOID NearCollisionCallback(btBroadphasePair& collisionPair, btCollisionDispatcher& dispatcher, btDispatcherInfo& dispatchInfo);
+    static void ApplyBuoyancyForce(RigidBody* pWaterRB, RigidBody* pOtherRB);
     VOID ClearContactPoints();
     VOID ReportContactPoints();
 };
