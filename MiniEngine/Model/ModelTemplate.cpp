@@ -65,6 +65,7 @@ STRUCT_TEMPLATE_END(ModelShapeData)
 STRUCT_TEMPLATE_START_INLINE(ModelRigidBodyDesc, nullptr, nullptr)
 MEMBER_FLOAT(Mass)
 MEMBER_STRUCT_VALUE(Shape, ModelShapeData)
+MEMBER_BOOL(IsWater)
 MEMBER_STRUCT_POINTER(VehicleConfig, VehicleConfig)
 STRUCT_TEMPLATE_END(ModelRigidBodyDesc)
 
@@ -177,15 +178,130 @@ bool ModelTemplate::CreateDefaultTemplate(const CHAR* strName, bool GraphicsEnab
         pModel = new Model();
     }
 
-    if (_stricmp(strName, "cube") == 0)
+    if (strstr(strName, "cube") == strName)
     {
-        Vector3 HalfDimensions(1.0f, 1.0f, 1.0f);
+        FLOAT Size = 1.0f;
+        int Count = sscanf_s(strName + 4, "%f", &Size);
+        if (Count == 0)
+        {
+            Size = 1.0f;
+        }
+        if (Size < 0.0f)
+        {
+            Size = 0.0f;
+        }
+        Vector3 HalfDimensions(Size, Size, Size);
         pMD->pRigidBody->Shape.ShapeType = ModelShapeType_AABB;
         XMStoreFloat3(&pMD->pRigidBody->Shape.AABBShape().HalfSize, HalfDimensions);
         pMD->pRigidBody->Mass = 1.0f;
         if (GraphicsEnabled)
         {
-            ModelSuccess = pModel->CreateCube(HalfDimensions);
+            ModelSuccess = pModel->CreateCube(HalfDimensions, false);
+        }
+    }
+    else if (strstr(strName, "staticcube") == strName)
+    {
+        FLOAT Size = 1.0f;
+        int Count = sscanf_s(strName + 10, "%f", &Size);
+        if (Count == 0)
+        {
+            Size = 1.0f;
+        }
+        if (Size < 0.0f)
+        {
+            Size = 0.0f;
+        }
+        Vector3 HalfDimensions(Size, Size, Size);
+        pMD->pRigidBody->Shape.ShapeType = ModelShapeType_AABB;
+        XMStoreFloat3(&pMD->pRigidBody->Shape.AABBShape().HalfSize, HalfDimensions);
+        pMD->pRigidBody->Mass = 0.0f;
+        if (GraphicsEnabled)
+        {
+            ModelSuccess = pModel->CreateCube(HalfDimensions, false);
+        }
+    }
+    else if (strstr(strName, "box") == strName)
+    {
+        FLOAT SizeX = 1.0f;
+        FLOAT SizeY = 1.0f;
+        FLOAT SizeZ = 1.0f;
+        int Count = sscanf_s(strName + 3, "%f:%f:%f", &SizeX, &SizeY, &SizeZ);
+        if (SizeX < 0.0f)
+        {
+            SizeX = 0.0f;
+        }
+        if (SizeY < 0.0f)
+        {
+            SizeY = 0.0f;
+        }
+        if (SizeZ < 0.0f)
+        {
+            SizeZ = 0.0f;
+        }
+        Vector3 HalfDimensions(SizeX, SizeY, SizeZ);
+        pMD->pRigidBody->Shape.ShapeType = ModelShapeType_AABB;
+        XMStoreFloat3(&pMD->pRigidBody->Shape.AABBShape().HalfSize, HalfDimensions);
+        pMD->pRigidBody->Mass = 1.0f;
+        if (GraphicsEnabled)
+        {
+            ModelSuccess = pModel->CreateCube(HalfDimensions, true);
+        }
+    }
+    else if (strstr(strName, "staticbox") == strName)
+    {
+        FLOAT SizeX = 1.0f;
+        FLOAT SizeY = 1.0f;
+        FLOAT SizeZ = 1.0f;
+        int Count = sscanf_s(strName + 9, "%f:%f:%f", &SizeX, &SizeY, &SizeZ);
+        if (SizeX < 0.0f)
+        {
+            SizeX = 0.0f;
+        }
+        if (SizeY < 0.0f)
+        {
+            SizeY = 0.0f;
+        }
+        if (SizeZ < 0.0f)
+        {
+            SizeZ = 0.0f;
+        }
+        Vector3 HalfDimensions(SizeX, SizeY, SizeZ);
+        pMD->pRigidBody->Shape.ShapeType = ModelShapeType_AABB;
+        XMStoreFloat3(&pMD->pRigidBody->Shape.AABBShape().HalfSize, HalfDimensions);
+        pMD->pRigidBody->Mass = 0.0f;
+        if (GraphicsEnabled)
+        {
+            ModelSuccess = pModel->CreateCube(HalfDimensions, true);
+        }
+    }
+    else if (strstr(strName, "waterbox") == strName)
+    {
+        FLOAT SizeX = 1.0f;
+        FLOAT SizeY = 1.0f;
+        FLOAT SizeZ = 1.0f;
+        int Count = sscanf_s(strName + 8, "%f:%f:%f", &SizeX, &SizeY, &SizeZ);
+        if (SizeX < 0.0f)
+        {
+            SizeX = 0.0f;
+        }
+        if (SizeY < 0.0f)
+        {
+            SizeY = 0.0f;
+        }
+        if (SizeZ < 0.0f)
+        {
+            SizeZ = 0.0f;
+        }
+        Vector3 HalfDimensions(SizeX, SizeY, SizeZ);
+        pMD->pRigidBody->Shape.ShapeType = ModelShapeType_AABB;
+        XMStoreFloat3(&pMD->pRigidBody->Shape.AABBShape().HalfSize, HalfDimensions);
+        pMD->pRigidBody->Mass = 0.0f;
+        pMD->pRigidBody->IsWater = TRUE;
+        if (pModel != nullptr)
+        {
+            delete pModel;
+            pModel = nullptr;
+            ModelSuccess = true;
         }
     }
     else if (_stricmp(strName, "plane") == 0)

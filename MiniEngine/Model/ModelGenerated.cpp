@@ -93,57 +93,73 @@ inline void FillVector3(XMFLOAT3* pDest, size_t StrideBytes, uint32_t Count, con
     }
 }
 
-bool Model::CreateCube(Vector3 HalfDimensions)
+bool Model::CreateCube(Vector3 HalfDimensions, bool UVScaled)
 {
     CreateCommon(6 * 4, 6 * 6);
+
+    FLOAT UVScaleX = 1.0f;
+    FLOAT UVScaleY = 1.0f;
+    FLOAT UVScaleZ = 1.0f;
+    if (UVScaled)
+    {
+        UVScaleX = HalfDimensions.GetX() * 2.0f;
+        UVScaleY = HalfDimensions.GetY() * 2.0f;
+        UVScaleZ = HalfDimensions.GetZ() * 2.0f;
+    }
 
     MeshVertex* pVerts = (MeshVertex*)m_pVertexData;
     USHORT* pIndices = (USHORT*)m_pIndexData;
 
-    pVerts[ 0].Position = XMFLOAT3(0, 0, 0); pVerts[ 0].TexCoord0 = XMFLOAT2(0, 1);
+    // XY -Z
+    pVerts[ 0].Position = XMFLOAT3(0, 0, 0); pVerts[ 0].TexCoord0 = XMFLOAT2(0, UVScaleY);
     pVerts[ 1].Position = XMFLOAT3(0, 1, 0); pVerts[ 1].TexCoord0 = XMFLOAT2(0, 0);
-    pVerts[ 2].Position = XMFLOAT3(1, 1, 0); pVerts[ 2].TexCoord0 = XMFLOAT2(1, 0);
-    pVerts[ 3].Position = XMFLOAT3(1, 0, 0); pVerts[ 3].TexCoord0 = XMFLOAT2(1, 1);
+    pVerts[ 2].Position = XMFLOAT3(1, 1, 0); pVerts[ 2].TexCoord0 = XMFLOAT2(UVScaleX, 0);
+    pVerts[ 3].Position = XMFLOAT3(1, 0, 0); pVerts[ 3].TexCoord0 = XMFLOAT2(UVScaleX, UVScaleY);
     FillVector3(&pVerts[0].Normal,    sizeof(MeshVertex), 4, XMFLOAT3(0, 0, -1));
     FillVector3(&pVerts[0].Tangent,   sizeof(MeshVertex), 4, XMFLOAT3(1, 0, 0));
     FillVector3(&pVerts[0].Bitangent, sizeof(MeshVertex), 4, XMFLOAT3(0, -1, 0));
 
-    pVerts[ 4].Position = XMFLOAT3(1, 0, 1); pVerts[ 4].TexCoord0 = XMFLOAT2(0, 1);
+    // XY +Z
+    pVerts[ 4].Position = XMFLOAT3(1, 0, 1); pVerts[ 4].TexCoord0 = XMFLOAT2(0, UVScaleY);
     pVerts[ 5].Position = XMFLOAT3(1, 1, 1); pVerts[ 5].TexCoord0 = XMFLOAT2(0, 0);
-    pVerts[ 6].Position = XMFLOAT3(0, 1, 1); pVerts[ 6].TexCoord0 = XMFLOAT2(1, 0);
-    pVerts[ 7].Position = XMFLOAT3(0, 0, 1); pVerts[ 7].TexCoord0 = XMFLOAT2(1, 1);
+    pVerts[ 6].Position = XMFLOAT3(0, 1, 1); pVerts[ 6].TexCoord0 = XMFLOAT2(UVScaleX, 0);
+    pVerts[ 7].Position = XMFLOAT3(0, 0, 1); pVerts[ 7].TexCoord0 = XMFLOAT2(UVScaleX, UVScaleY);
     FillVector3(&pVerts[4].Normal,    sizeof(MeshVertex), 4, XMFLOAT3(0, 0, 1));
     FillVector3(&pVerts[4].Tangent,   sizeof(MeshVertex), 4, XMFLOAT3(-1, 0, 0));
     FillVector3(&pVerts[4].Bitangent, sizeof(MeshVertex), 4, XMFLOAT3(0, -1, 0));
 
-    pVerts[ 8].Position = XMFLOAT3(0, 0, 1); pVerts[ 8].TexCoord0 = XMFLOAT2(0, 1);
+    // YZ -X
+    pVerts[ 8].Position = XMFLOAT3(0, 0, 1); pVerts[ 8].TexCoord0 = XMFLOAT2(0, UVScaleY);
     pVerts[ 9].Position = XMFLOAT3(0, 1, 1); pVerts[ 9].TexCoord0 = XMFLOAT2(0, 0);
-    pVerts[10].Position = XMFLOAT3(0, 1, 0); pVerts[10].TexCoord0 = XMFLOAT2(1, 0);
-    pVerts[11].Position = XMFLOAT3(0, 0, 0); pVerts[11].TexCoord0 = XMFLOAT2(1, 1);
+    pVerts[10].Position = XMFLOAT3(0, 1, 0); pVerts[10].TexCoord0 = XMFLOAT2(UVScaleZ, 0);
+    pVerts[11].Position = XMFLOAT3(0, 0, 0); pVerts[11].TexCoord0 = XMFLOAT2(UVScaleZ, UVScaleY);
     FillVector3(&pVerts[8].Normal,    sizeof(MeshVertex), 4, XMFLOAT3(-1, 0, 0));
     FillVector3(&pVerts[8].Tangent,   sizeof(MeshVertex), 4, XMFLOAT3(0, 0, -1));
     FillVector3(&pVerts[8].Bitangent, sizeof(MeshVertex), 4, XMFLOAT3(0, -1, 0));
 
-    pVerts[12].Position = XMFLOAT3(1, 0, 0); pVerts[12].TexCoord0 = XMFLOAT2(0, 1);
+    // YZ +X
+    pVerts[12].Position = XMFLOAT3(1, 0, 0); pVerts[12].TexCoord0 = XMFLOAT2(0, UVScaleY);
     pVerts[13].Position = XMFLOAT3(1, 1, 0); pVerts[13].TexCoord0 = XMFLOAT2(0, 0);
-    pVerts[14].Position = XMFLOAT3(1, 1, 1); pVerts[14].TexCoord0 = XMFLOAT2(1, 0);
-    pVerts[15].Position = XMFLOAT3(1, 0, 1); pVerts[15].TexCoord0 = XMFLOAT2(1, 1);
+    pVerts[14].Position = XMFLOAT3(1, 1, 1); pVerts[14].TexCoord0 = XMFLOAT2(UVScaleZ, 0);
+    pVerts[15].Position = XMFLOAT3(1, 0, 1); pVerts[15].TexCoord0 = XMFLOAT2(UVScaleZ, UVScaleY);
     FillVector3(&pVerts[12].Normal,    sizeof(MeshVertex), 4, XMFLOAT3(1, 0, 0));
     FillVector3(&pVerts[12].Tangent,   sizeof(MeshVertex), 4, XMFLOAT3(0, 0, 1));
     FillVector3(&pVerts[12].Bitangent, sizeof(MeshVertex), 4, XMFLOAT3(0, -1, 0));
 
-    pVerts[16].Position = XMFLOAT3(0, 1, 0); pVerts[16].TexCoord0 = XMFLOAT2(0, 1);
+    // XZ +Y
+    pVerts[16].Position = XMFLOAT3(0, 1, 0); pVerts[16].TexCoord0 = XMFLOAT2(0, UVScaleZ);
     pVerts[17].Position = XMFLOAT3(0, 1, 1); pVerts[17].TexCoord0 = XMFLOAT2(0, 0);
-    pVerts[18].Position = XMFLOAT3(1, 1, 1); pVerts[18].TexCoord0 = XMFLOAT2(1, 0);
-    pVerts[19].Position = XMFLOAT3(1, 1, 0); pVerts[19].TexCoord0 = XMFLOAT2(1, 1);
+    pVerts[18].Position = XMFLOAT3(1, 1, 1); pVerts[18].TexCoord0 = XMFLOAT2(UVScaleX, 0);
+    pVerts[19].Position = XMFLOAT3(1, 1, 0); pVerts[19].TexCoord0 = XMFLOAT2(UVScaleX, UVScaleZ);
     FillVector3(&pVerts[16].Normal,    sizeof(MeshVertex), 4, XMFLOAT3(0, 1, 0));
     FillVector3(&pVerts[16].Tangent,   sizeof(MeshVertex), 4, XMFLOAT3(1, 0, 0));
     FillVector3(&pVerts[16].Bitangent, sizeof(MeshVertex), 4, XMFLOAT3(0, 0, -1));
 
-    pVerts[20].Position = XMFLOAT3(1, 0, 0); pVerts[20].TexCoord0 = XMFLOAT2(0, 1);
+    // XZ -Y
+    pVerts[20].Position = XMFLOAT3(1, 0, 0); pVerts[20].TexCoord0 = XMFLOAT2(0, UVScaleZ);
     pVerts[21].Position = XMFLOAT3(1, 0, 1); pVerts[21].TexCoord0 = XMFLOAT2(0, 0);
-    pVerts[22].Position = XMFLOAT3(0, 0, 1); pVerts[22].TexCoord0 = XMFLOAT2(1, 0);
-    pVerts[23].Position = XMFLOAT3(0, 0, 0); pVerts[23].TexCoord0 = XMFLOAT2(1, 1);
+    pVerts[22].Position = XMFLOAT3(0, 0, 1); pVerts[22].TexCoord0 = XMFLOAT2(UVScaleX, 0);
+    pVerts[23].Position = XMFLOAT3(0, 0, 0); pVerts[23].TexCoord0 = XMFLOAT2(UVScaleX, UVScaleZ);
     FillVector3(&pVerts[20].Normal,    sizeof(MeshVertex), 4, XMFLOAT3(0, -1, 0));
     FillVector3(&pVerts[20].Tangent,   sizeof(MeshVertex), 4, XMFLOAT3(-1, 0, 0));
     FillVector3(&pVerts[20].Bitangent, sizeof(MeshVertex), 4, XMFLOAT3(0, 0, -1));
