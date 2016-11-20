@@ -46,6 +46,10 @@ bool ModelInstance::Initialize(World* pWorld, ModelTemplate* pTemplate, bool Gra
         }
         m_pRigidBody = new RigidBody(m_pCollisionShape, Mass, GetWorldTransform());
         pWorld->GetPhysicsWorld()->AddRigidBody(m_pRigidBody);
+        if (pTemplate->GetRigidBodyDesc()->IsWater)
+        {
+            m_pRigidBody->SetWaterRigidBody();
+        }
 
         const ModelRigidBodyDesc* pRBDesc = pTemplate->GetRigidBodyDesc();
         assert(pRBDesc != nullptr);

@@ -54,6 +54,20 @@ struct DecomposedTransform
         return dt;
     }
 
+    static DecomposedTransform CreateFromComponents(XMFLOAT3 InPosition, FLOAT RotationPitch, FLOAT RotationYaw, FLOAT InScale = 1.0f)
+    {
+        DecomposedTransform dt;
+        dt.PositionScale.x = InPosition.x;
+        dt.PositionScale.y = InPosition.y;
+        dt.PositionScale.z = InPosition.z;
+        dt.PositionScale.w = InScale;
+
+        XMVECTOR qRotation = XMQuaternionRotationRollPitchYaw(RotationPitch, RotationYaw, 0.0f);
+        XMStoreFloat4(&dt.Orientation, qRotation);
+
+        return dt;
+    }
+
     Math::Matrix4 GetMatrix() const
     {
         Math::Matrix4 m;

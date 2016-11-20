@@ -44,7 +44,7 @@ public:
 	bool Load(const char *filename);
 	bool Save(const char *filename) const;
 
-    bool CreateCube(Vector3 HalfDimensions);
+    bool CreateCube(Vector3 HalfDimensions, bool UVScaled);
     bool CreateXZPlane(Vector3 HalfDimensions, Vector3 UVRepeat = Vector3(1, 1, 0));
 
 	struct BoundingBox

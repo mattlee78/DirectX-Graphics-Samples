@@ -94,6 +94,7 @@ struct ModelRigidBodyDesc
 {
     FLOAT Mass;
     ModelShapeData Shape;
+    BOOL IsWater;
     VehicleConfig* pVehicleConfig;
 };
 STRUCT_TEMPLATE_EXTERNAL(ModelRigidBodyDesc);
