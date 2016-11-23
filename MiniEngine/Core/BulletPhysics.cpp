@@ -800,43 +800,46 @@ void PhysicsWorld::Initialize(DWORD Flags, XMVECTOR vGravity)
 
 PhysicsWorld::~PhysicsWorld()
 {
-    INT Count = m_pDynamicsWorld->getNumCollisionObjects();
-    for( INT i = ( Count - 1 ); i >= 0; --i )
+    if (m_pDynamicsWorld != nullptr)
     {
-        btCollisionObject* pObj = m_pDynamicsWorld->getCollisionObjectArray()[ i ];
-        btRigidBody* pRB = btRigidBody::upcast( pObj );
-        RigidBody* pRigidBody = (RigidBody*)pRB->getUserPointer();
-        RemoveRigidBody( pRigidBody );
-    }
-
-    Count = m_pDynamicsWorld->getNumConstraints();
-    for( INT i = ( Count - 1 ); i >= 0; --i )
-    {
-        btTypedConstraint* pObj = m_pDynamicsWorld->getConstraint( i );
-        Constraint* pConstraint = (Constraint*)pObj->getUserConstraintPtr();
-        RemoveConstraint( pConstraint );
-    }
-
-    {
-        PhysicsObjectSet::iterator iter = m_OwnedObjects.begin();
-        PhysicsObjectSet::iterator end = m_OwnedObjects.end();
-        while( iter != end )
+        INT Count = m_pDynamicsWorld->getNumCollisionObjects();
+        for (INT i = (Count - 1); i >= 0; --i)
         {
-            delete *iter;
-            ++iter;
+            btCollisionObject* pObj = m_pDynamicsWorld->getCollisionObjectArray()[i];
+            btRigidBody* pRB = btRigidBody::upcast(pObj);
+            RigidBody* pRigidBody = (RigidBody*)pRB->getUserPointer();
+            RemoveRigidBody(pRigidBody);
         }
-        m_OwnedObjects.clear();
-    }
 
-    {
-        CollisionShapeSet::iterator iter = m_OwnedShapes.begin();
-        CollisionShapeSet::iterator end = m_OwnedShapes.end();
-        while( iter != end )
+        Count = m_pDynamicsWorld->getNumConstraints();
+        for (INT i = (Count - 1); i >= 0; --i)
         {
-            delete *iter;
-            ++iter;
+            btTypedConstraint* pObj = m_pDynamicsWorld->getConstraint(i);
+            Constraint* pConstraint = (Constraint*)pObj->getUserConstraintPtr();
+            RemoveConstraint(pConstraint);
         }
-        m_OwnedShapes.clear();
+
+        {
+            PhysicsObjectSet::iterator iter = m_OwnedObjects.begin();
+            PhysicsObjectSet::iterator end = m_OwnedObjects.end();
+            while (iter != end)
+            {
+                delete *iter;
+                ++iter;
+            }
+            m_OwnedObjects.clear();
+        }
+
+        {
+            CollisionShapeSet::iterator iter = m_OwnedShapes.begin();
+            CollisionShapeSet::iterator end = m_OwnedShapes.end();
+            while (iter != end)
+            {
+                delete *iter;
+                ++iter;
+            }
+            m_OwnedShapes.clear();
+        }
     }
 
     delete m_pDynamicsWorld;

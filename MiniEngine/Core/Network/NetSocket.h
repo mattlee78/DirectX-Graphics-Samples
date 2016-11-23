@@ -4,17 +4,25 @@
 #include <windows.h>
 #include <assert.h>
 
+static INT g_WinsockInitCount = 0;
+
 inline VOID InitializeWinsock()
 {
     WSADATA wsaData;
     INT32 err = WSAStartup(MAKEWORD(2, 2), &wsaData);
     assert(err == 0);
+    ++g_WinsockInitCount;
 }
 
 inline VOID TerminateWinsock()
 {
-    INT32 err = WSACleanup();
-    assert(err == 0);
+    INT InitCount = --g_WinsockInitCount;
+    assert(InitCount >= 0);
+    if (InitCount == 0)
+    {
+        INT32 err = WSACleanup();
+        assert(err == 0);
+    }
 }
 
 inline VOID FormatAddress( CHAR* strOutput, SIZE_T NumChars, const SOCKADDR_IN& Address )
