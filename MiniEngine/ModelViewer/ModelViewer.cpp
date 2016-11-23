@@ -174,7 +174,7 @@ DecomposedTransform CreateCylinderTransform(UINT32 Index, XMFLOAT3 CenterPos)
 
 void ModelViewer::Startup( void )
 {
-    m_StartServer = false;
+    m_StartServer = true;
     strcpy_s(m_strConnectToServerName, "localhost");
     m_ConnectToPort = 31338;
 
@@ -342,15 +342,7 @@ bool ModelViewer::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument
     bool InvalidArgument = false;
     bool Result = true;
 
-    if (_stricmp(strCommand, "server") == 0)
-    {
-        m_StartServer = true;
-        if (strArgument != nullptr)
-        {
-            InvalidArgument = true;
-        }
-    }
-    else if (_stricmp(strCommand, "port") == 0)
+    if (_stricmp(strCommand, "port") == 0)
     {
         if (strArgument != nullptr)
         {
@@ -371,6 +363,7 @@ bool ModelViewer::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument
         if (strArgument != nullptr)
         {
             strcpy_s(m_strConnectToServerName, strArgument);
+            m_StartServer = false;
         }
     }
     else
@@ -444,7 +437,10 @@ void ModelViewer::Cleanup( void )
         m_NetClient.RequestDisconnect();
     }
 
-    m_NetServer.Stop();
+    if (m_NetServer.IsStarted())
+    {
+        m_NetServer.Stop();
+    }
 
 	delete m_pCameraController;
 	m_pCameraController = nullptr;
@@ -791,6 +787,10 @@ void ModelViewer::RenderUI(class GraphicsContext& Context)
     Text.Begin();
 
     Text.SetCursorY(30);
+    if (!m_NetClient.IsConnected(nullptr))
+    {
+        Text.DrawString("Connecting...");
+    }
     //Text.DrawFormattedString("Debug Vector: %10.3f %10.3f %10.3f", (FLOAT)DebugVector.GetX(), (FLOAT)DebugVector.GetY(), (FLOAT)DebugVector.GetZ());
 
     Text.End();
