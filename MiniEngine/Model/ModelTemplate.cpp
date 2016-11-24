@@ -311,7 +311,7 @@ bool ModelTemplate::CreateDefaultTemplate(const CHAR* strName, bool GraphicsEnab
         pMD->pRigidBody->Mass = 0.0f;
         if (GraphicsEnabled)
         {
-            ModelSuccess = pModel->CreateXZPlane(Vector3(100, 0, 100), Vector3(20, 20, 0));
+            ModelSuccess = pModel->CreateXZPlane(Vector3(1000, 0, 1000), Vector3(200, 200, 0));
             pMD->NoRenderInShadowPass = TRUE;
         }
     }
