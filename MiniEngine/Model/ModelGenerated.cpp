@@ -71,7 +71,7 @@ void Model::CompleteCommon(const WCHAR* strName)
     m_pIndexData = nullptr;
 
     const ManagedTexture* MatTextures[6] = {};
-    MatTextures[0] = TextureManager::LoadFromFile("default", true);
+    MatTextures[0] = TextureManager::LoadFromFile("terraindirt_a", true);
     MatTextures[1] = TextureManager::LoadFromFile("default_specular", true);
     MatTextures[3] = TextureManager::LoadFromFile("default_normal", false);
 

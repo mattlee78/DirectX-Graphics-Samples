@@ -292,22 +292,31 @@ void ModelViewer::Startup( void )
     if (m_NetServer.IsStarted())
     {
         DecomposedTransform DT;
-        m_NetServer.SpawnObject(nullptr, "Models/sponza.h3d", nullptr, DT, XMFLOAT3(0, 0, 0));
+        //m_NetServer.SpawnObject(nullptr, "Models/sponza.h3d", nullptr, DT, XMFLOAT3(0, 0, 0));
 
         const CHAR* strRocks[] =
         {
             "RockLargeA",
             "RockLargeB",
             "RockLargeC",
-            "Models/RockMedium_VarA_LOD0.bmesh",
-            "Models/RockMedium_VarB_LOD0.bmesh",
-            "Models/RockMedium_VarC_LOD0.bmesh",
         };
 
-        for (UINT32 i = 0; i < ARRAYSIZE(strRocks); ++i)
+        Math::RandomNumberGenerator rng;
+        const UINT32 RockCount = 30;
+        for (UINT32 i = 0; i < RockCount; ++i)
         {
-            DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(-200, 0, 100 + 150 * (FLOAT)i));
-            m_NetServer.SpawnObject(nullptr, strRocks[i], nullptr, DT, XMFLOAT3(0, 0, 0));
+            FLOAT Radius = rng.NextFloat(300, 500);
+            FLOAT Angle = XM_2PI * (FLOAT)i / (FLOAT)RockCount;
+            XMFLOAT3 Position;
+            Position.x = Radius * sinf(Angle);
+            Position.y = 0;
+            Position.z = Radius * cosf(Angle);
+            XMFLOAT4 Orientation;
+            XMStoreFloat4(&Orientation, XMQuaternionRotationRollPitchYaw(0, Angle, 0));
+            DT = DecomposedTransform::CreateFromComponents(Position, Orientation);
+
+            UINT32 RockIndex = rng.NextInt(0, ARRAYSIZE(strRocks) - 1);
+            m_NetServer.SpawnObject(nullptr, strRocks[RockIndex], nullptr, DT, XMFLOAT3(0, 0, 0));
         }
 
         DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(200, 0, 100));
