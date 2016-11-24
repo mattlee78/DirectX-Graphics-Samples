@@ -7,6 +7,11 @@ using namespace Graphics;
 
 ModelInstance::~ModelInstance()
 {
+    if (m_pVehicle != nullptr)
+    {
+        delete m_pVehicle;
+        m_pVehicle = nullptr;
+    }
     if (m_pRigidBody != nullptr)
     {
         m_pRigidBody->GetPhysicsWorld()->RemoveRigidBody(m_pRigidBody);
@@ -379,9 +384,10 @@ void ModelInstance::ServerProcessInput(const NetworkInputState& InputState, FLOA
     }
 }
 
-void World::Initialize(bool GraphicsEnabled)
+void World::Initialize(bool GraphicsEnabled, IWorldNotifications* pNotify)
 {
     m_GraphicsEnabled = GraphicsEnabled;
+    m_pNotify = pNotify;
     m_PhysicsWorld.Initialize(0, XMVectorSet(0, -9.8f, 0, 0));
 }
 
@@ -398,6 +404,10 @@ void World::Tick(float deltaT, INT64 Ticks)
         if (!StillAlive)
         {
             m_ModelInstances.erase(iter);
+            if (m_pNotify != nullptr)
+            {
+                m_pNotify->ModelInstanceDeleted(pMI);
+            }
             delete pMI;
         }
         iter = nextiter;

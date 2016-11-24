@@ -473,6 +473,11 @@ void ModelViewer::RemoteObjectDeleted(ModelInstance* pModelInstance)
             m_pInputRemoting->ClientSetTargetNodeID(0);
         }
     }
+
+    if (m_ClientObjectsCreated && m_ControllableModelInstances.empty())
+    {
+        m_ClientObjectsCreated = false;
+    }
 }
 
 namespace Graphics
@@ -581,6 +586,16 @@ void ModelViewer::Update( float deltaT )
         {
             DecomposedTransform DT = CreateCylinderTransform(i, CenterPos);
             m_PlacedModelInstances[i]->SetWorldTransform(DT.GetMatrix());
+        }
+    }
+
+    if (GameInput::IsFirstPressed(GameInput::kKey_k))
+    {
+        if (!m_ControllableModelInstances.empty())
+        {
+            auto iter = m_ControllableModelInstances.begin();
+            ModelInstance* pFirstMI = *iter;
+            m_NetClient.DestroyObjectOnServer(pFirstMI->GetNodeID());
         }
     }
 

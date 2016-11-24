@@ -161,6 +161,12 @@ private:
 typedef std::unordered_map<UINT32, ModelInstance*> ModelInstanceMap;
 typedef std::unordered_set<ModelInstance*> ModelInstanceSet;
 
+interface IWorldNotifications
+{
+public:
+    virtual void ModelInstanceDeleted(ModelInstance* pMI) = 0;
+};
+
 class World
 {
 private:
@@ -170,10 +176,12 @@ private:
 
     ModelTemplateMap m_ModelTemplates;
 
+    IWorldNotifications* m_pNotify;
+
 public:
     virtual ~World();
 
-    void Initialize(bool GraphicsEnabled = true);
+    void Initialize(bool GraphicsEnabled, IWorldNotifications* pNotify);
     void Tick(float deltaT, INT64 Ticks);
     void Render(ModelRenderContext& MRC);
 
