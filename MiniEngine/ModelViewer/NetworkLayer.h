@@ -19,7 +19,7 @@ enum class GameReliableMessageType
 
 struct RMsg_SpawnObject
 {
-    CHAR strTemplateName[32];
+    CHAR strTemplateName[48];
     CHAR strObjectName[32];
     UINT32 ParentObjectID;
     DecomposedTransform Transform;

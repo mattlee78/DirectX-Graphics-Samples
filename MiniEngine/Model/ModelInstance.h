@@ -100,6 +100,7 @@ private:
     friend class World;
 
     DirectX::XMFLOAT4X4 m_WorldTransform;
+    DirectX::XMFLOAT4X4 m_ScaledWorldTransform;
 
     bool m_RenderInShadowPass : 1;
 
@@ -143,6 +144,7 @@ public:
 
     void SetWorldTransform(const Math::Matrix4& Transform);
     Math::Matrix4 GetWorldTransform() const { return Math::Matrix4(XMLoadFloat4x4(&m_WorldTransform)); }
+    Math::Matrix4 GetScaledWorldTransform() const { return Math::Matrix4(XMLoadFloat4x4(&m_ScaledWorldTransform)); }
     Math::Vector3 GetWorldPosition() const { return Math::Vector3(XMLoadFloat3((XMFLOAT3*)&m_WorldTransform._41)); }
 
     bool PrePhysicsUpdate(float deltaT, INT64 ClientTicks);
