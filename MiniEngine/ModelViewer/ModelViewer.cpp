@@ -294,6 +294,22 @@ void ModelViewer::Startup( void )
         DecomposedTransform DT;
         m_NetServer.SpawnObject(nullptr, "Models/sponza.h3d", nullptr, DT, XMFLOAT3(0, 0, 0));
 
+        const CHAR* strRocks[] =
+        {
+            "RockLargeA",
+            "RockLargeB",
+            "RockLargeC",
+            "Models/RockMedium_VarA_LOD0.bmesh",
+            "Models/RockMedium_VarB_LOD0.bmesh",
+            "Models/RockMedium_VarC_LOD0.bmesh",
+        };
+
+        for (UINT32 i = 0; i < ARRAYSIZE(strRocks); ++i)
+        {
+            DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(-200, 0, 100 + 150 * (FLOAT)i));
+            m_NetServer.SpawnObject(nullptr, strRocks[i], nullptr, DT, XMFLOAT3(0, 0, 0));
+        }
+
         DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(200, 0, 100));
         m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
         m_NetServer.SpawnObject(nullptr, "ramp1", nullptr, DT, XMFLOAT3(0, 0, 0));

@@ -199,6 +199,7 @@ bool ModelInstance::PrePhysicsUpdate(float deltaT, INT64 ClientTicks)
         assert(ClientTicks != 0);
         const Matrix4 matWorld = GetNetworkMatrix(ClientTicks);
         SetWorldTransform(matWorld);
+        XMStoreFloat4x4(&m_ScaledWorldTransform, GetNetworkMatrix(ClientTicks, true));
         for (UINT32 i = 0; i < m_WheelCount; ++i)
         {
             WheelData& WD = m_pWheelData[i];
@@ -342,7 +343,7 @@ void ModelInstance::Render(ModelRenderContext& MRC) const
         return;
     }
 
-    Matrix4 WorldTransform = GetWorldTransform();
+    Matrix4 WorldTransform = GetScaledWorldTransform();
     Matrix4 RenderOffset(AffineTransform(m_pTemplate->GetRenderOffset()));
     Matrix4 RenderTransform = WorldTransform * RenderOffset;
     RenderModel(MRC, m_pModel, RenderTransform);
