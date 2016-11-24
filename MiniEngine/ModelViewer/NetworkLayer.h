@@ -14,6 +14,7 @@ enum class GameReliableMessageType
     SpawnObject = (INT)ReliableMessageType::FirstImplReliableMessage,
     AssignClientObjectIDs,
     RequestMoreClientObjectIDs,
+    DestroyObject,
 };
 
 struct RMsg_SpawnObject
@@ -30,6 +31,11 @@ struct RMsg_AssignClientObjectIDs
     UINT m_ConnectionBaseID;
     UINT m_FirstObjectID;
     UINT m_ObjectIDCount;
+};
+
+struct RMsg_DestroyObject
+{
+    UINT32 ObjectID;
 };
 
 class SystemNetworkObject : public INetworkObject
@@ -55,6 +61,7 @@ public:
     ConnectedClient* GetClient() const { return m_pClient; }
 
     virtual void ServerTick(GameNetServer* pServer, FLOAT DeltaTime, DOUBLE AbsoluteTime) {}
+    virtual void NetworkObjectDeleted(INetworkObject* pNO) {}
 };
 
 class IClientNotifications
@@ -82,6 +89,7 @@ public:
     bool SpawnObjectOnServer(const CHAR* strTemplateName, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, const XMFLOAT3& LinearImpulse);
     INetworkObject* SpawnObjectOnClient(const CHAR* strTemplateName);
     INetworkObject* SpawnObjectOnClient(const RMsg_SpawnObject* pMsg);
+    void DestroyObjectOnServer(UINT32 ObjectID);
 
 private:
     virtual VOID InitializeClient();
@@ -92,7 +100,7 @@ private:
     virtual BOOL HandleReliableMessage(VOID* pSenderContext, const UINT Opcode, const UINT UniqueIndex, const BYTE* pPayload, const UINT PayloadSizeBytes);
 };
 
-class GameNetServer : public NetServerBase
+class GameNetServer : public NetServerBase, IWorldNotifications
 {
 private:
     World m_World;
@@ -105,6 +113,7 @@ public:
     INetworkObject* SpawnObject(ConnectedClient* pClient, const RMsg_SpawnObject* pMsg);
     World* GetWorld() { return &m_World; }
     ModelInstance* FindModelInstance(UINT32 NodeID);
+    virtual void ModelInstanceDeleted(ModelInstance* pMI);
 
 private:
     virtual VOID InitializeServer();
@@ -165,4 +174,5 @@ public:
     UINT32 ClientGetTargetNodeID() const { return m_TargetNodeID.GetCurrentValue(); }
 
     void ServerTick(GameNetServer* pServer, FLOAT DeltaTime, DOUBLE AbsoluteTime);
+    void NetworkObjectDeleted(INetworkObject* pNO);
 };

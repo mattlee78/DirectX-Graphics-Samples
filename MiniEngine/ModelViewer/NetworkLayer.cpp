@@ -10,7 +10,7 @@ GameNetClient::GameNetClient()
 
 VOID GameNetClient::InitializeClient()
 {
-    m_World.Initialize();
+    m_World.Initialize(true, nullptr);
 }
 
 INetworkObject* GameNetClient::CreateRemoteObject(INetworkObject* pParentObject, UINT ID, const VOID* pCreationData, SIZE_T CreationDataSizeBytes)
@@ -50,11 +50,12 @@ INetworkObject* GameNetClient::CreateRemoteObject(INetworkObject* pParentObject,
 
 VOID GameNetClient::DeleteRemoteObject(INetworkObject* pObject)
 {
+    ModelInstance* pMI = (ModelInstance*)pObject;
+    pMI->MarkForDeletion();
     if (m_pNotifications != nullptr)
     {
-        m_pNotifications->RemoteObjectDeleted((ModelInstance*)pObject);
+        m_pNotifications->RemoteObjectDeleted(pMI);
     }
-    delete pObject;
 }
 
 VOID GameNetClient::TickClient(FLOAT DeltaTime, DOUBLE AbsoluteTime, StateSnapshot* pSnapshot, SnapshotSendQueue* pSendQueue)
@@ -105,6 +106,14 @@ bool GameNetClient::SpawnObjectOnServer(const CHAR* strTemplateName, const CHAR*
     m_SendQueue.QueueReliableMessage((UINT)GameReliableMessageType::SpawnObject, &Msg);
 
     return true;
+}
+
+void GameNetClient::DestroyObjectOnServer(UINT32 ObjectID)
+{
+    RMsg_DestroyObject Msg = {};
+    Msg.ObjectID = ObjectID;
+
+    m_SendQueue.QueueReliableMessage((UINT)GameReliableMessageType::DestroyObject, &Msg);
 }
 
 INetworkObject* GameNetClient::SpawnObjectOnClient(const CHAR* strTemplateName)
@@ -166,7 +175,7 @@ INetworkObject* GameNetClient::SpawnObjectOnClient(const RMsg_SpawnObject* pMsg)
 VOID GameNetServer::InitializeServer()
 {
     m_NextObjectID = 1000;
-    m_World.Initialize(false);
+    m_World.Initialize(false, this);
 }
 
 VOID GameNetServer::TickServer(FLOAT DeltaTime, DOUBLE AbsoluteTime)
@@ -346,6 +355,22 @@ BOOL GameNetServer::HandleReliableMessage(VOID* pSenderContext, const UINT Opcod
             SpawnObject(pClient, (const RMsg_SpawnObject*)pPayload);
         }
         return TRUE;
+    case (UINT)GameReliableMessageType::DestroyObject:
+        if (PayloadSizeBytes >= sizeof(RMsg_DestroyObject) && pPayload != nullptr)
+        {
+            const RMsg_DestroyObject* pMsg = (const RMsg_DestroyObject*)pPayload;
+            ModelInstance* pMI = FindModelInstance(pMsg->ObjectID);
+            StateLinkNode* pLN = m_StateIO.FindNode(pMsg->ObjectID);
+            if (pMI != nullptr && pLN != nullptr && pLN->pParent != nullptr)
+            {
+                StateLinkNode* pParent = pLN->pParent;
+                if (pParent->ID == pClient->m_ConnectionBaseObjectID)
+                {
+                    pMI->MarkForDeletion();
+                }
+            }
+        }
+        return TRUE;
     }
 
     return NetServerBase::HandleReliableMessage(pSenderContext, Opcode, UniqueIndex, pPayload, PayloadSizeBytes);
@@ -359,6 +384,19 @@ ModelInstance* GameNetServer::FindModelInstance(UINT32 NodeID)
         return iter->second;
     }
     return nullptr;
+}
+
+void GameNetServer::ModelInstanceDeleted(ModelInstance* pMI)
+{
+    m_StateIO.DeleteNodeAndChildren(pMI->GetNodeID());
+
+    auto iter = m_SystemObjects.begin();
+    auto end = m_SystemObjects.end();
+    while (iter != end)
+    {
+        SystemNetworkObject* pSNO = *iter++;
+        pSNO->NetworkObjectDeleted(pMI);
+    }
 }
 
 void InputRemotingObject::GetMemberDatas(const MemberDataPosition** ppMemberDatas, UINT* pMemberDataCount) const
@@ -435,4 +473,12 @@ void InputRemotingObject::ServerTick(GameNetServer* pServer, FLOAT DeltaTime, DO
 VOID GameNetServer::ClientConnected(ConnectedClient* pClient)
 {
 
+}
+
+void InputRemotingObject::NetworkObjectDeleted(INetworkObject* pNO)
+{
+    if (m_pTargetModelInstance == pNO)
+    {
+        m_pTargetModelInstance = nullptr;
+    }
 }
