@@ -242,7 +242,7 @@ private:
 	D3D12_CPU_DESCRIPTOR_HANDLE* m_SRVs;
 
     void CreateCommon(uint32_t VertexCount, uint32_t IndexCount);
-    void CompleteCommon(const WCHAR* strName);
+    void CompleteCommon(const WCHAR* strName, const CHAR* strDiffuseTexName);
 };
 
 struct CollisionMesh

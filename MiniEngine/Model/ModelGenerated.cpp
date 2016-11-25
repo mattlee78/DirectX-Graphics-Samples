@@ -52,7 +52,7 @@ void Model::CreateCommon(uint32_t VertexCount, uint32_t IndexCount)
     m_pMesh->materialIndex = 0;
 }
 
-void Model::CompleteCommon(const WCHAR* strName)
+void Model::CompleteCommon(const WCHAR* strName, const CHAR* strDiffuseTexName)
 {
     ComputeMeshBoundingBox(0, m_pMesh->boundingBox);
     ComputeGlobalBoundingBox(m_Header.boundingBox);
@@ -70,8 +70,13 @@ void Model::CompleteCommon(const WCHAR* strName)
     delete[] m_pIndexData;
     m_pIndexData = nullptr;
 
+    if (strDiffuseTexName == nullptr)
+    {
+        strDiffuseTexName = "default";
+    }
+
     const ManagedTexture* MatTextures[6] = {};
-    MatTextures[0] = TextureManager::LoadFromFile("terraindirt_a", true);
+    MatTextures[0] = TextureManager::LoadFromFile(strDiffuseTexName, true);
     MatTextures[1] = TextureManager::LoadFromFile("default_specular", true);
     MatTextures[3] = TextureManager::LoadFromFile("default_normal", false);
 
@@ -183,7 +188,7 @@ bool Model::CreateCube(Vector3 HalfDimensions, bool UVScaled)
 
     memcpy(pIndices, Indices, sizeof(Indices));
 
-    CompleteCommon(L"Cube");
+    CompleteCommon(L"Cube", "detailwood_a");
 
     LoadPostProcess(false);
     return true;
@@ -220,7 +225,7 @@ bool Model::CreateXZPlane(Vector3 HalfDimensions, Vector3 UVRepeat)
 
     memcpy(pIndices, Indices, sizeof(Indices));
 
-    CompleteCommon(L"XZPlane");
+    CompleteCommon(L"XZPlane", "terraindirt_a");
 
     LoadPostProcess(false);
     return true;
