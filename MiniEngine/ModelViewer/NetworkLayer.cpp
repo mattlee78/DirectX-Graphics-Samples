@@ -170,6 +170,11 @@ INetworkObject* GameNetClient::SpawnObjectOnClient(const RMsg_SpawnObject* pMsg)
     return pNO;
 }
 
+void GameNetClient::Terminate()
+{
+    m_World.Terminate();
+}
+
 //--------------------------------------------------------------------------------------------------------
 
 VOID GameNetServer::InitializeServer()
@@ -397,6 +402,11 @@ void GameNetServer::ModelInstanceDeleted(ModelInstance* pMI)
         SystemNetworkObject* pSNO = *iter++;
         pSNO->NetworkObjectDeleted(pMI);
     }
+}
+
+void GameNetServer::Terminate()
+{
+    m_World.Terminate();
 }
 
 void InputRemotingObject::GetMemberDatas(const MemberDataPosition** ppMemberDatas, UINT* pMemberDataCount) const
