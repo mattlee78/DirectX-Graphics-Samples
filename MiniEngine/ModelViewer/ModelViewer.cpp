@@ -465,7 +465,10 @@ void ModelViewer::Cleanup( void )
     if (m_NetServer.IsStarted())
     {
         m_NetServer.Stop();
+        m_NetServer.Terminate();
     }
+
+    m_NetClient.Terminate();
 
 	delete m_pCameraController;
 	m_pCameraController = nullptr;
@@ -522,7 +525,7 @@ void ModelViewer::Update( float deltaT )
         {
             m_ClientObjectsCreated = true;
             DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 3, 100));
-            m_NetClient.SpawnObjectOnServer("Vehicle2", nullptr, DT, XMFLOAT3(0, 0, 0));
+            m_NetClient.SpawnObjectOnServer("Vehicle1", nullptr, DT, XMFLOAT3(0, 0, 0));
         }
 
         if (m_pInputRemoting == nullptr)

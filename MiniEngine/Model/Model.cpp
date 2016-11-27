@@ -64,7 +64,7 @@ Model::~Model()
 
 void Model::Clear()
 {
-	m_VertexBuffer.Destroy();
+    m_VertexBuffer.Destroy();
 	m_IndexBuffer.Destroy();
 	m_VertexBufferDepth.Destroy();
 	m_IndexBufferDepth.Destroy();

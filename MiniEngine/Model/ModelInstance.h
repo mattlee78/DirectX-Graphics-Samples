@@ -184,6 +184,7 @@ public:
     virtual ~World();
 
     void Initialize(bool GraphicsEnabled, IWorldNotifications* pNotify);
+    void Terminate();
     void Tick(float deltaT, INT64 Ticks);
     void Render(ModelRenderContext& MRC);
 

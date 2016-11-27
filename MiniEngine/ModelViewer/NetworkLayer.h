@@ -82,6 +82,7 @@ private:
 
 public:
     GameNetClient();
+    void Terminate();
     void SetNotificationClient(IClientNotifications* pNotifications) { m_pNotifications = pNotifications; }
     World* GetWorld() { return &m_World; }
     UINT GetClientBaseObjectID() const { return m_BaseObjectID; }
@@ -114,6 +115,7 @@ public:
     World* GetWorld() { return &m_World; }
     ModelInstance* FindModelInstance(UINT32 NodeID);
     virtual void ModelInstanceDeleted(ModelInstance* pMI);
+    void Terminate();
 
 private:
     virtual VOID InitializeServer();

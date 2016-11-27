@@ -47,6 +47,18 @@ public:
 
 	D3D12_GPU_VIRTUAL_ADDRESS GetGpuVirtualAddress() const { return m_GpuVirtualAddress; }
 
+    UINT32 GetRefCount()
+    {
+        ID3D12Resource* pR = m_pResource.Get();
+        if (pR != nullptr)
+        {
+            UINT32 Count = pR->AddRef();
+            pR->Release();
+            return Count - 1;
+        }
+        return 0;
+    }
+
 protected:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_pResource;

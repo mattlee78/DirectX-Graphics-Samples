@@ -494,6 +494,11 @@ ModelInstance* World::SpawnModelInstance(ModelTemplate* pTemplate, const CHAR* s
 
 World::~World()
 {
+    Terminate();
+}
+
+void World::Terminate()
+{
     {
         auto iter = m_ModelInstances.begin();
         auto end = m_ModelInstances.end();
