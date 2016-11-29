@@ -44,9 +44,9 @@ namespace GameCore
 }
 
 #if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
-	#define MAIN_FUNCTION()  int wmain(int argc, wchar_t** argv)
+    #define MAIN_FUNCTION() int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR strCmdLine, int CmdShow)
 #else
-	#define MAIN_FUNCTION()  [Platform::MTAThread] int main(Platform::Array<Platform::String^>^)
+    #define MAIN_FUNCTION()  [Platform::MTAThread] int main(Platform::Array<Platform::String^>^)
 #endif
 
 #define CREATE_APPLICATION( app_class ) \
