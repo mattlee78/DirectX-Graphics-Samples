@@ -246,6 +246,11 @@ namespace Graphics
 
 void Graphics::Resize(uint32_t width, uint32_t height)
 {
+    if (width == 0 || height == 0)
+    {
+        return;
+    }
+
 	ASSERT(s_SwapChain1 != nullptr);
 
 	g_CommandManager.IdleGPU();

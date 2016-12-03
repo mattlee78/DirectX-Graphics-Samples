@@ -461,3 +461,47 @@ void LineRender::DrawFrustum(const Math::Frustum& frustum, FXMMATRIX matWorld, F
     pIndices[22] = BaseIndex + 2;
     pIndices[23] = BaseIndex + 6;
 }
+
+void LineRender::DrawFrustum(const DirectX::BoundingFrustum& frustum, FXMMATRIX matWorld, FXMVECTOR Color)
+{
+    USHORT* pIndices = nullptr;
+    LineRenderVertex* pVertices = nullptr;
+    UINT32 BaseIndex = 0;
+    EnsureSpace(8, 24, &pIndices, &pVertices, &BaseIndex);
+
+    XMFLOAT3 Corners[8];
+    frustum.GetCorners(Corners);
+
+    for (UINT32 i = 0; i < 8; ++i)
+    {
+        XMVECTOR Pos = XMLoadFloat3(&Corners[i]);
+        Pos = XMVector3TransformCoord(Pos, matWorld);
+        XMStoreFloat3(&pVertices[i].Position, Pos);
+        XMStoreUByteN4(&pVertices[i].Color, Color);
+    }
+
+    pIndices[0] = BaseIndex + 0;
+    pIndices[1] = BaseIndex + 1;
+    pIndices[2] = BaseIndex + 1;
+    pIndices[3] = BaseIndex + 3;
+    pIndices[4] = BaseIndex + 3;
+    pIndices[5] = BaseIndex + 2;
+    pIndices[6] = BaseIndex + 2;
+    pIndices[7] = BaseIndex + 0;
+    pIndices[8] = BaseIndex + 4;
+    pIndices[9] = BaseIndex + 5;
+    pIndices[10] = BaseIndex + 5;
+    pIndices[11] = BaseIndex + 7;
+    pIndices[12] = BaseIndex + 7;
+    pIndices[13] = BaseIndex + 6;
+    pIndices[14] = BaseIndex + 6;
+    pIndices[15] = BaseIndex + 4;
+    pIndices[16] = BaseIndex + 0;
+    pIndices[17] = BaseIndex + 4;
+    pIndices[18] = BaseIndex + 1;
+    pIndices[19] = BaseIndex + 5;
+    pIndices[20] = BaseIndex + 3;
+    pIndices[21] = BaseIndex + 7;
+    pIndices[22] = BaseIndex + 2;
+    pIndices[23] = BaseIndex + 6;
+}

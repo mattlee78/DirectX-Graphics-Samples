@@ -3,6 +3,7 @@
 #include "pch.h"
 #include "VectorMath.h"
 #include <DirectXPackedVector.h>
+#include <DirectXCollision.h>
 #include "Math\Frustum.h"
 
 using namespace DirectX;
@@ -30,6 +31,7 @@ namespace LineRender
     void DrawGrid(FXMMATRIX matWorld, FXMVECTOR Axis1, FXMVECTOR Axis2, UINT32 DivisionCount1, UINT32 DivisionCount2, CXMVECTOR Color);
     void DrawGridXZ(FXMMATRIX matWorld, FLOAT Size, UINT32 DivisionCount, FXMVECTOR Color);
     void DrawFrustum(const Math::Frustum& frustum, FXMMATRIX matWorld, FXMVECTOR Color);
+    void DrawFrustum(const DirectX::BoundingFrustum& frustum, FXMMATRIX matWorld, FXMVECTOR Color);
 
     void AddLineList(FXMMATRIX matWorld, UINT32 LineCount, const XMFLOAT3* pPositions, const XMFLOAT4* pColors, bool SingleColor = true);
     void AddLineStrip(FXMMATRIX matWorld, UINT32 LineCount, const XMFLOAT3* pPositions, const XMFLOAT4* pColors, bool SingleColor = true);

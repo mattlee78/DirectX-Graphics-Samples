@@ -36,6 +36,7 @@
 #include "ModelInstance.h"
 #include "NetworkLayer.h"
 #include "DataFile.h"
+#include "GridTerrain.h"
 
 #include "CompiledShaders/DepthViewerVS.h"
 #include "CompiledShaders/DepthViewerPS.h"
@@ -120,6 +121,8 @@ private:
     GameNetServer m_NetServer;
     PrintfDebugListener m_ServerDebugListener;
     std::vector<ModelInstance*> m_PlacedModelInstances;
+
+    GridTerrain m_GT;
 
     Vector3 DebugVector;
 };
@@ -360,6 +363,16 @@ void ModelViewer::Startup( void )
             m_NetServer.SpawnObject(nullptr, "*cube1.5", nullptr, DT, XMFLOAT3(0, 0, 0));
         }
     }
+
+    GridTerrainConfig Config = {};
+    Config.pWorld = m_NetClient.GetWorld();
+    Config.pd3dDevice = Graphics::g_Device;
+    Config.SmallestBlockShift = 1;
+    Config.LargestBlockShift = 10;
+    Config.FeaturesBlockShift = 13;
+    Config.BlockVertexShift = 4;
+    Config.BlockViewSpaceWidthThreshold = 0.75f;
+    m_GT.Initialize(&Config);
 }
 
 bool ModelViewer::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument)
@@ -469,6 +482,8 @@ void ModelViewer::Cleanup( void )
     }
 
     m_NetClient.Terminate();
+
+    m_GT.Terminate();
 
 	delete m_pCameraController;
 	m_pCameraController = nullptr;
@@ -643,6 +658,18 @@ void ModelViewer::Update( float deltaT )
     }
 	m_ViewProjMatrix = m_Camera.GetViewProjMatrix();
 
+    if (0)
+    {
+        DirectX::BoundingFrustum BF;
+        DirectX::BoundingFrustum::CreateFromMatrix(BF, m_Camera.GetProjMatrix());
+        XMMATRIX CameraWorld = m_Camera.GetWorldMatrix();
+        GridTerrainUpdate GTU = {};
+        BF.Transform(GTU.TransformedFrustum, CameraWorld);
+        GTU.matVP = m_ViewProjMatrix;
+        GTU.matCameraWorld = CameraWorld;
+        m_GT.Update(GTU);
+    }
+
 	float costheta = cosf(m_SunOrientation);
 	float sintheta = sinf(m_SunOrientation);
 	float cosphi = cosf(m_SunInclination * 3.14159f * 0.5f);
@@ -810,6 +837,17 @@ void ModelViewer::RenderScene( void )
             gfxContext.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             RenderObjects(gfxContext, m_Camera, &m_ModelPSOCache, RenderPass_Color);
             LineRender::Render(gfxContext, m_ViewProjMatrix);
+
+            if (0)
+            {
+                GridTerrainRender GTR = {};
+                GTR.AbsoluteTime = SystemTime::TicksToSeconds(SystemTime::GetCurrentTick());
+                GTR.matVP = m_ViewProjMatrix;
+                GTR.pContext = &gfxContext;
+                GTR.vCameraOffset = g_XMZero;
+                GTR.Wireframe = false;
+                m_GT.RenderOpaque(GTR);
+            }
         }
 	}
 

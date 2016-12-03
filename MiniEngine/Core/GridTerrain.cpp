@@ -2,6 +2,8 @@
 #include "GridTerrain.h"
 #include <algorithm>
 #include "BulletPhysics.h"
+#include "BufferManager.h"
+#include "LineRender.h"
 
 #include "CompiledShaders\GridTerrainVS.h"
 #include "CompiledShaders\GridTerrainPS.h"
@@ -35,7 +37,7 @@ HRESULT GridBlock::Initialize(const GridTerrainConfig* pConfig, GridBlockCoord C
     m_LastSeenTime = 0;
     m_LastFrameRendered = 0;
     m_pParent = pParent;
-    assert(pFeaturesBlock != nullptr);
+    //assert(pFeaturesBlock != nullptr);
     m_pFeaturesBlock = pFeaturesBlock;
 
     if (m_pParent == nullptr)
@@ -139,7 +141,7 @@ void GridBlock::BuildGeometry(const GridTerrainConfig* pConfig)
             //m_pFeaturesBlock->MakeTerrain(&CornerData, RelativeXYPos, &Result);
             //Result.TerrainHeight = XMVectorReplicate(5);
             //Result.TerrainHeight = XMVector2LengthEst(CornerXYPos + RelativeXYPos);
-            const XMVECTOR TerrainHeight = XMVectorZero();
+            const XMVECTOR TerrainHeight = 10.0f * XMVectorSin(0.01f * XMVector2LengthEst(CornerXYPos + RelativeXYPos));
             const FLOAT TerrainHeightValue = XMVectorGetX(TerrainHeight);
 
             FLOAT* pDestHeight = nullptr;
@@ -256,7 +258,7 @@ void GridBlock::BuildGeometry(const GridTerrainConfig* pConfig)
     if (pConfig->pd3dDevice != nullptr)
     {
         m_VB.Create(L"TerrainBlock", VertexCount, sizeof(GridVertex), m_pVertexData);
-        BuildDetailGeometry(pConfig);
+        //BuildDetailGeometry(pConfig);
         //free(m_pVertexData);
         //m_pVertexData = nullptr;
     }
@@ -1109,6 +1111,28 @@ HRESULT GridTerrain::Initialize(const GridTerrainConfig* pConfig)
 
         m_pCBAllocator = new LinearAllocator(kCpuWritable);
 
+
+        m_RootSig.Reset(3);
+        m_RootSig[0].InitAsConstantBuffer(0);
+        m_RootSig[1].InitAsConstantBuffer(1);
+        m_RootSig[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 3);
+        m_RootSig.Finalize(L"Grid Terrain RootSignature", D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+        m_OpaqueTerrainPSO.SetRootSignature(m_RootSig);
+        m_OpaqueTerrainPSO.SetInputLayout(ARRAYSIZE(GridVertexDesc), GridVertexDesc);
+        m_OpaqueTerrainPSO.SetVertexShader(g_pGridTerrainVS, sizeof(g_pGridTerrainVS));
+        m_OpaqueTerrainPSO.SetPixelShader(g_pGridTerrainPS, sizeof(g_pGridTerrainPS));
+        m_OpaqueTerrainPSO.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+
+        CD3DX12_RASTERIZER_DESC RasterizerState(D3D12_DEFAULT);
+        RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+        RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        m_OpaqueTerrainPSO.SetRasterizerState(RasterizerState);
+        m_OpaqueTerrainPSO.SetBlendState(CD3DX12_BLEND_DESC(D3D12_DEFAULT));
+        m_OpaqueTerrainPSO.SetDepthStencilState(Graphics::DepthStateReadWrite);
+        m_OpaqueTerrainPSO.SetRenderTargetFormat(Graphics::g_SceneColorBuffer.GetFormat(), Graphics::g_SceneDepthBuffer.GetFormat(), 1);
+        m_OpaqueTerrainPSO.Finalize();
+
         /*
         m_OpaqueTerrainLayout = SimpleResources11::RegisterVertexLayout(GridVertexDesc, ARRAYSIZE(GridVertexDesc));
         m_pOpaqueTerrainLayout = SimpleResources11::FindOrCreateInputLayout(m_Config.pd3dDevice, m_OpaqueTerrainLayout, Shader_GridTerrainVS, sizeof(Shader_GridTerrainVS));
@@ -1316,7 +1340,7 @@ void GridTerrain::Terminate()
     m_Config.pd3dDevice->Release();
 }
 
-void GridTerrain::Update(const DirectX::BoundingFrustum& TransformedFrustum, CXMMATRIX matVP)
+void GridTerrain::Update(const GridTerrainUpdate& GTU)
 {
     assert(m_Config.pd3dDevice != nullptr);
 
@@ -1325,7 +1349,7 @@ void GridTerrain::Update(const DirectX::BoundingFrustum& TransformedFrustum, CXM
     m_AllRenderFlags = 0;
 
     XMFLOAT3 FrustumCorners[8];
-    TransformedFrustum.GetCorners(FrustumCorners);
+    GTU.TransformedFrustum.GetCorners(FrustumCorners);
 
     XMVECTOR Min = g_XMFltMax;
     XMVECTOR Max = -g_XMFltMax;
@@ -1342,6 +1366,11 @@ void GridTerrain::Update(const DirectX::BoundingFrustum& TransformedFrustum, CXM
     FrustumRect.top = (LONG)XMVectorGetZ(Min);
     FrustumRect.right = (LONG)XMVectorGetX(Max);
     FrustumRect.bottom = (LONG)XMVectorGetZ(Max);
+
+//     FrustumRect.left = 0;
+//     FrustumRect.right = 1;
+//     FrustumRect.top = 0;
+//     FrustumRect.bottom = 1;
 
     //bool FeaturesReady = m_pFeatures->Update(FrustumRect, false);
     bool FeaturesReady = true;
@@ -1367,7 +1396,7 @@ void GridTerrain::Update(const DirectX::BoundingFrustum& TransformedFrustum, CXM
             //TerrainFeaturesBlock* pFeaturesBlock = m_pFeatures->GetFeaturesBlock(Coord);
             TerrainFeaturesBlock* pFeaturesBlock = nullptr;
             GridBlock* pChildBlock = nullptr;
-            TestGridBlock(Coord, pFeaturesBlock, nullptr, TransformedFrustum, matVP, &pChildBlock, -1);
+            TestGridBlock(Coord, pFeaturesBlock, nullptr, GTU, &pChildBlock, -1);
         }
     }
 
@@ -1532,8 +1561,7 @@ void GridTerrain::UpdateGridBlockNoSubdivision(const GridBlockCoord& Coord, cons
 UINT32 GridTerrain::TestGridBlock(const GridBlockCoord& Coord, 
                                   const TerrainFeaturesBlock* pFeaturesBlock,
                                   GridBlock* pParentBlock, 
-                                  const DirectX::BoundingFrustum& Frustum, 
-                                  CXMMATRIX matVP, 
+                                  const GridTerrainUpdate& GTU, 
                                   GridBlock** ppChildBlock,
                                   UINT32 QuadrantOfParent)
 {
@@ -1545,11 +1573,11 @@ UINT32 GridTerrain::TestGridBlock(const GridBlockCoord& Coord,
     XMVECTOR MinCorner = Coord.GetMin();
     XMVECTOR MaxCorner = Coord.GetMax();
     XMVECTOR BlockCenter = (MinCorner + MaxCorner) * g_XMOneHalf;
-    XMVECTOR CameraPosWorld = XMLoadFloat3(&Frustum.Origin);
+    XMVECTOR CameraPosWorld = GTU.matCameraWorld.r[3];
     XMVECTOR CameraToBlock = BlockCenter - CameraPosWorld;
     XMVECTOR CameraToBlockNorm = XMVector3Normalize(CameraToBlock);
-    XMMATRIX matFrustum = XMMatrixRotationQuaternion(XMLoadFloat4(&Frustum.Orientation));
-    XMVECTOR vForward = XMVector3TransformNormal(g_XMIdentityR2, matFrustum);
+    //XMMATRIX matFrustum = XMMatrixRotationQuaternion(XMLoadFloat4(&GTU.Frustum.Orientation));
+    XMVECTOR vForward = -GTU.matCameraWorld.r[2];
     XMVECTOR Dot = XMVector3Dot(CameraToBlockNorm, vForward);
 
     // Assign parent block Y values if present: 
@@ -1584,7 +1612,7 @@ UINT32 GridTerrain::TestGridBlock(const GridBlockCoord& Coord,
         pBlock = *ppChildBlock;
     }
 
-    const bool FrustumVisible = (Frustum.Contains(AABB) != ContainmentType::DISJOINT);
+    const bool FrustumVisible = (GTU.TransformedFrustum.Contains(AABB) != ContainmentType::DISJOINT);
     const bool CloseFrustumVisible = (XMVectorGetX(Dot) >= 0.1f);
 
     // Check if AABB intersects the frustum:
@@ -1621,7 +1649,7 @@ UINT32 GridTerrain::TestGridBlock(const GridBlockCoord& Coord,
         if (pBlock == nullptr)
         {
             pBlock = new GridBlock();
-            pBlock->Initialize(&m_Config, Coord, nullptr, -1, pFeaturesBlock, false);
+            pBlock->Initialize(&m_Config, Coord, nullptr, -1, pFeaturesBlock, true);
             m_RootBlocks[Coord.Value] = pBlock;
         }
         *ppChildBlock = pBlock;
@@ -1630,7 +1658,7 @@ UINT32 GridTerrain::TestGridBlock(const GridBlockCoord& Coord,
     {
         // This block is a child of another block, and needs to be created:
         pBlock = new GridBlock();
-        pBlock->Initialize(&m_Config, Coord, pParentBlock, QuadrantOfParent, pFeaturesBlock, false);
+        pBlock->Initialize(&m_Config, Coord, pParentBlock, QuadrantOfParent, pFeaturesBlock, true);
         *ppChildBlock = pBlock;
     }
 
@@ -1643,21 +1671,23 @@ UINT32 GridTerrain::TestGridBlock(const GridBlockCoord& Coord,
         return LowestLevelReached;
     }
 
-    if (0 && Coord.SizeShift == m_Config.LargestBlockShift)
+    if (Coord.SizeShift == m_Config.LargestBlockShift)
     {
         XMVECTOR CenterPos = Coord.GetCenter();
         CenterPos = XMVectorSetY(CenterPos, (pBlock->m_MinHeight + pBlock->m_MaxHeight) * 0.5f);
         XMVECTOR BoxScale = Coord.GetScale() * g_XMOneHalf;
-        BoxScale = XMVectorSetY(BoxScale, (pBlock->m_MaxHeight - pBlock->m_MinHeight) * 0.5f);
-        //DebugDraw11::CacheWireframeCube(g_XMOne, CenterPos, BoxScale, 0);
+        FLOAT Height = pBlock->m_MaxHeight - pBlock->m_MinHeight;
+        Height = std::max(Height, 1.0f);
+        BoxScale = XMVectorSetY(BoxScale, Height * 0.5f);
+        LineRender::DrawAxisAlignedBox(CenterPos - BoxScale, CenterPos + BoxScale, XMVectorSet(0, 1, 0, 1));
     }
 
-    XMVECTOR vRight = XMVector3TransformNormal(g_XMIdentityR0, matFrustum);
+    XMVECTOR vRight = GTU.matCameraWorld.r[0];
     XMVECTOR DistanceToCamera = XMVector3Length(XMVectorSelect(g_XMZero, CameraToBlock, g_XMSelect1010));
     XMVECTOR DistanceVector = vForward * XMVectorSplatX(DistanceToCamera);
     XMVECTOR RightVector = vRight * Coord.GetScale();
     XMVECTOR SyntheticBlockPos = CameraPosWorld + DistanceVector + RightVector;
-    XMVECTOR ViewBlockPos = XMVector3TransformCoord(SyntheticBlockPos, matVP);
+    XMVECTOR ViewBlockPos = XMVector3TransformCoord(SyntheticBlockPos, GTU.matVP);
     FLOAT Width = XMVectorGetX(ViewBlockPos);
 
     // Determine if pBlock is a candidate for subdivision by looking at the projected width in view space:
@@ -1669,10 +1699,10 @@ UINT32 GridTerrain::TestGridBlock(const GridBlockCoord& Coord,
         {
             pBlock->m_State = GridBlock::PendingSubdivision;
         }
-        UINT32 LR0 = TestGridBlock(Coord.Get0(), pFeaturesBlock, pBlock, Frustum, matVP, &pBlock->m_pChildren[0], 0);
-        UINT32 LR1 = TestGridBlock(Coord.Get1(), pFeaturesBlock, pBlock, Frustum, matVP, &pBlock->m_pChildren[1], 1);
-        UINT32 LR2 = TestGridBlock(Coord.Get2(), pFeaturesBlock, pBlock, Frustum, matVP, &pBlock->m_pChildren[2], 2);
-        UINT32 LR3 = TestGridBlock(Coord.Get3(), pFeaturesBlock, pBlock, Frustum, matVP, &pBlock->m_pChildren[3], 3);
+        UINT32 LR0 = TestGridBlock(Coord.Get0(), pFeaturesBlock, pBlock, GTU, &pBlock->m_pChildren[0], 0);
+        UINT32 LR1 = TestGridBlock(Coord.Get1(), pFeaturesBlock, pBlock, GTU, &pBlock->m_pChildren[1], 1);
+        UINT32 LR2 = TestGridBlock(Coord.Get2(), pFeaturesBlock, pBlock, GTU, &pBlock->m_pChildren[2], 2);
+        UINT32 LR3 = TestGridBlock(Coord.Get3(), pFeaturesBlock, pBlock, GTU, &pBlock->m_pChildren[3], 3);
 
         LR0 = std::min(LR0, LR1);
         LR2 = std::min(LR2, LR3);
@@ -2014,8 +2044,6 @@ void GridTerrain::RenderOpaque(const GridTerrainRender& GTR)
     }
     */
 
-    UpdateTerrainCB(pContext, GTR.AbsoluteTime);
-
     pContext->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 //     pd3dContext->IASetInputLayout(m_pOpaqueTerrainLayout);
 //     pd3dContext->VSSetShader(m_pOpaqueTerrainVS, nullptr, 0);
@@ -2025,7 +2053,11 @@ void GridTerrain::RenderOpaque(const GridTerrainRender& GTR)
 //     SimpleResources11::SetPixelSamplerBilinear(pd3dContext, 0);
 //     UINT32 Stride = sizeof(FixedGridVertex);
 //     UINT32 Offset = 0;
+    pContext->SetRootSignature(m_RootSig);
+    pContext->SetPipelineState(m_OpaqueTerrainPSO);
     pContext->SetVertexBuffer(1, m_GridBlockVB.VertexBufferView());
+
+    UpdateTerrainCB(pContext, GTR.AbsoluteTime);
 
     //ID3D11ShaderResourceView* pShadowMap[3];
     //pShadowMap[0] = (ID3D11ShaderResourceView*)m_pShadowMapTexture0->GetExtraData();
@@ -2073,6 +2105,10 @@ void GridTerrain::UpdateTerrainCB(GraphicsContext* pContext, DOUBLE AbsoluteTime
     ZeroMemory(pCB, sizeof(*pCB));
     XMStoreFloat4(&pCB->TexCoordTransform0, FlatRotation0);
     XMStoreFloat4(&pCB->TexCoordTransform1, FlatRotation1);
+
+    XMStoreFloat4(&pCB->AmbientLightColor, XMVectorSet(0.1f, 0.1f, 0.1f, 1));
+    XMStoreFloat4(&pCB->InverseLightDirection, XMVector3Normalize(XMVectorSet(1, 1, 1, 0)));
+    XMStoreFloat4(&pCB->DirectionalLightColor, g_XMOne);
     //XMStoreFloat4(&pCB->AmbientLightColor, m_pAmbientLightColor->VectorValue());
     //XMStoreFloat4(&pCB->InverseLightDirection, m_pDirLightInvDirection->VectorValue());
     //XMStoreFloat4(&pCB->DirectionalLightColor, m_pDirLightColor->VectorValue());
