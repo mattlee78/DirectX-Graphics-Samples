@@ -187,6 +187,13 @@ struct GridTerrainConfig
     UINT32 GetBlockVertexCount() const { return 1U << BlockVertexShift; }
 };
 
+struct GridTerrainUpdate
+{
+    DirectX::BoundingFrustum TransformedFrustum;
+    XMMATRIX matVP;
+    XMMATRIX matCameraWorld;
+};
+
 struct GridTerrainRender
 {
     XMMATRIX matVP;
@@ -437,6 +444,7 @@ private:
     ByteAddressBuffer m_GridIB;
     StructuredBuffer m_GridBlockVB;
 
+    RootSignature m_RootSig;
     GraphicsPSO m_OpaqueTerrainPSO;
     GraphicsPSO m_WaterTerrainPSO;
 
@@ -465,7 +473,7 @@ public:
     UINT32 GetRootBlockShift() const { return m_Config.LargestBlockShift; }
 
     // Graphics terrain update
-    void Update(const DirectX::BoundingFrustum& TransformedFrustum, CXMMATRIX matVP);
+    void Update(const GridTerrainUpdate& GTU);
 
     // Physics terrain update
     void Update(RECT XZBoundingRect, UINT32 UpdateTime = -1, bool Synchronous = false);
@@ -488,8 +496,7 @@ private:
     UINT32 TestGridBlock(const GridBlockCoord& Coord, 
                          const TerrainFeaturesBlock* pFeaturesBlock,
                          GridBlock* pParentBlock, 
-                         const DirectX::BoundingFrustum& Frustum, 
-                         CXMMATRIX matVP, 
+                         const GridTerrainUpdate& GTU, 
                          GridBlock** ppChildBlock,
                          UINT32 QuadrantOfParent);
 

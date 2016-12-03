@@ -49,6 +49,13 @@ namespace Math
 		const Frustum& GetViewSpaceFrustum() const { return m_FrustumVS; }
 		const Frustum& GetWorldSpaceFrustum() const { return m_FrustumWS; }
 
+        Matrix4 GetWorldMatrix() const
+        {
+            Matrix4 WM(m_CameraToWorld);
+            //WM.SetZ(-WM.GetZ());
+            return WM;
+        }
+
 	protected:
 
 		BaseCamera() : m_CameraToWorld(kIdentity), m_Basis(kIdentity) {}
