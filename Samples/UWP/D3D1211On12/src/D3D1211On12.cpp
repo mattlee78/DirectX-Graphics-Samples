@@ -15,18 +15,11 @@
 D3D1211on12::D3D1211on12(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name),
 	m_frameIndex(0),
-	m_viewport(),
-	m_scissorRect(),
+	m_viewport(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)),
+	m_scissorRect(0, 0, static_cast<LONG>(width), static_cast<LONG>(height)),
 	m_rtvDescriptorSize(0)
 {
 	ZeroMemory(m_fenceValues, sizeof(m_fenceValues));
-
-	m_viewport.Width = static_cast<float>(width);
-	m_viewport.Height = static_cast<float>(height);
-	m_viewport.MaxDepth = 1.0f;
-
-	m_scissorRect.right = static_cast<LONG>(width);
-	m_scissorRect.bottom = static_cast<LONG>(height);
 }
 
 void D3D1211on12::OnInit()
@@ -82,6 +75,40 @@ void D3D1211on12::LoadPipeline()
 			IID_PPV_ARGS(&m_d3d12Device)
 			));
 	}
+
+#if defined(_DEBUG)
+	// Filter a debug error coming from the 11on12 layer.
+	ComPtr<ID3D12InfoQueue> infoQueue;
+	if (SUCCEEDED(m_d3d12Device->QueryInterface(IID_PPV_ARGS(&infoQueue))))
+	{
+		// Suppress whole categories of messages.
+		//D3D12_MESSAGE_CATEGORY categories[] = {};
+
+		// Suppress messages based on their severity level.
+		D3D12_MESSAGE_SEVERITY severities[] =
+		{
+			D3D12_MESSAGE_SEVERITY_INFO,
+		};
+
+		// Suppress individual messages by their ID.
+		D3D12_MESSAGE_ID denyIds[] =
+		{
+			// This occurs when there are uninitialized descriptors in a descriptor table, even when a
+			// shader does not access the missing descriptors.
+			D3D12_MESSAGE_ID_INVALID_DESCRIPTOR_HANDLE,
+		};
+
+		D3D12_INFO_QUEUE_FILTER filter = {};
+		//filter.DenyList.NumCategories = _countof(categories);
+		//filter.DenyList.pCategoryList = categories;
+		filter.DenyList.NumSeverities = _countof(severities);
+		filter.DenyList.pSeverityList = severities;
+		filter.DenyList.NumIDs = _countof(denyIds);
+		filter.DenyList.pIDList = denyIds;
+
+		ThrowIfFailed(infoQueue->PushStorageFilter(&filter));
+	}
+#endif
 
 	// Describe and create the command queue.
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};

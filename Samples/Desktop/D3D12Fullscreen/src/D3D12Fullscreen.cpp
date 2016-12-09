@@ -35,10 +35,10 @@ D3D12Fullscreen::D3D12Fullscreen(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name),
 	m_frameIndex(0),
 	m_pCbvDataBegin(nullptr),
-	m_postViewport(),
-	m_postScissorRect(),
-	m_sceneViewport(),
-	m_sceneScissorRect(),
+	m_sceneViewport(0.0f, 0.0f, 0.0f, 0.0f),
+	m_sceneScissorRect(0, 0, 0, 0),
+	m_postViewport(0.0f, 0.0f, 0.0f, 0.0f),
+	m_postScissorRect(0, 0, 0, 0),
 	m_rtvDescriptorSize(0),
 	m_cbvSrvDescriptorSize(0),
 	m_windowVisible(true),
@@ -211,7 +211,10 @@ void D3D12Fullscreen::LoadAssets()
 		CD3DX12_DESCRIPTOR_RANGE1 ranges[1];
 		CD3DX12_ROOT_PARAMETER1 rootParameters[1];
 
-		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+		// We don't modify the SRV in the post-processing command list after
+		// SetGraphicsRootDescriptorTable is executed on the GPU so we can use the default
+		// range behavior: D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE
+		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
 		rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL);
 
 		// Allow input layout and pixel shader access and deny uneccessary access to certain pipeline stages.
@@ -624,14 +627,14 @@ void D3D12Fullscreen::OnKeyDown(UINT8 key)
 {
 	switch (key)
 	{
+	// Instrument the Space Bar to toggle between fullscreen states.
+	// The window message loop callback will receive a WM_SIZE message once the
+	// window is in the fullscreen state. At that point, the IDXGISwapChain should
+	// be resized to match the new window size.
+	//
+	// NOTE: ALT+Enter will perform a similar operation; the code below is not
+	// required to enable that key combination.
 	case VK_SPACE:
-		// Instrument the Space Bar to toggle between fullscreen states.
-		// The window message loop callback will receive a WM_SIZE message once the
-		// window is in the fullscreen state. At that point, the IDXGISwapChain should
-		// be resized to match the new window size.
-		//
-		// NOTE: ALT+Enter will perform a similar operation; the code below is not
-		// required to enable that key combination.
 	{
 		if (m_tearingSupport)
 		{
@@ -650,8 +653,8 @@ void D3D12Fullscreen::OnKeyDown(UINT8 key)
 				assert(false);
 			}
 		}
+		break;
 	}
-	break;
 
 	// Instrument the Right Arrow key to change the scene rendering resolution 
 	// to the next resolution option. 
@@ -841,7 +844,6 @@ void D3D12Fullscreen::UpdatePostViewAndScissor()
 	m_postViewport.TopLeftY = m_height * (1.0f - y) / 2.0f;
 	m_postViewport.Width = x * m_width;
 	m_postViewport.Height = y * m_height;
-	m_postViewport.MaxDepth = 1.0f;
 
 	m_postScissorRect.left = static_cast<LONG>(m_postViewport.TopLeftX);
 	m_postScissorRect.right = static_cast<LONG>(m_postViewport.TopLeftX + m_postViewport.Width);
@@ -859,7 +861,6 @@ void D3D12Fullscreen::LoadSceneResolutionDependentResources()
 	{
 		m_sceneViewport.Width = static_cast<float>(m_resolutionOptions[m_resolutionIndex].Width);
 		m_sceneViewport.Height = static_cast<float>(m_resolutionOptions[m_resolutionIndex].Height);
-		m_sceneViewport.MaxDepth = 1.0f;
 
 		m_sceneScissorRect.right = static_cast<LONG>(m_resolutionOptions[m_resolutionIndex].Width);
 		m_sceneScissorRect.bottom = static_cast<LONG>(m_resolutionOptions[m_resolutionIndex].Height);
