@@ -8,3 +8,5 @@ Build_VS14/
 *.sdf
 *.user
 *.VC.db
+*.idb
+*.cache

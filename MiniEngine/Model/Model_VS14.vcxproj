@@ -92,6 +92,11 @@
     <ClCompile Include="ModelInstance.cpp" />
     <ClCompile Include="ModelTemplate.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Core\Core_VS14.vcxproj">
+      <Project>{86a58508-0d6a-4786-a32f-01a301fdc6f3}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>

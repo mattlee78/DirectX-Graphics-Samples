@@ -19,6 +19,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LinearMath", "..\3rdParty\B
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Bullet Physics", "Bullet Physics", "{D539FD59-D375-456F-B25D-48D0D4A83797}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GameLogic", "..\GameLogic\GameLogic.vcxproj", "{3D15482F-81E0-4E0A-B990-CCF53235C420}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Windows = Debug|Windows
@@ -137,6 +139,22 @@ Global
 		{2A3727D9-9A74-A042-9D05-F57047CE1891}.Release|x64.ActiveCfg = Release|x64
 		{2A3727D9-9A74-A042-9D05-F57047CE1891}.Release|x64.Build.0 = Release|x64
 		{2A3727D9-9A74-A042-9D05-F57047CE1891}.Release|x86.ActiveCfg = Release|Win32
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Debug|Windows.ActiveCfg = Debug|Win32
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Debug|x64.ActiveCfg = Debug|x64
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Debug|x64.Build.0 = Debug|x64
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Debug|x86.ActiveCfg = Debug|Win32
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Debug|x86.Build.0 = Debug|Win32
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Profile|Windows.ActiveCfg = Release|x64
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Profile|Windows.Build.0 = Release|x64
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Profile|x64.ActiveCfg = Release|x64
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Profile|x64.Build.0 = Release|x64
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Profile|x86.ActiveCfg = Release|Win32
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Profile|x86.Build.0 = Release|Win32
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Release|Windows.ActiveCfg = Release|Win32
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Release|x64.ActiveCfg = Release|x64
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Release|x64.Build.0 = Release|x64
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Release|x86.ActiveCfg = Release|Win32
+		{3D15482F-81E0-4E0A-B990-CCF53235C420}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
