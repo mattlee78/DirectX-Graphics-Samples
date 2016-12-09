@@ -213,9 +213,6 @@
     <ClCompile Include="ModelViewer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="NetworkLayer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\ModelViewerVS.hlsl">
@@ -233,10 +230,5 @@
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="UWP.appxmanifest" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="NetworkLayer.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

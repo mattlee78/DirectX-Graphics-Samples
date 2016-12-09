@@ -62,13 +62,13 @@
       <SubSystem>Windows</SubSystem>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>..\Core;..\Model</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Core;..\Model;..\GameLogic</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
     <Link />
     <ClCompile>
-      <AdditionalIncludeDirectories>..\Core;..\Model</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Core;..\Model;..\GameLogic</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
@@ -79,7 +79,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link />
     <ClCompile>
-      <AdditionalIncludeDirectories>..\Core;..\Model</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Core;..\Model;..\GameLogic</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
@@ -89,7 +89,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ModelViewer.cpp" />
-    <ClCompile Include="NetworkLayer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Core/Core_VS14.vcxproj">
@@ -107,6 +106,9 @@
     </ProjectReference>
     <ProjectReference Include="..\3rdParty\zlib-win64\ZLib_VS14.vcxproj">
       <Project>{ae5221d1-87e2-4428-8ef9-f25909c43291}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\GameLogic\GameLogic.vcxproj">
+      <Project>{3d15482f-81e0-4e0a-b990-ccf53235c420}</Project>
     </ProjectReference>
     <ProjectReference Include="..\Model\Model_VS14.vcxproj">
       <Project>{5d3aeefb-8789-48e5-9bd9-09c667052d09}</Project>
@@ -198,9 +200,6 @@
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="UWP.appxmanifest" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="NetworkLayer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
