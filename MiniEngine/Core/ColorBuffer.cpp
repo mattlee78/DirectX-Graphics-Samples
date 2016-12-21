@@ -101,7 +101,7 @@ void ColorBuffer::CreateFromSwapChain( const std::wstring& Name, ID3D12Resource*
 }
 
 void ColorBuffer::Create(const std::wstring& Name, uint32_t Width, uint32_t Height, uint32_t NumMips,
-	DXGI_FORMAT Format, D3D12_GPU_VIRTUAL_ADDRESS VidMem)
+	DXGI_FORMAT Format, D3D12_GPU_VIRTUAL_ADDRESS VidMem, bool NoClearColor)
 {
 	NumMips = (NumMips == 0 ? ComputeNumMips(Width, Height) : NumMips);
 	D3D12_RESOURCE_DESC ResourceDesc = DescribeTex2D(Width, Height, 1, NumMips, Format,
@@ -113,6 +113,11 @@ void ColorBuffer::Create(const std::wstring& Name, uint32_t Width, uint32_t Heig
 	ClearValue.Color[1] = m_ClearColor.G();
 	ClearValue.Color[2] = m_ClearColor.B();
 	ClearValue.Color[3] = m_ClearColor.A();
+
+    if (NoClearColor)
+    {
+        ClearValue.Format = DXGI_FORMAT_UNKNOWN;
+    }
 
 	CreateTextureResource(Graphics::g_Device, Name, ResourceDesc, ClearValue, VidMem);
 	CreateDerivedViews(Graphics::g_Device, Format, 1, NumMips);

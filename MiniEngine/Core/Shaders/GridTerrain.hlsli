@@ -5,6 +5,8 @@ cbuffer cb0 : register(b0)
     float4 PositionToTexCoord         : packoffset(c8);
     float4 LODConstants               : packoffset(c9);
     float4 BlockColor                 : packoffset(c10);
+    float4 BlockToHeightmap           : packoffset(c11);
+    float4 BlockToSurfacemap          : packoffset(c12);
 };
 
 cbuffer cb1 : register(b1)
@@ -23,57 +25,49 @@ cbuffer cb1 : register(b1)
     row_major float4x4 matWorldToShadow2 : packoffset(c16);
 };
 
+Texture2D HeightmapTexture : register(t2);
+
 struct VS_INPUT
 {
     float2 PositionXZ : POSITION;
-    float  PositionY : POSITION1;
-    float3 Normal     : NORMAL;
-    float4 Blend      : TEXCOORD0;
 };
 
 struct VS_OUTPUT
 {
     float4 TexCoord01 : TEXCOORD0;
-    float4 Blend      : TEXCOORD1;
-    float4 Normal     : TEXCOORD2;
-    float4 PosToCamera: TEXCOORD3;
-    float3 ShadowPos0 : TEXCOORD4;
+    float4 PosToCamera: TEXCOORD1;
+    float3 ShadowPos0 : TEXCOORD2;
     float4 Position   : SV_Position;
 };
 
 struct VS_OUTPUT_HI
 {
     float4 TexCoord01 : TEXCOORD0;
-    float4 Blend      : TEXCOORD1;
-    float4 Normal     : TEXCOORD2;
-    float4 PosToCamera: TEXCOORD3;
-    float3 ShadowPos0 : TEXCOORD4;
-    float3 ShadowPos1 : TEXCOORD5;
-    float3 ShadowPos2 : TEXCOORD6;
+    float4 PosToCamera: TEXCOORD1;
+    float3 ShadowPos0 : TEXCOORD2;
+    float3 ShadowPos1 : TEXCOORD3;
+    float3 ShadowPos2 : TEXCOORD4;
     float4 Position   : SV_Position;
 };
 
 struct PS_INPUT_HI
 {
     float4 TexCoord01 : TEXCOORD0;
-    float4 Blend      : TEXCOORD1;
-    float4 Normal     : TEXCOORD2;
-    float4 PosToCamera: TEXCOORD3;
-    float3 ShadowPos0 : TEXCOORD4;
-    float3 ShadowPos1 : TEXCOORD5;
-    float3 ShadowPos2 : TEXCOORD6;
+    float4 PosToCamera: TEXCOORD1;
+    float3 ShadowPos0 : TEXCOORD2;
+    float3 ShadowPos1 : TEXCOORD3;
+    float3 ShadowPos2 : TEXCOORD4;
 };
 
 struct PS_INPUT
 {
     float4 TexCoord01 : TEXCOORD0;
-    float4 Blend      : TEXCOORD1;
-    float4 Normal     : TEXCOORD2;
-    float4 PosToCamera: TEXCOORD3;
-    float3 ShadowPos0 : TEXCOORD4;
+    float4 PosToCamera: TEXCOORD1;
+    float3 ShadowPos0 : TEXCOORD2;
 };
 
-Texture2DArray tex2D : register(t0);
+Texture2D DiffuseTexture : register(t0);
+Texture2D NormalTexture : register(t1);
 SamplerState linearSampler : register(s0);
 
 struct DECORATIONMODEL_VS_INPUT

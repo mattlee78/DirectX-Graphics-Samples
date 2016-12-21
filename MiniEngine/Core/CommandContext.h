@@ -100,7 +100,7 @@ public:
 	uint64_t Flush( bool WaitForCompletion = false );
 
 	// Flush existing commands and release the current context
-	uint64_t Finish( bool WaitForCompletion = false );
+	uint64_t Finish( bool WaitForCompletion = false, bool DiscardContext = false );
 
 	// Prepare to render by reserving a command list and command allocator
 	void Initialize(void);
@@ -185,7 +185,7 @@ public:
 
 	void ClearUAV( GpuBuffer& Target );
 	void ClearUAV( ColorBuffer& Target );
-	void ClearColor( ColorBuffer& Target );
+	void ClearColor( ColorBuffer& Target, const FLOAT* pClearColor = nullptr );
 	void ClearDepth( DepthBuffer& Target );
 	void ClearStencil( DepthBuffer& Target );
 	void ClearDepthAndStencil( DepthBuffer& Target );

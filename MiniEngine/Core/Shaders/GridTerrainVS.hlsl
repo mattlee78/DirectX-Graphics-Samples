@@ -2,19 +2,18 @@
 
 VS_OUTPUT_HI vsmain( VS_INPUT In )
 {
-    float2 RawTexCoord = (In.PositionXZ * PositionToTexCoord.zz) + PositionToTexCoord.xy;
-    float2 TexCoord0 = float2(dot(RawTexCoord.xy, TexCoordTransform0.xy), dot(RawTexCoord.xy, TexCoordTransform0.zw));
-    float2 TexCoord1 = float2(dot(RawTexCoord.xy, TexCoordTransform1.xy), dot(RawTexCoord.xy, TexCoordTransform1.zw));
+    float2 WorldTexCoord = (In.PositionXZ * PositionToTexCoord.zz) + PositionToTexCoord.xy;
+
+    float2 HeightmapUV = (In.PositionXZ * BlockToHeightmap.zz) + BlockToHeightmap.xy;
+    float2 SurfaceUV = (In.PositionXZ * BlockToSurfacemap.zz) + BlockToSurfacemap.xy;
+    float PositionY = HeightmapTexture.SampleLevel(linearSampler, HeightmapUV, 0).x;
 
     VS_OUTPUT_HI Out;                                                             
 
-    Out.TexCoord01.xy = TexCoord0.xy;
-    Out.TexCoord01.zw = TexCoord1.xy;
-    Out.Blend = In.Blend * float4(1, 1, 255, 255);
-    Out.Normal.xyz = (In.Normal * 2) - 1;
-    Out.Normal.w = 0;
+    Out.TexCoord01.xy = SurfaceUV.xy;
+    Out.TexCoord01.zw = SurfaceUV.xy;
                                                                                
-    float4 LocalPos = float4(In.PositionXZ.x, In.PositionY, In.PositionXZ.y, 1);
+    float4 LocalPos = float4(In.PositionXZ.x, PositionY, In.PositionXZ.y, 1);
     float4 WorldPos = mul(LocalPos, mWorld);
     Out.Position = mul(WorldPos, mViewProj);
     Out.PosToCamera.xyz = vCameraPosWorld.xyz - WorldPos.xyz;

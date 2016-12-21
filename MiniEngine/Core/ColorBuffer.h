@@ -36,7 +36,7 @@ public:
 	// The vmem address allows you to alias buffers (which can be especially useful for
 	// reusing ESRAM across a frame.)
 	void Create(const std::wstring& Name, uint32_t Width, uint32_t Height, uint32_t NumMips,
-		DXGI_FORMAT Format, D3D12_GPU_VIRTUAL_ADDRESS VidMemPtr = D3D12_GPU_VIRTUAL_ADDRESS_UNKNOWN);
+		DXGI_FORMAT Format, D3D12_GPU_VIRTUAL_ADDRESS VidMemPtr = D3D12_GPU_VIRTUAL_ADDRESS_UNKNOWN, bool NoClearColor = false);
 	
 	// Create a color buffer.  Memory will be allocated in ESRAM (on Xbox One).  On Windows,
 	// this functions the same as Create() without a video address.
@@ -67,17 +67,6 @@ public:
 	void GenerateMipMaps(CommandContext& Context);
 
 protected:
-
-	// Compute the number of texture levels needed to reduce to 1x1.  This uses
-	// _BitScanReverse to find the highest set bit.  Each dimension reduces by
-	// half and truncates bits.  The dimension 256 (0x100) has 9 mip levels, same
-	// as the dimension 511 (0x1FF).
-	static inline uint32_t ComputeNumMips(uint32_t Width, uint32_t Height)
-	{
-		uint32_t HighBit;
-		_BitScanReverse((unsigned long*)&HighBit, Width | Height);
-		return HighBit + 1;
-	}
 
 	void CreateDerivedViews(ID3D12Device* Device, DXGI_FORMAT Format, uint32_t ArraySize, uint32_t NumMips = 1);
 

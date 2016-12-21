@@ -37,6 +37,7 @@
 #include "NetworkLayer.h"
 #include "DataFile.h"
 #include "GridTerrain.h"
+#include "GpuJobQueue.h"
 
 #include "CompiledShaders/DepthViewerVS.h"
 #include "CompiledShaders/DepthViewerPS.h"
@@ -287,9 +288,12 @@ void ModelViewer::Startup( void )
 
     if (m_NetServer.IsStarted() || !m_StartServer)
     {
-        Utility::Printf("Attempting to connect to server %s on port %u...\n", m_strConnectToServerName, m_ConnectToPort);
-        m_NetClient.SetNotificationClient(this);
-        m_NetClient.Connect(15, m_strConnectToServerName, m_ConnectToPort, L"", L"");
+        if (m_ConnectToPort != 0)
+        {
+            Utility::Printf("Attempting to connect to server %s on port %u...\n", m_strConnectToServerName, m_ConnectToPort);
+            m_NetClient.SetNotificationClient(this);
+            m_NetClient.Connect(15, m_strConnectToServerName, m_ConnectToPort, L"", L"");
+        }
     }
 
     if (m_NetServer.IsStarted())
@@ -365,13 +369,9 @@ void ModelViewer::Startup( void )
     }
 
     GridTerrainConfig Config = {};
+    Config.SetDefault();
     Config.pWorld = m_NetClient.GetWorld();
     Config.pd3dDevice = Graphics::g_Device;
-    Config.SmallestBlockShift = 1;
-    Config.LargestBlockShift = 10;
-    Config.FeaturesBlockShift = 13;
-    Config.BlockVertexShift = 4;
-    Config.BlockViewSpaceWidthThreshold = 0.75f;
     m_GT.Initialize(&Config);
 }
 
@@ -403,6 +403,11 @@ bool ModelViewer::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument
             strcpy_s(m_strConnectToServerName, strArgument);
             m_StartServer = false;
         }
+    }
+    else if (_stricmp(strCommand, "noconnect") == 0)
+    {
+        m_StartServer = false;
+        m_ConnectToPort = 0;
     }
     else
     {
@@ -658,7 +663,7 @@ void ModelViewer::Update( float deltaT )
     }
 	m_ViewProjMatrix = m_Camera.GetViewProjMatrix();
 
-    if (0)
+    if (1)
     {
         DirectX::BoundingFrustum BF;
         DirectX::BoundingFrustum::CreateFromMatrix(BF, m_Camera.GetProjMatrix());
@@ -754,7 +759,9 @@ void ModelViewer::RenderObjects(GraphicsContext& gfxContext, const BaseCamera& C
 
 void ModelViewer::RenderScene( void )
 {
-	GraphicsContext& gfxContext = GraphicsContext::Begin(L"Scene Render");
+    g_GpuJobQueue.ExecuteGraphicsJobs();
+
+    GraphicsContext& gfxContext = GraphicsContext::Begin(L"Scene Render");
 
 	ParticleEffects::Update(gfxContext.GetComputeContext(), Graphics::GetFrameTime());
 
@@ -838,7 +845,7 @@ void ModelViewer::RenderScene( void )
             RenderObjects(gfxContext, m_Camera, &m_ModelPSOCache, RenderPass_Color);
             LineRender::Render(gfxContext, m_ViewProjMatrix);
 
-            if (0)
+            if (1)
             {
                 GridTerrainRender GTR = {};
                 GTR.AbsoluteTime = SystemTime::TicksToSeconds(SystemTime::GetCurrentTick());
@@ -868,7 +875,7 @@ void ModelViewer::RenderUI(class GraphicsContext& Context)
     Text.Begin();
 
     Text.SetCursorY(30);
-    if (!m_NetClient.IsConnected(nullptr))
+    if (!m_NetClient.IsConnected(nullptr) && m_ConnectToPort != 0)
     {
         Text.DrawString("Connecting...");
     }

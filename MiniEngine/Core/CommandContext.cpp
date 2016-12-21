@@ -120,7 +120,7 @@ uint64_t CommandContext::Flush(bool WaitForCompletion)
 	return FenceValue;
 }
 
-uint64_t CommandContext::Finish( bool WaitForCompletion )
+uint64_t CommandContext::Finish( bool WaitForCompletion, bool DiscardContext )
 {
 	ASSERT(m_Type == D3D12_COMMAND_LIST_TYPE_DIRECT || m_Type == D3D12_COMMAND_LIST_TYPE_COMPUTE);
 
@@ -133,7 +133,11 @@ uint64_t CommandContext::Finish( bool WaitForCompletion )
 
 	CommandQueue& Queue = g_CommandManager.GetQueue(m_Type);
 
-	uint64_t FenceValue = Queue.ExecuteCommandList(m_CommandList);
+    uint64_t FenceValue = 0;
+    if (!DiscardContext)
+    {
+        FenceValue = Queue.ExecuteCommandList(m_CommandList);
+    }
 	Queue.DiscardAllocator(FenceValue, m_CurrentAllocator);
 	m_CurrentAllocator = nullptr;
 
@@ -141,7 +145,7 @@ uint64_t CommandContext::Finish( bool WaitForCompletion )
 	m_GpuLinearAllocator.CleanupUsedPages(FenceValue);
 	m_DynamicDescriptorHeap.CleanupUsedHeaps(FenceValue);
 
-	if (WaitForCompletion)
+	if (WaitForCompletion && !DiscardContext)
 		g_CommandManager.WaitForFence(FenceValue);
 
 	g_ContextManager.FreeContext(this);
@@ -277,9 +281,13 @@ void ComputeContext::ClearUAV( ColorBuffer& Target )
 	m_CommandList->ClearUnorderedAccessViewFloat(GpuVisibleHandle, Target.GetUAV(), Target.GetResource(), ClearColor, 1, &ClearRect);
 }
 
-void GraphicsContext::ClearColor( ColorBuffer& Target )
+void GraphicsContext::ClearColor( ColorBuffer& Target, const FLOAT* pClearColor )
 {
-	m_CommandList->ClearRenderTargetView(Target.GetRTV(), Target.GetClearColor().GetPtr(), 0, nullptr);
+    if (pClearColor == nullptr)
+    {
+        pClearColor = Target.GetClearColor().GetPtr();
+    }
+	m_CommandList->ClearRenderTargetView(Target.GetRTV(), pClearColor, 0, nullptr);
 }
 
 void GraphicsContext::ClearDepth( DepthBuffer& Target )

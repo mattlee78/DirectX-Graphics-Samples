@@ -248,9 +248,15 @@ D3D12_RESOURCE_DESC PixelBuffer::DescribeTex2D( uint32_t Width, uint32_t Height,
 void PixelBuffer::CreateTextureResource( ID3D12Device* Device, const std::wstring& Name,
 	const D3D12_RESOURCE_DESC& ResourceDesc, D3D12_CLEAR_VALUE ClearValue, D3D12_GPU_VIRTUAL_ADDRESS /*VidMemPtr*/ )
 {
+    D3D12_CLEAR_VALUE* pClearValue = &ClearValue;
+    if (ClearValue.Format == DXGI_FORMAT_UNKNOWN)
+    {
+        pClearValue = nullptr;
+    }
+
 	CD3DX12_HEAP_PROPERTIES HeapProps(D3D12_HEAP_TYPE_DEFAULT);
 	ASSERT_SUCCEEDED( Device->CreateCommittedResource( &HeapProps, D3D12_HEAP_FLAG_NONE,
-		&ResourceDesc, D3D12_RESOURCE_STATE_COMMON, &ClearValue, MY_IID_PPV_ARGS(&m_pResource) ));
+		&ResourceDesc, D3D12_RESOURCE_STATE_COMMON, pClearValue, MY_IID_PPV_ARGS(&m_pResource) ));
 
 	m_UsageState = D3D12_RESOURCE_STATE_COMMON;
 	m_GpuVirtualAddress = D3D12_GPU_VIRTUAL_ADDRESS_NULL;
@@ -266,5 +272,18 @@ void PixelBuffer::CreateTextureResource( ID3D12Device* Device, const std::wstrin
 	const D3D12_RESOURCE_DESC& ResourceDesc, D3D12_CLEAR_VALUE ClearValue, EsramAllocator& /*Allocator*/ )
 {
 	CreateTextureResource(Device, Name, ResourceDesc, ClearValue);
+}
+
+void PixelBuffer::CreateReservedResource(ID3D12Device* Device, const std::wstring& Name, const D3D12_RESOURCE_DESC& ResourceDesc)
+{
+    ASSERT_SUCCEEDED(Device->CreateReservedResource(&ResourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, MY_IID_PPV_ARGS(&m_pResource)));
+    m_UsageState = D3D12_RESOURCE_STATE_COMMON;
+    m_GpuVirtualAddress = D3D12_GPU_VIRTUAL_ADDRESS_NULL;
+
+#ifndef RELEASE
+    m_pResource->SetName(Name.c_str());
+#else
+    (Name);
+#endif
 }
 

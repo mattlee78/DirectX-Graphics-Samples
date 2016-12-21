@@ -21,6 +21,7 @@ class CollisionShape;
 class RigidBody;
 class PhysicsWorld;
 class World;
+struct TerrainGpuJob;
 
 struct TerrainFeaturesBlock
 {
@@ -41,10 +42,10 @@ struct GridVertex
 
 static const D3D12_INPUT_ELEMENT_DESC GridVertexDesc[] =
 {
-    { "POSITION", 0, DXGI_FORMAT_R16G16_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-    { "POSITION", 1, DXGI_FORMAT_R32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-    { "NORMAL",   0, DXGI_FORMAT_R10G10B10A2_UNORM, 0, 4, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-    { "TEXCOORD", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 8, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+    { "POSITION", 0, DXGI_FORMAT_R16G16_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+//    { "POSITION", 1, DXGI_FORMAT_R32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+//    { "NORMAL",   0, DXGI_FORMAT_R10G10B10A2_UNORM, 0, 4, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+//    { "TEXCOORD", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 8, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 };
 
 struct DecorationModelVertex
@@ -91,6 +92,8 @@ struct CBGridBlock
     XMFLOAT4 PositionToTexCoord;
     XMFLOAT4 LODConstants;
     XMFLOAT4 ModulateColor;
+    XMFLOAT4 BlockToHeightmap;
+    XMFLOAT4 BlockToSurfacemap;
 };
 
 struct CBTerrain
@@ -169,6 +172,7 @@ public:
         return C;
     }
 
+    XMFLOAT4 GetScalingRect(const GridBlockCoord& LargerCoord) const;
 };
 
 struct GridTerrainConfig
@@ -184,7 +188,44 @@ struct GridTerrainConfig
     FLOAT WaterLevelYpos;
     UINT32 FeaturesBlockShift;
 
+    UINT32 HeightmapDimensionLog2;
+    UINT32 SmallHeightmapShift;
+    UINT32 MedHeightmapShift;
+    UINT32 LargeHeightmapShift;
+
+    UINT32 SurfacemapDimensionLog2;
+    UINT32 SmallSurfacemapShift;
+    UINT32 LargeSurfacemapShift;
+
     UINT32 GetBlockVertexCount() const { return 1U << BlockVertexShift; }
+
+    void SetDefault()
+    {
+        ZeroMemory(this, sizeof(*this));
+        LargestBlockShift = 10;
+        SmallestBlockShift = 0;
+        BlockVertexShift = 4;
+        BlockViewSpaceWidthThreshold = 0.75f;
+        FeaturesBlockShift = LargestBlockShift + 3;
+        HeightmapDimensionLog2 = 9;
+        SmallHeightmapShift = 5;
+        MedHeightmapShift = 10;
+        LargeHeightmapShift = 15;
+        SurfacemapDimensionLog2 = 11;
+        SmallSurfacemapShift = 4;
+        LargeSurfacemapShift = 10;
+    }
+
+    void SetPhysicsDefault()
+    {
+        SetDefault();
+        LargestBlockShift = 8;
+        SmallestBlockShift = LargestBlockShift;
+        BlockVertexShift = 6;
+        SurfacemapDimensionLog2 = 0;
+        SmallSurfacemapShift = 0;
+        LargeSurfacemapShift = 0;
+    }
 };
 
 struct GridTerrainUpdate
@@ -268,9 +309,12 @@ private:
     UINT32 m_QuadrantOfParent;
     GridBlock* m_pParent;
     GridBlock* m_pChildren[4];
+    TerrainGpuJob* m_pHeightmapJob;
+    TerrainGpuJob* m_pPhysicsHeightmapJob;
+    TerrainGpuJob* m_pSurfacemapJob;
     const TerrainFeaturesBlock* m_pFeaturesBlock;
 
-    StructuredBuffer m_VB;
+    //StructuredBuffer m_VB;
     FLOAT m_MinHeight;
     FLOAT m_MaxHeight;
     void* m_pVertexData;
@@ -302,6 +346,9 @@ public:
           m_pCollisionShape(nullptr),
           m_pWaterRigidBody(nullptr),
           m_pWaterCollisionShape(nullptr),
+          m_pHeightmapJob(nullptr),
+          m_pPhysicsHeightmapJob(nullptr),
+          m_pSurfacemapJob(nullptr),
           m_pParent(nullptr)
     {
         ZeroMemory(m_pChildren, sizeof(m_pChildren));
@@ -323,7 +370,14 @@ public:
     HRESULT Initialize(const GridTerrainConfig* pConfig, GridBlockCoord Coord, GridBlock* pParent, UINT32 QuadrantOfParent, const TerrainFeaturesBlock* pFeaturesBlock, bool SynchronousGeometry);
 
     BlockState GetState() const { return m_State; }
-    bool IsInitialized() const { return m_State != Initializing; }
+    bool IsInitialized()
+    { 
+        if (m_State == Initializing)
+        {
+            CheckGpuJobs();
+        }
+        return m_State != Initializing; 
+    }
 
     void Update(UINT32 Time, bool LastFrameRendered) 
     { 
@@ -361,6 +415,7 @@ public:
     //void DebugRender(GlyphRenderer* pGR, FXMVECTOR CameraPosWorld, FXMVECTOR RenderScale, CXMVECTOR ScreenOffset);
 
 private:
+    void CheckGpuJobs();
     void Terminate();
     virtual void FinalRelease()
     {
@@ -442,7 +497,7 @@ private:
     };
     IBTile m_EdgeIB[16];
     ByteAddressBuffer m_GridIB;
-    StructuredBuffer m_GridBlockVB;
+    StructuredBuffer m_GridBlockFixedVB;
 
     RootSignature m_RootSig;
     GraphicsPSO m_OpaqueTerrainPSO;
