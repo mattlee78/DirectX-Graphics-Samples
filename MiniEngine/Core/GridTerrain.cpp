@@ -4,6 +4,7 @@
 #include "BulletPhysics.h"
 #include "BufferManager.h"
 #include "LineRender.h"
+#include "GridTerrainJobs.h"
 
 #include "CompiledShaders\GridTerrainVS.h"
 #include "CompiledShaders\GridTerrainPS.h"
@@ -28,6 +29,20 @@ static const XMVECTOR g_LODColors[12] =
     { 1, 0, 0.5f, 1 },
 };
 
+XMFLOAT4 GridBlockCoord::GetScalingRect(const GridBlockCoord& LargerCoord) const
+{
+    assert(SizeShift <= LargerCoord.SizeShift);
+    const UINT64 ShiftDifference = LargerCoord.SizeShift - SizeShift;
+    const FLOAT ScaleFactor = (FLOAT)(1 << ShiftDifference);
+    const FLOAT InvScaleFactor = 1.0f / ScaleFactor;
+    XMFLOAT4 Result;
+    Result.x = (FLOAT)(X - LargerCoord.X) * InvScaleFactor;
+    Result.y = (FLOAT)(Y - LargerCoord.Y) * InvScaleFactor;
+    Result.z = InvScaleFactor;
+    Result.w = InvScaleFactor;
+    return Result;
+}
+
 HRESULT GridBlock::Initialize(const GridTerrainConfig* pConfig, GridBlockCoord Coord, GridBlock* pParent, UINT32 QuadrantOfParent, const TerrainFeaturesBlock* pFeaturesBlock, bool SynchronousGeometry)
 {
     m_pConfig = pConfig;
@@ -40,6 +55,10 @@ HRESULT GridBlock::Initialize(const GridTerrainConfig* pConfig, GridBlockCoord C
     //assert(pFeaturesBlock != nullptr);
     m_pFeaturesBlock = pFeaturesBlock;
 
+    m_pHeightmapJob = nullptr;
+    m_pSurfacemapJob = nullptr;
+    m_pPhysicsHeightmapJob = nullptr;
+
     if (m_pParent == nullptr)
     {
         assert(m_QuadrantOfParent == -1);
@@ -50,7 +69,7 @@ HRESULT GridBlock::Initialize(const GridTerrainConfig* pConfig, GridBlockCoord C
     }
 
     // Add a refcount before starting the asynchronous build geometry task:
-    AddRef();
+    //AddRef();
 
     if (SynchronousGeometry)
     {
@@ -71,6 +90,57 @@ void GridBlock::BuildGeometry(const GridTerrainConfig* pConfig)
     //assert(m_pFeaturesBlock->CanMakeTerrain());
     //assert(m_pFeaturesBlock->GetConfig() == pConfig);
 
+    const bool PhysicsOnly = (pConfig->pPhysicsWorld != nullptr);
+
+    if (m_pHeightmapJob == nullptr)
+    {
+        GridBlockCoord HeightmapCoord;
+        if (m_Coord.SizeShift < pConfig->SmallHeightmapShift)
+        {
+            HeightmapCoord.InitializeWithShift(m_Coord, pConfig->SmallHeightmapShift);
+        }
+        else if (m_Coord.SizeShift < pConfig->MedHeightmapShift)
+        {
+            HeightmapCoord.InitializeWithShift(m_Coord, pConfig->MedHeightmapShift);
+        }
+        else
+        {
+            assert(m_Coord.SizeShift <= pConfig->LargeHeightmapShift);
+            HeightmapCoord.InitializeWithShift(m_Coord, pConfig->LargeHeightmapShift);
+        }
+        TerrainGraphicsHeightmapParams Params = {};
+        Params.ViewCoord = HeightmapCoord;
+        Params.pConfig = pConfig;
+        Params.GenerateMaterialMap = !PhysicsOnly;
+        m_pHeightmapJob = g_GridTerrainJobs.CreateTextureHeightmapJob(Params);
+    }
+    if (PhysicsOnly && m_pPhysicsHeightmapJob == nullptr)
+    {
+        TerrainPhysicsHeightmapParams Params = {};
+        assert(pConfig->SmallestBlockShift == pConfig->LargestBlockShift);
+        Params.ViewCoord.InitializeWithShift(m_Coord, pConfig->SmallestBlockShift);
+        Params.pConfig = pConfig;
+        Params.pGraphicsHeightmapJob = m_pHeightmapJob;
+        m_pPhysicsHeightmapJob = g_GridTerrainJobs.CreatePhysicsHeightmapJob(Params);
+    }
+    if (!PhysicsOnly && m_pSurfacemapJob == nullptr)
+    {
+        TerrainSurfacemapParams Params = {};
+        if (m_Coord.SizeShift <= pConfig->SmallSurfacemapShift)
+        {
+            Params.ViewCoord.InitializeWithShift(m_Coord, pConfig->SmallSurfacemapShift);
+        }
+        else
+        {
+            assert(m_Coord.SizeShift <= pConfig->LargeSurfacemapShift);
+            Params.ViewCoord.InitializeWithShift(m_Coord, pConfig->LargeSurfacemapShift);
+        }
+        Params.pConfig = pConfig;
+        Params.pGraphicsHeightmapJob = m_pHeightmapJob;
+        m_pSurfacemapJob = g_GridTerrainJobs.CreateTextureSurfacemapJob(Params);
+    }
+
+    /*
     const INT32 GridVertexEdgeCount = pConfig->GetBlockVertexCount();
     UINT32 VertexCount = (GridVertexEdgeCount + 1) * (GridVertexEdgeCount + 1);
 
@@ -303,7 +373,38 @@ void GridBlock::BuildGeometry(const GridTerrainConfig* pConfig)
 
     // Initialize added an extra refcount before starting the build geometry task:
     Release();
+    */
 }    
+
+void GridBlock::CheckGpuJobs()
+{
+    assert(m_State == Initializing);
+
+    if (m_pHeightmapJob != nullptr && !m_pHeightmapJob->IsComplete())
+    {
+        return;
+    }
+    if (m_pSurfacemapJob != nullptr && !m_pSurfacemapJob->IsComplete())
+    {
+        return;
+    }
+    if (m_pPhysicsHeightmapJob != nullptr && !m_pPhysicsHeightmapJob->IsComplete())
+    {
+        return;
+    }
+
+    if (m_pPhysicsHeightmapJob != nullptr)
+    {
+        // TODO: create collision shape from m_pPhysicsHeightmapJob
+    }
+
+    __faststorefence();
+    m_State = Initialized;
+    __faststorefence();
+
+    // Initialize added an extra refcount before starting the build geometry task:
+    //Release();
+}
 
 inline const GridVertex* GridVertexLerp(FXMVECTOR NormPos, const GridVertex* pVerts, UINT32 RowWidth, FLOAT* pLerpPosY, XMVECTOR* pLerpNormal)
 {
@@ -690,7 +791,23 @@ void GridBlock::Terminate()
         }
     }
 
-    m_VB.Destroy();
+    if (m_pSurfacemapJob != nullptr)
+    {
+        m_pSurfacemapJob->Release();
+        m_pSurfacemapJob = nullptr;
+    }
+    if (m_pPhysicsHeightmapJob != nullptr)
+    {
+        m_pPhysicsHeightmapJob->Release();
+        m_pPhysicsHeightmapJob = nullptr;
+    }
+    if (m_pHeightmapJob != nullptr)
+    {
+        m_pHeightmapJob->Release();
+        m_pHeightmapJob = nullptr;
+    }
+
+    //m_VB.Destroy();
     //SAFE_RELEASE(m_pDecorationInstanceVB);
     assert(m_pRigidBody == nullptr);
     assert(m_pCollisionShape == nullptr);
@@ -701,6 +818,10 @@ void GridBlock::Terminate()
         free(m_pVertexData);
         m_pVertexData = nullptr;
     }
+//     if (m_State == Initializing)
+//     {
+//         Release();
+//     }
     m_State = Initializing;
     m_pParent = nullptr;
 }
@@ -750,12 +871,31 @@ void GridBlock::Render(const GridTerrainRender& GTR, LinearAllocator* pCBAllocat
     XMStoreFloat4x4(&pCBBlock->matViewProj, GTR.matVP);
     XMStoreFloat4(&pCBBlock->PositionToTexCoord, m_Coord.GetShaderOffsetScale());
     XMStoreFloat4(&pCBBlock->ModulateColor, g_LODColors[m_Coord.SizeShift % ARRAYSIZE(g_LODColors)]);
+    if (m_pHeightmapJob != nullptr)
+    {
+        pCBBlock->BlockToHeightmap = m_Coord.GetScalingRect(m_pHeightmapJob->ViewCoord);
+        pContext->SetDynamicDescriptor(3, 0, m_pHeightmapJob->OutputResource.GetSRV());
+        m_pHeightmapJob->UsageCount++;
+    }
+    else
+    {
+        pCBBlock->BlockToHeightmap = XMFLOAT4(0, 0, 0, 0);
+    }
+    if (m_pSurfacemapJob != nullptr)
+    {
+        pCBBlock->BlockToSurfacemap = m_Coord.GetScalingRect(m_pSurfacemapJob->ViewCoord);
+        D3D12_CPU_DESCRIPTOR_HANDLE Handles[2] = { m_pSurfacemapJob->OutputResource.GetSRV(), m_pSurfacemapJob->OutputResource2.GetSRV() };
+        pContext->SetDynamicDescriptors(2, 0, 2, Handles);
+        m_pSurfacemapJob->UsageCount++;
+    }
+    else
+    {
+        pCBBlock->BlockToSurfacemap = XMFLOAT4(0, 0, 0, 0);
+    }
     pContext->SetConstantBuffer(0, DA.GpuAddress);
 
-    UINT32 Stride = sizeof(GridVertex);
-    UINT32 Offset = 0;
-    D3D12_VERTEX_BUFFER_VIEW VBV = m_VB.VertexBufferView();
-    pContext->SetVertexBuffer(0, VBV);
+    //D3D12_VERTEX_BUFFER_VIEW VBV = m_VB.VertexBufferView();
+    //pContext->SetVertexBuffer(0, VBV);
     pContext->SetIndexBuffer(IBV);
     pContext->DrawIndexed(IndexCount, 0, 0);
 
@@ -980,6 +1120,7 @@ HRESULT GridTerrain::Initialize(const GridTerrainConfig* pConfig)
             return E_INVALIDARG;
         }
         m_Config.pd3dDevice->AddRef();
+        g_GridTerrainJobs.Initialize(pConfig);
     }
     else if (m_Config.pPhysicsWorld != nullptr)
     {
@@ -1112,10 +1253,12 @@ HRESULT GridTerrain::Initialize(const GridTerrainConfig* pConfig)
         m_pCBAllocator = new LinearAllocator(kCpuWritable);
 
 
-        m_RootSig.Reset(3);
+        m_RootSig.Reset(4, 1);
         m_RootSig[0].InitAsConstantBuffer(0);
         m_RootSig[1].InitAsConstantBuffer(1);
-        m_RootSig[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 3);
+        m_RootSig[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 2);
+        m_RootSig[3].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 1);
+        m_RootSig.InitStaticSampler(0, Graphics::SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_ALL);
         m_RootSig.Finalize(L"Grid Terrain RootSignature", D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
         m_OpaqueTerrainPSO.SetRootSignature(m_RootSig);
@@ -1189,7 +1332,7 @@ HRESULT GridTerrain::Initialize(const GridTerrainConfig* pConfig)
             pRow += (GridVertexEdgeCount + 1);
         }
 
-        m_GridBlockVB.Create(L"Grid Block VB", VertexCount, sizeof(FixedGridVertex), pVerts);
+        m_GridBlockFixedVB.Create(L"Grid Block VB", VertexCount, sizeof(FixedGridVertex), pVerts);
         delete[] pVerts;
 
         /*
@@ -1328,16 +1471,19 @@ void GridTerrain::Terminate()
     while (iter != end)
     {
         GridBlock* p = iter->second;
-        p->Terminate();
-        delete p;
+        p->Release();
         ++iter;
     }
     m_RootBlocks.clear();
 
     m_GridIB.Destroy();
-    m_GridBlockVB.Destroy();
+    m_GridBlockFixedVB.Destroy();
 
-    m_Config.pd3dDevice->Release();
+    if (m_Config.pd3dDevice != nullptr)
+    {
+        g_GridTerrainJobs.Terminate();
+        m_Config.pd3dDevice->Release();
+    }
 }
 
 void GridTerrain::Update(const GridTerrainUpdate& GTU)
@@ -1367,10 +1513,10 @@ void GridTerrain::Update(const GridTerrainUpdate& GTU)
     FrustumRect.right = (LONG)XMVectorGetX(Max);
     FrustumRect.bottom = (LONG)XMVectorGetZ(Max);
 
-//     FrustumRect.left = 0;
-//     FrustumRect.right = 1;
-//     FrustumRect.top = 0;
-//     FrustumRect.bottom = 1;
+    FrustumRect.left = 0;
+    FrustumRect.right = 1;
+    FrustumRect.top = 0;
+    FrustumRect.bottom = 1;
 
     //bool FeaturesReady = m_pFeatures->Update(FrustumRect, false);
     bool FeaturesReady = true;
@@ -2055,7 +2201,7 @@ void GridTerrain::RenderOpaque(const GridTerrainRender& GTR)
 //     UINT32 Offset = 0;
     pContext->SetRootSignature(m_RootSig);
     pContext->SetPipelineState(m_OpaqueTerrainPSO);
-    pContext->SetVertexBuffer(1, m_GridBlockVB.VertexBufferView());
+    pContext->SetVertexBuffer(0, m_GridBlockFixedVB.VertexBufferView());
 
     UpdateTerrainCB(pContext, GTR.AbsoluteTime);
 
@@ -2196,7 +2342,7 @@ void GridTerrain::RenderTransparent(const GridTerrainRender& GTR)
         //pd3dContext->IASetInputLayout(m_pWaterLayout);
         //pd3dContext->VSSetShader(m_pWaterVS, nullptr, 0);
         //pd3dContext->PSSetShader(m_pWaterPS, nullptr, 0);
-        pContext->SetVertexBuffer(1, m_GridBlockVB.VertexBufferView());
+        pContext->SetVertexBuffer(1, m_GridBlockFixedVB.VertexBufferView());
 
         auto iter = m_RenderBlockList.begin();
         auto end = m_RenderBlockList.end();

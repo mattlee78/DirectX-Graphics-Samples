@@ -42,6 +42,8 @@ protected:
 	void CreateTextureResource( ID3D12Device* Device, const std::wstring& Name, const D3D12_RESOURCE_DESC& ResourceDesc,
 		D3D12_CLEAR_VALUE ClearValue, EsramAllocator& Allocator );
 
+    void CreateReservedResource(ID3D12Device* Device, const std::wstring& Name, const D3D12_RESOURCE_DESC& ResourceDesc);
+
 	static DXGI_FORMAT GetBaseFormat( DXGI_FORMAT Format );
 	static DXGI_FORMAT GetUAVFormat( DXGI_FORMAT Format );
 	static DXGI_FORMAT GetDSVFormat( DXGI_FORMAT Format );
@@ -52,5 +54,16 @@ protected:
 	uint32_t m_Height;
 	uint32_t m_ArraySize;
 	DXGI_FORMAT m_Format;
+
+    // Compute the number of texture levels needed to reduce to 1x1.  This uses
+    // _BitScanReverse to find the highest set bit.  Each dimension reduces by
+    // half and truncates bits.  The dimension 256 (0x100) has 9 mip levels, same
+    // as the dimension 511 (0x1FF).
+    static inline uint32_t ComputeNumMips(uint32_t Width, uint32_t Height)
+    {
+        uint32_t HighBit;
+        _BitScanReverse((unsigned long*)&HighBit, Width | Height);
+        return HighBit + 1;
+    }
 	uint32_t m_BankRotation;
 };

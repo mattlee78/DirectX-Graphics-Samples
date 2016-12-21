@@ -2,29 +2,27 @@
 
 VS_OUTPUT vswater( VS_INPUT In )                                                
 {
-    float2 RawTexCoord = (In.PositionXZ * PositionToTexCoord.zz) + PositionToTexCoord.xy;
-    float2 TexCoord0 = float2(dot(RawTexCoord.xy, TexCoordTransform0.xy), dot(RawTexCoord.xy, TexCoordTransform0.zw));
-    float2 TexCoord1 = float2(dot(RawTexCoord.xy, TexCoordTransform1.xy), dot(RawTexCoord.xy, TexCoordTransform1.zw));
+    float2 HeightmapUV = (In.PositionXZ * BlockToHeightmap.zz) + BlockToHeightmap.xy;
+    float2 SurfaceUV = (In.PositionXZ * BlockToSurfacemap.zz) + BlockToSurfacemap.xy;
+    float PositionY = HeightmapTexture.SampleLevel(linearSampler, HeightmapUV, 0).x;
 
-    float TerrainHeight = In.PositionY;
+    float TerrainHeight = PositionY;
     float WaterHeight = vWaterConstants.x;
     float WaterDepth = WaterHeight - TerrainHeight;
 
     float Waviness = saturate(WaterDepth * 0.25) * 0;
 
-    float FullWave1 = sin(RawTexCoord.x + RawTexCoord.y + vWaterConstants.y * 2.9f);
-    float FullWave2 = cos(RawTexCoord.x * 0.37f + RawTexCoord.y * 2.17f + vWaterConstants.y * 4.1f);
+    float2 WorldTexCoord = (In.PositionXZ * PositionToTexCoord.zz) + PositionToTexCoord.xy;
+    float FullWave1 = sin(WorldTexCoord.x + WorldTexCoord.y + vWaterConstants.y * 2.9f);
+    float FullWave2 = cos(WorldTexCoord.x * 0.37f + WorldTexCoord.y * 2.17f + vWaterConstants.y * 4.1f);
     float FullWave = FullWave1 + FullWave2;
     float WaveAmplitude = FullWave * Waviness * 0.1f;
-    float2 WaveNormalXZ = FullWave`(RawTexCoord.xy);
+    float2 WaveNormalXZ = FullWave`(WorldTexCoord.xy);
 
     VS_OUTPUT Out;                                                             
 
-    Out.TexCoord01.xy = TexCoord0.xy;
-    Out.TexCoord01.zw = TexCoord1.xy;
-    Out.Blend = float4(Waviness, 0, 0, WaterDepth);
-    Out.Normal.xyz = float3(WaveNormalXZ.x, 1, WaveNormalXZ.y);
-    Out.Normal.w = 0;
+    Out.TexCoord01.xy = SurfaceUV.xy;
+    Out.TexCoord01.zw = SurfaceUV.xy;
                                                                                
     float4 LocalPos = float4(In.PositionXZ.x, WaterHeight + WaveAmplitude, In.PositionXZ.y, 1);
     float4 WorldPos = mul(LocalPos, mWorld);
