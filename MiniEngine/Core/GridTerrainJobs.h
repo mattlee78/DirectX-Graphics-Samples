@@ -12,13 +12,18 @@ typedef std::unordered_map<UINT64, TerrainGpuJob*> TerrainGpuJobMap;
 struct TerrainGpuJob : public RefCountBase
 {
     TerrainGpuJobMap* pJobMap;
-    GraphicsJob* pGraphicsJob;
-    bool GraphicsJobComplete;
     GridBlockCoord ViewCoord;
-    TiledTextureBuffer OutputResource;
-    TiledTextureBuffer OutputResource2;
-    UINT32 UsageCount;
+    FLOAT MostRecentViewWidth;
+    PagingQueueEntry OutputResources;
 
+    TerrainGpuJob()
+        : pJobMap(nullptr),
+          MostRecentViewWidth(0)
+    { }
+
+    void MarkAsCurrent();
+
+    bool IsPending() const;
     bool IsComplete();
     void FinalRelease();
     void UpdateSortKey();

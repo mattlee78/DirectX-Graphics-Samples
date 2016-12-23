@@ -305,6 +305,7 @@ private:
     volatile BlockState m_State;
     UINT32 m_LastSeenTime;
     UINT32 m_LastFrameRendered;
+    UINT64 m_LastFenceRendered;
     GridBlockCoord m_Coord;
     UINT32 m_QuadrantOfParent;
     GridBlock* m_pParent;
@@ -341,6 +342,7 @@ public:
           m_pConfig(nullptr),
           m_LastSeenTime(0),
           m_QuadrantOfParent(0),
+          m_LastFenceRendered(0),
           m_pVertexData(nullptr),
           m_pRigidBody(nullptr),
           m_pCollisionShape(nullptr),
@@ -415,6 +417,7 @@ public:
     //void DebugRender(GlyphRenderer* pGR, FXMVECTOR CameraPosWorld, FXMVECTOR RenderScale, CXMVECTOR ScreenOffset);
 
 private:
+    bool IsGpuWorkPending(bool CheckChildren) const;
     void CheckGpuJobs();
     void Terminate();
     virtual void FinalRelease()

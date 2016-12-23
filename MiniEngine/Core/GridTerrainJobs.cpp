@@ -3,19 +3,37 @@
 
 GridTerrainJobs g_GridTerrainJobs;
 
+void TerrainGpuJob::MarkAsCurrent()
+{
+    OutputResources.MostRecentTimestamp = Graphics::GetFrameCount();
+}
+
+bool TerrainGpuJob::IsPending() const
+{
+    GraphicsJob* pJob = OutputResources.pGraphicsJob;
+    if (pJob == nullptr)
+    {
+        return false;
+    }
+    if (!pJob->IsSubmitted() || pJob->IsComplete())
+    {
+        return false;
+    }
+    return true;
+}
+
 bool TerrainGpuJob::IsComplete()
 {
-    ++UsageCount;
-    if (GraphicsJobComplete)
+    MarkAsCurrent();
+    GraphicsJob* pJob = OutputResources.pGraphicsJob;
+    if (pJob == nullptr)
     {
         return true;
     }
-    if (pGraphicsJob->IsComplete())
+    if (pJob->IsComplete())
     {
-        GraphicsJobComplete = true;
-        g_GpuJobQueue.CloseGraphicsJob(pGraphicsJob);
-        pGraphicsJob = nullptr;
-        return true;
+        g_GpuJobQueue.CloseGraphicsJob(pJob);
+        OutputResources.pGraphicsJob = nullptr;
     }
     UpdateSortKey();
     return false;
@@ -23,23 +41,28 @@ bool TerrainGpuJob::IsComplete()
 
 void TerrainGpuJob::FinalRelease()
 {
-    if (pGraphicsJob != nullptr)
+    g_GpuJobQueue.RemovePagingEntry(&OutputResources);
+    if (OutputResources.pGraphicsJob != nullptr)
     {
-        pGraphicsJob->CancelJob = true;
-        pGraphicsJob->HoldJobOpen = false;
+        g_GpuJobQueue.CloseGraphicsJob(OutputResources.pGraphicsJob);
+        OutputResources.pGraphicsJob = nullptr;
     }
-    OutputResource.Destroy();
-    OutputResource2.Destroy();
+    g_TilePool.FreeTiledTextureTiles(&OutputResources.TiledTexture[0]);
+    g_TilePool.FreeTiledTextureTiles(&OutputResources.TiledTexture[1]);
+    OutputResources.TiledTexture[0].Destroy();
+    OutputResources.TiledTexture[1].Destroy();
     g_GridTerrainJobs.DeleteJob(this);
 }
 
 void TerrainGpuJob::UpdateSortKey()
 {
-    if (pGraphicsJob != nullptr)
+    FLOAT SortKey = 0;
+    if (Graphics::GetFrameCount() - OutputResources.MostRecentTimestamp < 60)
     {
-        const UINT32 ScaleFactor = 1000;
-        pGraphicsJob->SortKey = ScaleFactor * (UINT32)ViewCoord.SizeShift + std::min(ScaleFactor - 1, UsageCount);
+        SortKey = (FLOAT)(1U << ViewCoord.SizeShift);
+        SortKey *= std::max(0.0f, MostRecentViewWidth);
     }
+    OutputResources.PositiveWeight = SortKey;
 }
 
 GridTerrainJobs::GridTerrainJobs()
@@ -62,7 +85,7 @@ void GridTerrainJobs::Initialize(const GridTerrainConfig* pConfig)
     m_SurfaceDiffuseRT.Create(L"Surface Diffuse RT", SurfaceWidthHeight, SurfaceWidthHeight, 1, DXGI_FORMAT_R10G10B10A2_UNORM, 0, true);
     m_SurfaceNormalRT.Create(L"Surface Normal RT", SurfaceWidthHeight, SurfaceWidthHeight, 1, DXGI_FORMAT_R10G10B10A2_UNORM, 0, true);
 
-    g_TilePool.Initialize(4, 6, 16);
+    g_TilePool.Initialize(4, 0, 16);
 }
 
 void GridTerrainJobs::Terminate()
@@ -93,9 +116,13 @@ void GridTerrainJobs::AddJob(TerrainGpuJob* pJob, TerrainGpuJobMap& JobMap)
     EnterCriticalSection(&m_JobCritSec);
     JobMap[pJob->ViewCoord.Value] = pJob;
     LeaveCriticalSection(&m_JobCritSec);
-    pJob->pGraphicsJob->HoldJobOpen = true;
+    if (pJob->OutputResources.pGraphicsJob != nullptr)
+    {
+        pJob->OutputResources.pGraphicsJob->HoldJobOpen = true;
+    }
+    pJob->OutputResources.MostRecentTimestamp = Graphics::GetFrameCount();
     pJob->UpdateSortKey();
-    g_GpuJobQueue.SubmitGraphicsJob(pJob->pGraphicsJob);
+    g_GpuJobQueue.AddPagingMapEntry(&pJob->OutputResources);
 }
 
 void GridTerrainJobs::DeleteJob(TerrainGpuJob* pJob)
@@ -125,15 +152,15 @@ TerrainGpuJob* GridTerrainJobs::CreateTextureHeightmapJob(const TerrainGraphicsH
 
     const UINT32 WidthHeight = (1 << Params.pConfig->HeightmapDimensionLog2);
     const UINT32 PaddedWidthHeight = WidthHeight + 8;
-    pJob->OutputResource.Create(L"Terrain Heightmap", PaddedWidthHeight, PaddedWidthHeight, 1, 1, DXGI_FORMAT_R32_FLOAT);
+    pJob->OutputResources.TiledTexture[0].Create(L"Terrain Heightmap", PaddedWidthHeight, PaddedWidthHeight, 1, 1, DXGI_FORMAT_R32_FLOAT);
 
     if (Params.GenerateMaterialMap)
     {
-        pJob->OutputResource2.Create(L"Terrain MaterialMap", PaddedWidthHeight, PaddedWidthHeight, 1, 1, DXGI_FORMAT_R8G8_UNORM);
+        pJob->OutputResources.TiledTexture[1].Create(L"Terrain MaterialMap", PaddedWidthHeight, PaddedWidthHeight, 1, 1, DXGI_FORMAT_R8G8_UNORM);
     }
 
-    pJob->pGraphicsJob = g_GpuJobQueue.CreateGraphicsJob();
-    GraphicsContext* pContext = pJob->pGraphicsJob->pContext;
+    pJob->OutputResources.pGraphicsJob = g_GpuJobQueue.CreateGraphicsJob();
+    GraphicsContext* pContext = pJob->OutputResources.pGraphicsJob->pContext;
 
     pContext->TransitionResource(m_HeightmapRT, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
     pContext->ClearColor(m_HeightmapRT);
@@ -144,15 +171,15 @@ TerrainGpuJob* GridTerrainJobs::CreateTextureHeightmapJob(const TerrainGraphicsH
     }
 
     pContext->TransitionResource(m_HeightmapRT, D3D12_RESOURCE_STATE_GENERIC_READ);
-    pContext->TransitionResource(pJob->OutputResource, D3D12_RESOURCE_STATE_COPY_DEST);
-    pContext->CopySubresource(pJob->OutputResource, 0, m_HeightmapRT, 0);
-    pContext->TransitionResource(pJob->OutputResource, D3D12_RESOURCE_STATE_GENERIC_READ);
+    pContext->TransitionResource(pJob->OutputResources.TiledTexture[0], D3D12_RESOURCE_STATE_COPY_DEST);
+    pContext->CopySubresource(pJob->OutputResources.TiledTexture[0], 0, m_HeightmapRT, 0);
+    pContext->TransitionResource(pJob->OutputResources.TiledTexture[0], D3D12_RESOURCE_STATE_GENERIC_READ);
     if (Params.GenerateMaterialMap)
     {
         pContext->TransitionResource(m_MaterialmapRT, D3D12_RESOURCE_STATE_GENERIC_READ);
-        pContext->TransitionResource(pJob->OutputResource2, D3D12_RESOURCE_STATE_COPY_DEST);
-        pContext->CopySubresource(pJob->OutputResource2, 0, m_MaterialmapRT, 0);
-        pContext->TransitionResource(pJob->OutputResource2, D3D12_RESOURCE_STATE_GENERIC_READ);
+        pContext->TransitionResource(pJob->OutputResources.TiledTexture[1], D3D12_RESOURCE_STATE_COPY_DEST);
+        pContext->CopySubresource(pJob->OutputResources.TiledTexture[1], 0, m_MaterialmapRT, 0);
+        pContext->TransitionResource(pJob->OutputResources.TiledTexture[1], D3D12_RESOURCE_STATE_GENERIC_READ);
     }
     pContext->FlushResourceBarriers();
 
@@ -175,11 +202,11 @@ TerrainGpuJob* GridTerrainJobs::CreateTextureSurfacemapJob(const TerrainSurfacem
     Utility::Printf("Creating surfacemap textures for (%I64d, %I64d) scale %u\n", Params.ViewCoord.X, Params.ViewCoord.Y, 1U << Params.ViewCoord.SizeShift);
 
     const UINT32 WidthHeight = (1 << Params.pConfig->SurfacemapDimensionLog2);
-    pJob->OutputResource.Create(L"Terrain Diffuse Map", WidthHeight, WidthHeight, 1, 1, DXGI_FORMAT_R10G10B10A2_UNORM);
-    pJob->OutputResource2.Create(L"Terrain Normal Map", WidthHeight, WidthHeight, 1, 1, DXGI_FORMAT_R10G10B10A2_UNORM);
+    pJob->OutputResources.TiledTexture[0].Create(L"Terrain Diffuse Map", WidthHeight, WidthHeight, 1, 1, DXGI_FORMAT_R10G10B10A2_UNORM);
+    pJob->OutputResources.TiledTexture[1].Create(L"Terrain Normal Map", WidthHeight, WidthHeight, 1, 1, DXGI_FORMAT_R10G10B10A2_UNORM);
 
-    pJob->pGraphicsJob = g_GpuJobQueue.CreateGraphicsJob();
-    GraphicsContext* pContext = pJob->pGraphicsJob->pContext;
+    pJob->OutputResources.pGraphicsJob = g_GpuJobQueue.CreateGraphicsJob();
+    GraphicsContext* pContext = pJob->OutputResources.pGraphicsJob->pContext;
 
     pContext->TransitionResource(m_SurfaceDiffuseRT, D3D12_RESOURCE_STATE_RENDER_TARGET);
     pContext->TransitionResource(m_SurfaceNormalRT, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -201,14 +228,14 @@ TerrainGpuJob* GridTerrainJobs::CreateTextureSurfacemapJob(const TerrainSurfacem
     pContext->ClearColor(m_SurfaceNormalRT, SurfaceNormalColor);
 
     pContext->TransitionResource(m_SurfaceDiffuseRT, D3D12_RESOURCE_STATE_GENERIC_READ);
-    pContext->TransitionResource(pJob->OutputResource, D3D12_RESOURCE_STATE_COPY_DEST);
-    pContext->CopySubresource(pJob->OutputResource, 0, m_SurfaceDiffuseRT, 0);
-    pContext->TransitionResource(pJob->OutputResource, D3D12_RESOURCE_STATE_GENERIC_READ);
+    pContext->TransitionResource(pJob->OutputResources.TiledTexture[0], D3D12_RESOURCE_STATE_COPY_DEST);
+    pContext->CopySubresource(pJob->OutputResources.TiledTexture[0], 0, m_SurfaceDiffuseRT, 0);
+    pContext->TransitionResource(pJob->OutputResources.TiledTexture[0], D3D12_RESOURCE_STATE_GENERIC_READ);
 
     pContext->TransitionResource(m_SurfaceNormalRT, D3D12_RESOURCE_STATE_GENERIC_READ);
-    pContext->TransitionResource(pJob->OutputResource2, D3D12_RESOURCE_STATE_COPY_DEST);
-    pContext->CopySubresource(pJob->OutputResource2, 0, m_SurfaceNormalRT, 0);
-    pContext->TransitionResource(pJob->OutputResource2, D3D12_RESOURCE_STATE_GENERIC_READ);
+    pContext->TransitionResource(pJob->OutputResources.TiledTexture[1], D3D12_RESOURCE_STATE_COPY_DEST);
+    pContext->CopySubresource(pJob->OutputResources.TiledTexture[1], 0, m_SurfaceNormalRT, 0);
+    pContext->TransitionResource(pJob->OutputResources.TiledTexture[1], D3D12_RESOURCE_STATE_GENERIC_READ);
 
     pContext->FlushResourceBarriers();
 

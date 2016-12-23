@@ -3,6 +3,7 @@
 #include "GraphicsCore.h"
 
 ElasticTilePool g_TilePool;
+static const UINT32 g_DefaultSlabTileShift = 10;
 
 ElasticTilePool::ElasticTilePool()
 {
@@ -16,6 +17,11 @@ ElasticTilePool::~ElasticTilePool()
 void ElasticTilePool::Initialize(UINT32 TileGroupShift, UINT32 SlabTileShift, UINT32 SlabCount)
 {
     assert(SlabCount <= ARRAYSIZE(m_Slabs));
+    assert(TileGroupShift < g_DefaultSlabTileShift);
+    if (SlabTileShift == 0)
+    {
+        SlabTileShift = g_DefaultSlabTileShift - TileGroupShift;
+    }
     m_SlabTileShift = SlabTileShift;
     m_TileGroupShift = TileGroupShift;
     m_SlabCount = SlabCount;
@@ -45,7 +51,7 @@ void ElasticTilePool::Terminate()
 
 bool ElasticTilePool::MapTiledTextureSubresource(ID3D12CommandQueue* pQueue, TiledTextureBuffer* pTexture, UINT32 MipIndex, UINT32 SliceIndex)
 {
-    const UINT32 SubresourceIndex = (pTexture->m_MipCount * SliceIndex) + MipIndex;
+    const UINT32 SubresourceIndex = ((pTexture->m_NumMipMaps + 1) * SliceIndex) + MipIndex;
     USHORT TileIndex = pTexture->m_pTileIndices[SubresourceIndex];
 
     if (TileIndex != IndexList::InvalidIndex)
@@ -61,8 +67,9 @@ bool ElasticTilePool::MapTiledTextureSubresource(ID3D12CommandQueue* pQueue, Til
 
     const UINT32 TileSliceSize = SubTiling.WidthInTiles * SubTiling.HeightInTiles;
 
-    const UINT32 TileCount = (SubTiling.WidthInTiles * SubTiling.HeightInTiles * SubTiling.DepthInTiles);
-    const UINT32 TileGroupCount = TileCount >> m_TileGroupShift;
+    UINT32 TileCount = (SubTiling.WidthInTiles * SubTiling.HeightInTiles * SubTiling.DepthInTiles);
+    const UINT32 TileGroupCount = (TileCount + (1 << m_TileGroupShift) - 1) >> m_TileGroupShift;
+    assert(TileGroupCount > 0 && (TileGroupCount << m_TileGroupShift) >= TileCount);
 
     TileIndex = m_FreeTiles.Allocate(TileGroupCount);
     if (TileIndex == IndexList::InvalidIndex)
@@ -99,22 +106,25 @@ bool ElasticTilePool::MapTiledTextureSubresource(ID3D12CommandQueue* pQueue, Til
             pPrevHeap = Slab.pHeap;
         }
 
+        const UINT32 RangeTileCount = std::min(TileCount, 1U << m_TileGroupShift);
+
         StartCoord[RangeCount].Subresource = SubresourceIndex;
         StartCoord[RangeCount].X = (TileWithinSubresource % SubTiling.WidthInTiles);
         StartCoord[RangeCount].Y = (TileWithinSubresource % TileSliceSize) / SubTiling.WidthInTiles;
         StartCoord[RangeCount].Z = TileWithinSubresource / TileSliceSize;
 
-        RegionSizes[RangeCount].NumTiles = 1U << m_TileGroupShift;
+        RegionSizes[RangeCount].NumTiles = RangeTileCount;
         RegionSizes[RangeCount].UseBox = FALSE;
 
         RangeFlags[RangeCount] = D3D12_TILE_RANGE_FLAG_NONE;
 
         RangeStartOffsets[RangeCount] = IndexWithinSlab << m_TileGroupShift;
-        RangeTileCounts[RangeCount] = 1 << m_TileGroupShift;
+        RangeTileCounts[RangeCount] = RangeTileCount;
 
         TileIndex = m_FreeTiles.GetNextIndex(TileIndex);
         ++RangeCount;
-        TileWithinSubresource += (1 << m_TileGroupShift);
+        TileWithinSubresource += RangeTileCount;
+        TileCount -= RangeTileCount;
     }
 
     if (RangeCount > 0)
@@ -127,7 +137,7 @@ bool ElasticTilePool::MapTiledTextureSubresource(ID3D12CommandQueue* pQueue, Til
 
 bool ElasticTilePool::UnmapTiledTextureSubresource(ID3D12CommandQueue* pQueue, TiledTextureBuffer* pTexture, UINT32 MipIndex, UINT32 SliceIndex)
 {
-    const UINT32 SubresourceIndex = (pTexture->m_MipCount * SliceIndex) + MipIndex;
+    const UINT32 SubresourceIndex = ((pTexture->m_NumMipMaps + 1) * SliceIndex) + MipIndex;
     const D3D12_SUBRESOURCE_TILING& SubTiling = pTexture->m_pSubresourceTilings[SubresourceIndex];
     if (SubTiling.StartTileIndexInOverallResource == D3D12_PACKED_TILE)
     {
@@ -157,6 +167,15 @@ bool ElasticTilePool::UnmapTiledTextureSubresource(ID3D12CommandQueue* pQueue, T
     return true;
 }
 
+void ElasticTilePool::FreeTiledTextureTiles(TiledTextureBuffer* pTexture)
+{
+    for (UINT32 i = 0; i < pTexture->m_SubresourceCount; ++i)
+    {
+        m_FreeTiles.Free(pTexture->m_pTileIndices[i]);
+        pTexture->m_pTileIndices[i] = IndexList::InvalidIndex;
+    }
+}
+
 void TiledTextureBuffer::Create(const std::wstring& Name, uint32_t Width, uint32_t Height, uint32_t ArrayCount, uint32_t NumMips, DXGI_FORMAT Format)
 {
     D3D12_RESOURCE_DESC ResourceDesc = DescribeTex2D(Width, Height, ArrayCount, 1, Format, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
@@ -165,8 +184,8 @@ void TiledTextureBuffer::Create(const std::wstring& Name, uint32_t Width, uint32
     CreateReservedResource(Graphics::g_Device, Name, ResourceDesc);
     CreateDerivedViews(Graphics::g_Device, Format, ArrayCount, 1);
 
-    m_MipCount = NumMips;
     const UINT32 SubresourceCount = ArrayCount * NumMips;
+    m_SubresourceCount = SubresourceCount;
     m_pSubresourceTilings = new D3D12_SUBRESOURCE_TILING[SubresourceCount];
     ZeroMemory(m_pSubresourceTilings, SubresourceCount * sizeof(D3D12_SUBRESOURCE_TILING));
 

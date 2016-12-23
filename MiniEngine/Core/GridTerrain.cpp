@@ -863,6 +863,8 @@ void GridBlock::TerminatePhysics(PhysicsWorld* pWorld)
 
 void GridBlock::Render(const GridTerrainRender& GTR, LinearAllocator* pCBAllocator, const D3D12_INDEX_BUFFER_VIEW& IBV, UINT32 IndexCount, const GridTerrainConfig* pConfig)
 {
+    m_LastFenceRendered = Graphics::g_CommandManager.GetQueue(D3D12_COMMAND_LIST_TYPE_DIRECT).GetNextFenceValue();
+
     GraphicsContext* pContext = GTR.pContext;
     XMMATRIX matWorld = GetTransform(GTR.vCameraOffset);
     DynAlloc DA = pCBAllocator->Allocate(sizeof(CBGridBlock));
@@ -874,8 +876,8 @@ void GridBlock::Render(const GridTerrainRender& GTR, LinearAllocator* pCBAllocat
     if (m_pHeightmapJob != nullptr)
     {
         pCBBlock->BlockToHeightmap = m_Coord.GetScalingRect(m_pHeightmapJob->ViewCoord);
-        pContext->SetDynamicDescriptor(3, 0, m_pHeightmapJob->OutputResource.GetSRV());
-        m_pHeightmapJob->UsageCount++;
+        pContext->SetDynamicDescriptor(3, 0, m_pHeightmapJob->OutputResources.TiledTexture[0].GetSRV());
+        m_pHeightmapJob->MarkAsCurrent();
     }
     else
     {
@@ -884,9 +886,9 @@ void GridBlock::Render(const GridTerrainRender& GTR, LinearAllocator* pCBAllocat
     if (m_pSurfacemapJob != nullptr)
     {
         pCBBlock->BlockToSurfacemap = m_Coord.GetScalingRect(m_pSurfacemapJob->ViewCoord);
-        D3D12_CPU_DESCRIPTOR_HANDLE Handles[2] = { m_pSurfacemapJob->OutputResource.GetSRV(), m_pSurfacemapJob->OutputResource2.GetSRV() };
+        D3D12_CPU_DESCRIPTOR_HANDLE Handles[2] = { m_pSurfacemapJob->OutputResources.TiledTexture[0].GetSRV(), m_pSurfacemapJob->OutputResources.TiledTexture[1].GetSRV() };
         pContext->SetDynamicDescriptors(2, 0, 2, Handles);
-        m_pSurfacemapJob->UsageCount++;
+        m_pSurfacemapJob->MarkAsCurrent();
     }
     else
     {
@@ -996,11 +998,42 @@ bool GridBlock::CheckForExpiration(UINT32 CutoffTickCount, const GridTerrainConf
     {
         return false;
     }
-    if (GetTime() <= CutoffTickCount)
+    if (GetTime() <= CutoffTickCount && !IsGpuWorkPending(true))
     {
         TerminatePhysics(pConfig->pPhysicsWorld);
         Release();
         return true;
+    }
+    return false;
+}
+
+bool GridBlock::IsGpuWorkPending(bool CheckChildren) const
+{
+    if (!Graphics::g_CommandManager.GetQueue(D3D12_COMMAND_LIST_TYPE_DIRECT).IsFenceComplete(m_LastFenceRendered))
+    {
+        return true;
+    }
+    if (m_pHeightmapJob != nullptr && m_pHeightmapJob->IsPending())
+    {
+        return true;
+    }
+    if (m_pPhysicsHeightmapJob != nullptr && m_pPhysicsHeightmapJob->IsPending())
+    {
+        return true;
+    }
+    if (m_pSurfacemapJob != nullptr && m_pSurfacemapJob->IsPending())
+    {
+        return true;
+    }
+    if (CheckChildren)
+    {
+        for (UINT32 i = 0; i < ARRAYSIZE(m_pChildren); ++i)
+        {
+            if (m_pChildren[i] != nullptr && m_pChildren[i]->IsGpuWorkPending(true))
+            {
+                return true;
+            }
+        }
     }
     return false;
 }
@@ -1811,12 +1844,6 @@ UINT32 GridTerrain::TestGridBlock(const GridBlockCoord& Coord,
     // Must have a valid block at this point:
     assert(pBlock != nullptr);
 
-    // If the block is not yet initialized, return now (can't test for subdivision yet):
-    if (!pBlock->IsInitialized())
-    {
-        return LowestLevelReached;
-    }
-
     if (Coord.SizeShift == m_Config.LargestBlockShift)
     {
         XMVECTOR CenterPos = Coord.GetCenter();
@@ -1834,7 +1861,24 @@ UINT32 GridTerrain::TestGridBlock(const GridBlockCoord& Coord,
     XMVECTOR RightVector = vRight * Coord.GetScale();
     XMVECTOR SyntheticBlockPos = CameraPosWorld + DistanceVector + RightVector;
     XMVECTOR ViewBlockPos = XMVector3TransformCoord(SyntheticBlockPos, GTU.matVP);
-    FLOAT Width = XMVectorGetX(ViewBlockPos);
+    const FLOAT Width = XMVectorGetX(ViewBlockPos);
+
+    if (pBlock->m_pHeightmapJob != nullptr)
+    {
+        pBlock->m_pHeightmapJob->MostRecentViewWidth = Width;
+        pBlock->m_pHeightmapJob->UpdateSortKey();
+    }
+    if (pBlock->m_pSurfacemapJob != nullptr)
+    {
+        pBlock->m_pSurfacemapJob->MostRecentViewWidth = Width;
+        pBlock->m_pSurfacemapJob->UpdateSortKey();
+    }
+
+    // If the block is not yet initialized, return now (can't test for subdivision yet):
+    if (!pBlock->IsInitialized())
+    {
+        return LowestLevelReached;
+    }
 
     // Determine if pBlock is a candidate for subdivision by looking at the projected width in view space:
     bool TransitionedToSubdivided = false;
