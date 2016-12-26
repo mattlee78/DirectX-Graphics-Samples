@@ -99,6 +99,8 @@ public:
 	void DrawFormattedString( const wchar_t* format, ... );
 	void DrawFormattedString( const char* format, ... );
 
+    void DrawTexturedRect(D3D12_CPU_DESCRIPTOR_HANDLE hSRV, INT Xpos, INT Ypos, INT Width, INT Height, bool SingleChannelTexture, bool NoAlpha = true, FLOAT ZPos = 0);
+
 private:
 
 	__declspec(align(16)) struct VertexShaderParams
