@@ -24,6 +24,7 @@
 #include "CompiledShaders/TextVS.h"
 #include "CompiledShaders/TextAntialiasPS.h"
 #include "CompiledShaders/TextShadowPS.h"
+#include "CompiledShaders/TextBlitPS.h"
 #include "Fonts/consola24.h"
 #include <map>
 #include <string>
@@ -183,6 +184,7 @@ namespace TextRenderer
 	RootSignature s_RootSignature;
 	GraphicsPSO s_TextPSO[2];	// 0: R8G8B8A8_UNORM   1: R11G11B10_FLOAT
 	GraphicsPSO s_ShadowPSO[2];	// 0: R8G8B8A8_UNORM   1: R11G11B10_FLOAT
+    GraphicsPSO s_TexturePSO;
 
 
 } // namespace TextRenderer
@@ -217,6 +219,10 @@ void TextRenderer::Initialize( void )
 	s_TextPSO[1] = s_TextPSO[0];
 	s_TextPSO[1].SetRenderTargetFormats(1, &g_SceneColorBuffer.GetFormat(), DXGI_FORMAT_UNKNOWN);
 	s_TextPSO[1].Finalize();
+
+    s_TexturePSO = s_TextPSO[0];
+    s_TexturePSO.SetPixelShader(g_pTextBlitPS, sizeof(g_pTextBlitPS));
+    s_TexturePSO.Finalize();
 
 	s_ShadowPSO[0] = s_TextPSO[0];
 	s_ShadowPSO[0].SetPixelShader(g_pTextShadowPS, sizeof(g_pTextShadowPS) );
@@ -538,4 +544,43 @@ void TextContext::DrawFormattedString( const char* format, ... )
 	va_start(ap, format);
 	vsprintf_s( buffer, 256, format, ap );
 	DrawString( string(buffer) );
+}
+
+void TextContext::DrawTexturedRect(D3D12_CPU_DESCRIPTOR_HANDLE hSRV, INT Xpos, INT Ypos, INT Width, INT Height, bool SingleChannelTexture, bool NoAlpha, FLOAT ZPos)
+{
+    VertexShaderParams VSParams = {};
+    VSParams.ViewportTransform = m_VSParams.ViewportTransform;
+    VSParams.NormalizeX = 1.0f;
+    VSParams.NormalizeY = 1.0f;
+    VSParams.TextSize = (FLOAT)Height;
+    VSParams.Scale = (FLOAT)Width;
+    VSParams.DstBorder = 0;
+    VSParams.SrcBorder = 0;
+    m_Context.SetDynamicConstantBufferView(0, sizeof(VSParams), &VSParams);
+    m_VSConstantBufferIsStale = true;
+
+    PixelShaderParams PSParams = {};
+    PSParams.TextColor = m_PSParams.TextColor;
+    PSParams.ShadowOpacity = NoAlpha ? 1.0f : 0.0f;
+    PSParams.ShadowHardness = SingleChannelTexture ? 1.0f : 0.0f;
+    m_Context.SetDynamicConstantBufferView(1, sizeof(PSParams), &PSParams);
+    m_PSConstantBufferIsStale = true;
+
+    m_Context.SetDynamicDescriptors(2, 0, 1, &hSRV);
+    m_TextureIsStale = true;
+
+    m_Context.SetPipelineState(TextRenderer::s_TexturePSO);
+
+    TextVert SingleVertex = {};
+    SingleVertex.X = (FLOAT)Xpos;
+    SingleVertex.Y = (FLOAT)Ypos;
+    SingleVertex.U = 0;
+    SingleVertex.V = 0;
+    SingleVertex.W = 1;
+    SingleVertex.H = 1;
+
+    m_Context.SetDynamicVB(0, 1, sizeof(TextVert), &SingleVertex);
+    m_Context.DrawInstanced(4, 1);
+
+    m_Context.SetPipelineState(TextRenderer::s_ShadowPSO[m_HDR]);
 }
