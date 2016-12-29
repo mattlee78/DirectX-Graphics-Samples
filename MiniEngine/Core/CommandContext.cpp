@@ -508,7 +508,7 @@ void CommandContext::InitializeTexture( GpuResource& Dest, UINT NumSubresources,
 	UploadBuffer->Release();
 }
 
-void CommandContext::CopySubresource(GpuResource& Dest, UINT DestSubIndex, GpuResource& Src, UINT SrcSubIndex)
+void CommandContext::CopySubresource(GpuResource& Dest, UINT DestSubIndex, GpuResource& Src, UINT SrcSubIndex, const DestinationPoint* pDestPoint, const D3D12_BOX* pSrcBox)
 {
 	FlushResourceBarriers();
 
@@ -526,7 +526,13 @@ void CommandContext::CopySubresource(GpuResource& Dest, UINT DestSubIndex, GpuRe
 		SrcSubIndex
 	};
 
-	m_CommandList->CopyTextureRegion(&DestLocation, 0, 0, 0, &SrcLocation, nullptr);
+    const DestinationPoint NullPoint = { 0, 0, 0 };
+    if (pDestPoint == nullptr)
+    {
+        pDestPoint = &NullPoint;
+    }
+
+	m_CommandList->CopyTextureRegion(&DestLocation, pDestPoint->X, pDestPoint->Y, pDestPoint->Z, &SrcLocation, pSrcBox);
 }
 
 void CommandContext::InitializeTextureArraySlice(GpuResource& Dest, UINT SliceIndex, GpuResource& Src)

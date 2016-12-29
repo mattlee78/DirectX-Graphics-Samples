@@ -856,15 +856,6 @@ void ModelViewer::RenderScene( void )
                 GTR.Wireframe = false;
                 m_GT.RenderOpaque(GTR);
             }
-
-            if (0)
-            {
-                GridBlockCoord Coord;
-                Coord.X = (Graphics::GetFrameCount() / 10) * 128;
-                Coord.Y = (Graphics::GetFrameCount() / 10) * 128;
-                Coord.SizeShift = 10;
-                g_GridTerrainJobs.DrawTerrainSprites(&gfxContext, Coord, nullptr, 0);
-            }
         }
 	}
 

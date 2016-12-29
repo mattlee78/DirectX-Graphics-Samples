@@ -89,6 +89,7 @@ void GridTerrainJobs::Initialize(const GridTerrainConfig* pConfig)
 {
     const UINT32 HeightmapWidthHeight = (1 << pConfig->HeightmapDimensionLog2);
     const UINT32 PaddedWidthHeight = HeightmapWidthHeight + 8;
+    m_HeightmapViewScaleFactor = (FLOAT)PaddedWidthHeight / (FLOAT)HeightmapWidthHeight;
     m_HeightmapRT.Create(L"Heightmap RT", PaddedWidthHeight, PaddedWidthHeight, 1, g_HeightmapFormat);
     m_MaterialmapRT.Create(L"Material Map RT", PaddedWidthHeight, PaddedWidthHeight, 1, DXGI_FORMAT_R8G8_UNORM);
     m_HeightmapViewport.TopLeftX = 0;
@@ -183,7 +184,7 @@ void GridTerrainJobs::DeleteJob(TerrainGpuJob* pJob)
     LeaveCriticalSection(&m_JobCritSec);
 }
 
-void GridTerrainJobs::DrawTerrainSprites(GraphicsContext* pContext, GridBlockCoord Coord, const TerrainSpriteVertex* pVertices, UINT32 VertexCount)
+void GridTerrainJobs::DrawTerrainSprites(GraphicsContext* pContext, GridBlockCoord Coord, FLOAT ViewScaleFactor, const TerrainSpriteVertex* pVertices, UINT32 VertexCount)
 {
     TerrainSpriteVertex TestSprites[10];
     if (pVertices == nullptr)
@@ -205,7 +206,7 @@ void GridTerrainJobs::DrawTerrainSprites(GraphicsContext* pContext, GridBlockCoo
     }
 
     TerrainSpriteCB SpriteCB = {};
-    Coord.GetCenterXZInvScale(SpriteCB.CenterPosInvScale);
+    Coord.GetCenterXZInvScale(SpriteCB.CenterPosInvScale, ViewScaleFactor);
     SpriteCB.HeightOffset = 0;
 
     pContext->SetRootSignature(m_RootSig);
@@ -234,13 +235,12 @@ TerrainGpuJob* GridTerrainJobs::CreateTextureHeightmapJob(const TerrainGraphicsH
     Utility::Printf("Creating %S\n", strID);
 
     const UINT32 WidthHeight = (1 << Params.pConfig->HeightmapDimensionLog2);
-    const UINT32 PaddedWidthHeight = WidthHeight + 8;
-    pJob->RenderingSubrectScale = (FLOAT)WidthHeight / (FLOAT)PaddedWidthHeight;
-    pJob->OutputResources.TiledTexture[0].Create(strID, PaddedWidthHeight, PaddedWidthHeight, 1, 1, g_HeightmapFormat);
+    pJob->RenderingSubrectScale = 1.0f;
+    pJob->OutputResources.TiledTexture[0].Create(strID, WidthHeight, WidthHeight, 1, 1, g_HeightmapFormat);
 
     if (Params.GenerateMaterialMap)
     {
-        pJob->OutputResources.TiledTexture[1].Create(strID, PaddedWidthHeight, PaddedWidthHeight, 1, 1, DXGI_FORMAT_R8G8_UNORM);
+        pJob->OutputResources.TiledTexture[1].Create(strID, WidthHeight, WidthHeight, 1, 1, DXGI_FORMAT_R8G8_UNORM);
     }
 
     pJob->OutputResources.pGraphicsJob = g_GpuJobQueue.CreateGraphicsJob(strID);
@@ -259,17 +259,18 @@ TerrainGpuJob* GridTerrainJobs::CreateTextureHeightmapJob(const TerrainGraphicsH
     pContext->SetRenderTargets(2, RTHandles);
     pContext->SetViewportAndScissor(m_HeightmapViewport, m_HeightmapScissor, 2);
 
-    DrawTerrainSprites(pContext, Params.ViewCoord, nullptr, 0);
+    DrawTerrainSprites(pContext, Params.ViewCoord, m_HeightmapViewScaleFactor, nullptr, 0);
 
     pContext->TransitionResource(m_HeightmapRT, D3D12_RESOURCE_STATE_GENERIC_READ);
     pContext->TransitionResource(pJob->OutputResources.TiledTexture[0], D3D12_RESOURCE_STATE_COPY_DEST);
-    pContext->CopySubresource(pJob->OutputResources.TiledTexture[0], 0, m_HeightmapRT, 0);
+    const D3D12_BOX SrcBox = { 0, 0, 0, WidthHeight, WidthHeight, 1 };
+    pContext->CopySubresource(pJob->OutputResources.TiledTexture[0], 0, m_HeightmapRT, 0, nullptr, &SrcBox);
     pContext->TransitionResource(pJob->OutputResources.TiledTexture[0], D3D12_RESOURCE_STATE_GENERIC_READ);
     if (Params.GenerateMaterialMap)
     {
         pContext->TransitionResource(m_MaterialmapRT, D3D12_RESOURCE_STATE_GENERIC_READ);
         pContext->TransitionResource(pJob->OutputResources.TiledTexture[1], D3D12_RESOURCE_STATE_COPY_DEST);
-        pContext->CopySubresource(pJob->OutputResources.TiledTexture[1], 0, m_MaterialmapRT, 0);
+        pContext->CopySubresource(pJob->OutputResources.TiledTexture[1], 0, m_MaterialmapRT, 0, nullptr, &SrcBox);
         pContext->TransitionResource(pJob->OutputResources.TiledTexture[1], D3D12_RESOURCE_STATE_GENERIC_READ);
     }
     pContext->FlushResourceBarriers();

@@ -134,9 +134,9 @@ public:
     XMVECTOR GetMax() const { return GetMin() + GetScale() * XMVectorSet(1,0,1,0); }
     XMVECTOR GetCenter() const { return GetMin() + GetScale() * XMVectorSet(0.5f, 0, 0.5f, 0); }
     XMVECTOR GetShaderOffsetScale() const { return XMVectorSet((FLOAT)X, (FLOAT)Y, (FLOAT)(1U << SizeShift), 0); }
-    void GetCenterXZInvScale(XMFLOAT4& Result) const
+    void GetCenterXZInvScale(XMFLOAT4& Result, FLOAT ViewScaleFactor) const
     {
-        const FLOAT Scale = (FLOAT)(1U << SizeShift);
+        const FLOAT Scale = (FLOAT)(1U << SizeShift) * ViewScaleFactor;
         const FLOAT HalfScale = Scale * 0.5f;
         const FLOAT InvScale = 1.0f / HalfScale;
         Result.x = (FLOAT)X + HalfScale;
