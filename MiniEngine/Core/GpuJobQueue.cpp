@@ -111,7 +111,7 @@ void GpuJobQueue::FreeGraphicsJob(GraphicsJob* pJob)
     delete pJob;
 }
 
-GraphicsJob* GpuJobQueue::CreateGraphicsJob()
+GraphicsJob* GpuJobQueue::CreateGraphicsJob(const std::wstring& ID)
 {
     GraphicsJob* pJob = AllocGraphicsJob(false);
     assert(pJob != nullptr);
@@ -119,7 +119,7 @@ GraphicsJob* GpuJobQueue::CreateGraphicsJob()
     ZeroMemory(pJob, sizeof(*pJob));
     pJob->CancelJob = false;
     pJob->HoldJobOpen = false;
-    pJob->pContext = &GraphicsContext::Begin();
+    pJob->pContext = &GraphicsContext::Begin(ID, true);
 
     return pJob;
 }

@@ -94,7 +94,7 @@ public:
 
 	static void DestroyAllContexts(void);
 
-	static CommandContext& Begin(const std::wstring ID = L"");
+	static CommandContext& Begin(const std::wstring ID = L"", bool DisableProfiling = false);
 
 	// Flush existing commands to the GPU but keep the context alive
 	uint64_t Flush( bool WaitForCompletion = false );
@@ -128,7 +128,8 @@ public:
 	void FillBuffer( GpuResource& Dest, size_t DestOffset, DWParam Value, size_t NumBytes );
 
 	void TransitionResource(GpuResource& Resource, D3D12_RESOURCE_STATES NewState, bool FlushImmediate = false);
-	void BeginResourceTransition(GpuResource& Resource, D3D12_RESOURCE_STATES NewState, bool FlushImmediate = false);
+    void ExplicitTransitionResource(GpuResource& Resource, D3D12_RESOURCE_STATES OldState, D3D12_RESOURCE_STATES NewState, bool FlushImmediate = false);
+    void BeginResourceTransition(GpuResource& Resource, D3D12_RESOURCE_STATES NewState, bool FlushImmediate = false);
 	void InsertUAVBarrier(GpuResource& Resource, bool FlushImmediate = false);
 	void InsertAliasBarrier(GpuResource& Before, GpuResource& After, bool FlushImmediate = false);
 	inline void FlushResourceBarriers(void);
@@ -169,7 +170,16 @@ protected:
 	LinearAllocator m_GpuLinearAllocator;
 
 	std::wstring m_ID;
-	void SetID(const std::wstring& ID) { m_ID = ID; }
+    void SetID(const std::wstring& ID) 
+    {
+        m_ID = ID; 
+        if (m_CommandList != nullptr) 
+        { 
+            m_CommandList->SetName(ID.c_str()); 
+        }
+    }
+
+    bool m_EnableProfiling;
 
 	D3D12_COMMAND_LIST_TYPE m_Type;
 };
@@ -178,9 +188,9 @@ class GraphicsContext : public CommandContext
 {
 public:
 
-	static GraphicsContext& Begin(const std::wstring& ID = L"")
+	static GraphicsContext& Begin(const std::wstring& ID = L"", bool DisableProfiling = false)
 	{
-		return CommandContext::Begin(ID).GetGraphicsContext();
+		return CommandContext::Begin(ID, DisableProfiling).GetGraphicsContext();
 	}
 
 	void ClearUAV( GpuBuffer& Target );
@@ -206,7 +216,7 @@ public:
 	void SetViewport( FLOAT x, FLOAT y, FLOAT w, FLOAT h, FLOAT minDepth = 0.0f, FLOAT maxDepth = 1.0f );
 	void SetScissor( const D3D12_RECT& rect );
 	void SetScissor( UINT left, UINT top, UINT right, UINT bottom );
-	void SetViewportAndScissor( const D3D12_VIEWPORT& vp, const D3D12_RECT& rect );
+	void SetViewportAndScissor( const D3D12_VIEWPORT& vp, const D3D12_RECT& rect, UINT32 Count = 1 );
 	void SetViewportAndScissor( UINT x, UINT y, UINT w, UINT h );
 	void SetStencilRef( UINT StencilRef );
 	void SetBlendFactor( Color BlendFactor );

@@ -29,17 +29,18 @@ static const XMVECTOR g_LODColors[12] =
     { 1, 0, 0.5f, 1 },
 };
 
-XMFLOAT4 GridBlockCoord::GetScalingRect(const GridBlockCoord& LargerCoord) const
+XMFLOAT4 GridBlockCoord::GetScalingRect(const GridBlockCoord& LargerCoord, FLOAT SubRectScale) const
 {
     assert(SizeShift <= LargerCoord.SizeShift);
     const UINT64 ShiftDifference = LargerCoord.SizeShift - SizeShift;
     const FLOAT ScaleFactor = (FLOAT)(1 << ShiftDifference);
-    const FLOAT InvScaleFactor = 1.0f / ScaleFactor;
+    const FLOAT BlockWidth = (SubRectScale / ScaleFactor);
+    const FLOAT InvScaleFactor = (SubRectScale / (FLOAT)(1U << LargerCoord.SizeShift));
     XMFLOAT4 Result;
     Result.x = (FLOAT)(X - LargerCoord.X) * InvScaleFactor;
     Result.y = (FLOAT)(Y - LargerCoord.Y) * InvScaleFactor;
-    Result.z = InvScaleFactor;
-    Result.w = InvScaleFactor;
+    Result.z = BlockWidth;
+    Result.w = BlockWidth;
     return Result;
 }
 
@@ -875,7 +876,7 @@ void GridBlock::Render(const GridTerrainRender& GTR, LinearAllocator* pCBAllocat
     XMStoreFloat4(&pCBBlock->ModulateColor, g_LODColors[m_Coord.SizeShift % ARRAYSIZE(g_LODColors)]);
     if (m_pHeightmapJob != nullptr)
     {
-        pCBBlock->BlockToHeightmap = m_Coord.GetScalingRect(m_pHeightmapJob->ViewCoord);
+        pCBBlock->BlockToHeightmap = m_Coord.GetScalingRect(m_pHeightmapJob->ViewCoord, m_pHeightmapJob->RenderingSubrectScale);
         pContext->SetDynamicDescriptor(3, 0, m_pHeightmapJob->OutputResources.TiledTexture[0].GetSRV());
         m_pHeightmapJob->MarkAsCurrent();
     }
@@ -885,7 +886,7 @@ void GridBlock::Render(const GridTerrainRender& GTR, LinearAllocator* pCBAllocat
     }
     if (m_pSurfacemapJob != nullptr)
     {
-        pCBBlock->BlockToSurfacemap = m_Coord.GetScalingRect(m_pSurfacemapJob->ViewCoord);
+        pCBBlock->BlockToSurfacemap = m_Coord.GetScalingRect(m_pSurfacemapJob->ViewCoord, m_pSurfacemapJob->RenderingSubrectScale);
         D3D12_CPU_DESCRIPTOR_HANDLE Handles[2] = { m_pSurfacemapJob->OutputResources.TiledTexture[0].GetSRV(), m_pSurfacemapJob->OutputResources.TiledTexture[1].GetSRV() };
         pContext->SetDynamicDescriptors(2, 0, 2, Handles);
         m_pSurfacemapJob->MarkAsCurrent();
@@ -1286,12 +1287,13 @@ HRESULT GridTerrain::Initialize(const GridTerrainConfig* pConfig)
         m_pCBAllocator = new LinearAllocator(kCpuWritable);
 
 
-        m_RootSig.Reset(4, 1);
+        m_RootSig.Reset(4, 2);
         m_RootSig[0].InitAsConstantBuffer(0);
         m_RootSig[1].InitAsConstantBuffer(1);
         m_RootSig[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 2);
         m_RootSig[3].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 1);
         m_RootSig.InitStaticSampler(0, Graphics::SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_ALL);
+        m_RootSig.InitStaticSampler(1, Graphics::SamplerLinearClampDesc, D3D12_SHADER_VISIBILITY_ALL);
         m_RootSig.Finalize(L"Grid Terrain RootSignature", D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
         m_OpaqueTerrainPSO.SetRootSignature(m_RootSig);
@@ -1504,7 +1506,10 @@ void GridTerrain::Terminate()
     while (iter != end)
     {
         GridBlock* p = iter->second;
-        p->Release();
+        if (p != nullptr)
+        {
+            p->Release();
+        }
         ++iter;
     }
     m_RootBlocks.clear();
@@ -1546,9 +1551,9 @@ void GridTerrain::Update(const GridTerrainUpdate& GTU)
     FrustumRect.right = (LONG)XMVectorGetX(Max);
     FrustumRect.bottom = (LONG)XMVectorGetZ(Max);
 
-    FrustumRect.left = 0;
+    FrustumRect.left = -1;
     FrustumRect.right = 1;
-    FrustumRect.top = 0;
+    FrustumRect.top = -1;
     FrustumRect.bottom = 1;
 
     //bool FeaturesReady = m_pFeatures->Update(FrustumRect, false);

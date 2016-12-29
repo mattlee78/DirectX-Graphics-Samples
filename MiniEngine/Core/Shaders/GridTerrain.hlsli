@@ -69,6 +69,7 @@ struct PS_INPUT
 Texture2D DiffuseTexture : register(t0);
 Texture2D NormalTexture : register(t1);
 SamplerState linearSampler : register(s0);
+SamplerState heightSampler : register(s1);
 
 struct DECORATIONMODEL_VS_INPUT
 {

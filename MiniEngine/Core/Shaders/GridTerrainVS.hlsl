@@ -6,7 +6,7 @@ VS_OUTPUT_HI vsmain( VS_INPUT In )
 
     float2 HeightmapUV = (In.PositionXZ * BlockToHeightmap.zz) + BlockToHeightmap.xy;
     float2 SurfaceUV = (In.PositionXZ * BlockToSurfacemap.zz) + BlockToSurfacemap.xy;
-    float PositionY = HeightmapTexture.SampleLevel(linearSampler, HeightmapUV, 0).x;
+    float PositionY = HeightmapTexture.SampleLevel(heightSampler, HeightmapUV, 0).x;
 
     VS_OUTPUT_HI Out;                                                             
 

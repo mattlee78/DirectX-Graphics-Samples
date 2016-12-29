@@ -901,6 +901,15 @@
     <FxCompile Include="Shaders\GridTerrainWaterVS.hlsl">
       <Filter>Shaders\Terrain</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\TextBlitPS.hlsl">
+      <Filter>Shaders\Text</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\TerrainSpritePS.hlsl">
+      <Filter>Shaders\Terrain</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\TerrainSpriteVS.hlsl">
+      <Filter>Shaders\Terrain</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Math\Functions.inl">
@@ -979,6 +988,9 @@
       <Filter>Shaders\Misc</Filter>
     </None>
     <None Include="Shaders\GridTerrain.hlsli">
+      <Filter>Shaders\Terrain</Filter>
+    </None>
+    <None Include="Shaders\TerrainSpriteRS.hlsli">
       <Filter>Shaders\Terrain</Filter>
     </None>
   </ItemGroup>

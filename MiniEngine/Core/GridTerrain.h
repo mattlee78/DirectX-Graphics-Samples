@@ -134,6 +134,15 @@ public:
     XMVECTOR GetMax() const { return GetMin() + GetScale() * XMVectorSet(1,0,1,0); }
     XMVECTOR GetCenter() const { return GetMin() + GetScale() * XMVectorSet(0.5f, 0, 0.5f, 0); }
     XMVECTOR GetShaderOffsetScale() const { return XMVectorSet((FLOAT)X, (FLOAT)Y, (FLOAT)(1U << SizeShift), 0); }
+    void GetCenterXZInvScale(XMFLOAT4& Result) const
+    {
+        const FLOAT Scale = (FLOAT)(1U << SizeShift);
+        const FLOAT HalfScale = Scale * 0.5f;
+        const FLOAT InvScale = 1.0f / HalfScale;
+        Result.x = (FLOAT)X + HalfScale;
+        Result.y = (FLOAT)Y + HalfScale;
+        Result.z = InvScale;
+    }
     RECT GetRect() const
     {
         RECT r = { (LONG)X, (LONG)Y, (LONG)X + (1 << SizeShift), (LONG)Y + (1 << SizeShift) };
@@ -172,7 +181,7 @@ public:
         return C;
     }
 
-    XMFLOAT4 GetScalingRect(const GridBlockCoord& LargerCoord) const;
+    XMFLOAT4 GetScalingRect(const GridBlockCoord& LargerCoord, FLOAT SubRectScale = 1.0f) const;
 };
 
 struct GridTerrainConfig

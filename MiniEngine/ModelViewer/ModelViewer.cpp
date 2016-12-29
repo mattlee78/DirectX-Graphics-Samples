@@ -37,6 +37,7 @@
 #include "NetworkLayer.h"
 #include "DataFile.h"
 #include "GridTerrain.h"
+#include "GridTerrainJobs.h"
 #include "GpuJobQueue.h"
 
 #include "CompiledShaders/DepthViewerVS.h"
@@ -855,6 +856,15 @@ void ModelViewer::RenderScene( void )
                 GTR.Wireframe = false;
                 m_GT.RenderOpaque(GTR);
             }
+
+            if (0)
+            {
+                GridBlockCoord Coord;
+                Coord.X = (Graphics::GetFrameCount() / 10) * 128;
+                Coord.Y = (Graphics::GetFrameCount() / 10) * 128;
+                Coord.SizeShift = 10;
+                g_GridTerrainJobs.DrawTerrainSprites(&gfxContext, Coord, nullptr, 0);
+            }
         }
 	}
 
@@ -880,6 +890,30 @@ void ModelViewer::RenderUI(class GraphicsContext& Context)
         Text.DrawString("Connecting...");
     }
     //Text.DrawFormattedString("Debug Vector: %10.3f %10.3f %10.3f", (FLOAT)DebugVector.GetX(), (FLOAT)DebugVector.GetY(), (FLOAT)DebugVector.GetZ());
+
+    if (0)
+    {
+        const PagingQueueEntryDeque& PMD = g_GpuJobQueue.GetPagingMapDeque();
+        auto iter = PMD.begin();
+        auto end = PMD.end();
+        while (iter != end)
+        {
+            const PagingQueueEntry* pEntry = *iter++;
+            if (pEntry->IsUnmapped())
+            {
+                continue;
+            }
+            const TiledTextureBuffer& TTB = pEntry->TiledTexture[0];
+            UINT32 Format = TTB.GetFormat();
+            if (TTB.IsSubresourceMapped(0) && Format == g_GridTerrainJobs.GetHeightmapFormat())
+            {
+                UINT32 Width = TTB.GetWidth();
+                UINT32 Height = TTB.GetHeight();
+                Text.DrawTexturedRect(TTB.GetSRV(), 10, 100, Width, Height, true);
+                break;
+            }
+        }
+    }
 
     Text.End();
 }

@@ -419,8 +419,23 @@
     </FxCompile>
     <FxCompile Include="Shaders\TemporalBlend2CS.hlsl" />
     <FxCompile Include="Shaders\TemporalBlendCS.hlsl" />
+    <FxCompile Include="Shaders\TerrainSpritePS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="Shaders\TerrainSpriteVS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Vertex</ShaderType>
+    </FxCompile>
     <FxCompile Include="Shaders\TextAntialiasPS.hlsl">
       <ShaderType>Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="Shaders\TextBlitPS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Pixel</ShaderType>
     </FxCompile>
     <FxCompile Include="Shaders\TextShadowPS.hlsl">
       <ShaderType>Pixel</ShaderType>
@@ -460,6 +475,7 @@
     <FxCompile Include="Shaders\UpsampleAndBlurCS.hlsl" />
     <None Include="Shaders\PixelPacking.hlsli" />
     <None Include="Shaders\SSAORS.hlsli" />
+    <None Include="Shaders\TerrainSpriteRS.hlsli" />
     <None Include="Shaders\TextRS.hlsli" />
     <None Include="Shaders\ToneMappingUtility.hlsli" />
   </ItemGroup>

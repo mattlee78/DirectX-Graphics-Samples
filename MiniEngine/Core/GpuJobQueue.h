@@ -38,6 +38,8 @@ struct PagingQueueEntry
     bool IsUnmapped() const { return SortKey == -1; }
 };
 
+typedef std::deque<PagingQueueEntry*> PagingQueueEntryDeque;
+
 struct PagingQueueEntryComparator
 {
 public:
@@ -53,8 +55,8 @@ private:
     CRITICAL_SECTION m_JobCritSec;
     std::deque<GraphicsJob*> m_GraphicsJobs;
     std::deque<GraphicsJob*> m_CompleteGraphicsJobs;
-    std::deque<PagingQueueEntry*> m_PagingMapQueue;
-    std::deque<PagingQueueEntry*> m_PagingUnmapQueue;
+    PagingQueueEntryDeque m_PagingMapQueue;
+    PagingQueueEntryDeque m_PagingUnmapQueue;
 
 public:
     GpuJobQueue();
@@ -64,11 +66,13 @@ public:
     void AddPagingUnmapEntry(PagingQueueEntry* pEntry);
     void RemovePagingEntry(PagingQueueEntry* pEntry);
 
-    GraphicsJob* CreateGraphicsJob();
+    GraphicsJob* CreateGraphicsJob(const std::wstring& ID = L"");
     void SubmitGraphicsJob(GraphicsJob* pJob);
     void CloseGraphicsJob(GraphicsJob* pJob);
 
     void ExecuteGraphicsJobs(UINT32 ExecutionBudgetUsec = -1);
+
+    const PagingQueueEntryDeque& GetPagingMapDeque() const { return m_PagingMapQueue; }
 
 private:
     void PerformPageMapping();
