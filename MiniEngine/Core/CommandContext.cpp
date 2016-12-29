@@ -68,12 +68,19 @@ void CommandContext::DestroyAllContexts(void)
 	g_ContextManager.DestroyAllContexts();
 }
 
-CommandContext& CommandContext::Begin( const std::wstring ID )
+CommandContext& CommandContext::Begin( const std::wstring ID, bool DisableProfiling )
 {
 	CommandContext* NewContext = g_ContextManager.AllocateContext(D3D12_COMMAND_LIST_TYPE_DIRECT);
 	NewContext->SetID(ID);
-	if (ID.length() > 0)
-		EngineProfiling::BeginBlock(ID, NewContext);
+	if (!DisableProfiling && ID.length() > 0)
+    {
+        EngineProfiling::BeginBlock(ID, NewContext);
+        NewContext->m_EnableProfiling = true;
+    }
+    else
+    {
+        NewContext->m_EnableProfiling = false;
+    }
 	return *NewContext;
 }
 
@@ -82,8 +89,15 @@ ComputeContext& ComputeContext::Begin(const std::wstring& ID, bool Async)
 	ComputeContext& NewContext = g_ContextManager.AllocateContext(
 		Async ? D3D12_COMMAND_LIST_TYPE_COMPUTE : D3D12_COMMAND_LIST_TYPE_DIRECT)->GetComputeContext();
 	NewContext.SetID(ID);
-	if (ID.length() > 0)
-		EngineProfiling::BeginBlock(ID, &NewContext);
+    if (ID.length() > 0)
+    {
+        EngineProfiling::BeginBlock(ID, &NewContext);
+        NewContext.m_EnableProfiling = true;
+    }
+    else
+    {
+        NewContext.m_EnableProfiling = false;
+    }
 	return NewContext;
 }
 
@@ -126,7 +140,7 @@ uint64_t CommandContext::Finish( bool WaitForCompletion, bool DiscardContext )
 
 	FlushResourceBarriers();
 
-	if (m_ID.length() > 0)
+	if (m_EnableProfiling)
 		EngineProfiling::EndBlock(this);
 
 	ASSERT(m_CurrentAllocator != nullptr);
@@ -171,6 +185,7 @@ CommandContext::CommandContext(D3D12_COMMAND_LIST_TYPE Type) :
 	m_CurComputeRootSignature = nullptr;
 	m_CurComputePipelineState = nullptr;
 	m_NumBarriersToFlush = 0;
+    m_EnableProfiling = false;
 }
 
 CommandContext::~CommandContext( void )
@@ -307,11 +322,14 @@ void GraphicsContext::ClearDepthAndStencil( DepthBuffer& Target )
 	m_CommandList->ClearDepthStencilView(Target.GetDSV(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, Target.GetClearDepth(), Target.GetClearStencil(), 0, nullptr);
 }
 
-void GraphicsContext::SetViewportAndScissor( const D3D12_VIEWPORT& vp, const D3D12_RECT& rect )
+void GraphicsContext::SetViewportAndScissor( const D3D12_VIEWPORT& vp, const D3D12_RECT& rect, UINT32 Count )
 {
 	ASSERT(rect.left < rect.right && rect.top < rect.bottom);
-	m_CommandList->RSSetViewports( 1, &vp );
-	m_CommandList->RSSetScissorRects( 1, &rect );
+    D3D12_VIEWPORT VPArray[8] = { vp, vp, vp, vp, vp, vp, vp, vp };
+    ASSERT(Count > 0 && Count <= ARRAYSIZE(VPArray));
+	m_CommandList->RSSetViewports( Count, VPArray );
+    D3D12_RECT RectArray[8] = { rect, rect, rect, rect, rect, rect, rect, rect };
+	m_CommandList->RSSetScissorRects( Count, RectArray );
 }
 
 void GraphicsContext::SetViewport( const D3D12_VIEWPORT& vp )
@@ -339,8 +357,12 @@ void GraphicsContext::SetScissor( const D3D12_RECT& rect )
 
 void CommandContext::TransitionResource(GpuResource& Resource, D3D12_RESOURCE_STATES NewState, bool FlushImmediate)
 {
-	D3D12_RESOURCE_STATES OldState = Resource.m_UsageState;
+    D3D12_RESOURCE_STATES OldState = Resource.m_UsageState;
+    ExplicitTransitionResource(Resource, OldState, NewState, FlushImmediate);
+}
 
+void CommandContext::ExplicitTransitionResource(GpuResource& Resource, D3D12_RESOURCE_STATES OldState, D3D12_RESOURCE_STATES NewState, bool FlushImmediate)
+{
 	if (m_Type == D3D12_COMMAND_LIST_TYPE_COMPUTE)
 	{
 		ASSERT((OldState & VALID_COMPUTE_QUEUE_RESOURCE_STATES) == OldState);

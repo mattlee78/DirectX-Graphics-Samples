@@ -13,6 +13,7 @@ struct TerrainGpuJob : public RefCountBase
 {
     TerrainGpuJobMap* pJobMap;
     GridBlockCoord ViewCoord;
+    FLOAT RenderingSubrectScale;
     FLOAT MostRecentViewWidth;
     PagingQueueEntry OutputResources;
 
@@ -55,6 +56,19 @@ struct TerrainIrregularMaterialParams
 
 };
 
+__declspec(align(16)) struct TerrainSpriteVertex
+{
+    XMFLOAT4 PositionXYZRotation;
+    XMUBYTEN4 UVRect;
+    XMFLOAT2 XZScale;
+};
+
+__declspec(align(16)) struct TerrainSpriteCB
+{
+    XMFLOAT4 CenterPosInvScale;
+    FLOAT HeightOffset;
+};
+
 class GridTerrainJobs
 {
 private:
@@ -71,6 +85,9 @@ private:
 
     ColorBuffer m_HeightmapRT;
     ColorBuffer m_MaterialmapRT;
+    D3D12_VIEWPORT m_HeightmapViewport;
+    D3D12_RECT m_HeightmapScissor;
+
     ColorBuffer m_SurfaceDiffuseRT;
     ColorBuffer m_SurfaceNormalRT;
 
@@ -85,6 +102,10 @@ public:
     TerrainGpuJob* CreateTextureSurfacemapJob(const TerrainSurfacemapParams& Params);
     TerrainGpuJob* CreatePhysicsHeightmapJob(const TerrainPhysicsHeightmapParams& Params);
     TerrainGpuJob* CreateIrregularMaterialJob(const TerrainIrregularMaterialParams& Params);
+
+    DXGI_FORMAT GetHeightmapFormat() const;
+
+    void DrawTerrainSprites(GraphicsContext* pContext, GridBlockCoord Coord, const TerrainSpriteVertex* pVertices, UINT32 VertexCount);
 
 private:
     friend struct TerrainGpuJob;
