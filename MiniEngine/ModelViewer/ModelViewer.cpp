@@ -49,6 +49,8 @@ using namespace GameCore;
 using namespace Math;
 using namespace Graphics;
 
+static const bool g_TestTerrain = false;
+
 class PrintfDebugListener : public INetDebugListener
 {
 public:
@@ -369,11 +371,14 @@ void ModelViewer::Startup( void )
         }
     }
 
-    GridTerrainConfig Config = {};
-    Config.SetDefault();
-    Config.pWorld = m_NetClient.GetWorld();
-    Config.pd3dDevice = Graphics::g_Device;
-    m_GT.Initialize(&Config);
+    if (g_TestTerrain)
+    {
+        GridTerrainConfig Config = {};
+        Config.SetDefault();
+        Config.pWorld = m_NetClient.GetWorld();
+        Config.pd3dDevice = Graphics::g_Device;
+        m_GT.Initialize(&Config);
+    }
 }
 
 bool ModelViewer::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument)
@@ -664,7 +669,7 @@ void ModelViewer::Update( float deltaT )
     }
 	m_ViewProjMatrix = m_Camera.GetViewProjMatrix();
 
-    if (1)
+    if (g_TestTerrain)
     {
         DirectX::BoundingFrustum BF;
         DirectX::BoundingFrustum::CreateFromMatrix(BF, m_Camera.GetProjMatrix());
@@ -846,7 +851,7 @@ void ModelViewer::RenderScene( void )
             RenderObjects(gfxContext, m_Camera, &m_ModelPSOCache, RenderPass_Color);
             LineRender::Render(gfxContext, m_ViewProjMatrix);
 
-            if (1)
+            if (g_TestTerrain)
             {
                 GridTerrainRender GTR = {};
                 GTR.AbsoluteTime = SystemTime::TicksToSeconds(SystemTime::GetCurrentTick());

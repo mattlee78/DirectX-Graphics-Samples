@@ -534,6 +534,11 @@ private:
     */
 
 public:
+    GridTerrain()
+    {
+        ZeroMemory(&m_Config, sizeof(m_Config));
+    }
+
     HRESULT Initialize(const GridTerrainConfig* pConfig);
     void Terminate();
 
