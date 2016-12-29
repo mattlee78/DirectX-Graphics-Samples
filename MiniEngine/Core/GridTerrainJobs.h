@@ -87,6 +87,7 @@ private:
     ColorBuffer m_MaterialmapRT;
     D3D12_VIEWPORT m_HeightmapViewport;
     D3D12_RECT m_HeightmapScissor;
+    FLOAT m_HeightmapViewScaleFactor;
 
     ColorBuffer m_SurfaceDiffuseRT;
     ColorBuffer m_SurfaceNormalRT;
@@ -105,7 +106,7 @@ public:
 
     DXGI_FORMAT GetHeightmapFormat() const;
 
-    void DrawTerrainSprites(GraphicsContext* pContext, GridBlockCoord Coord, const TerrainSpriteVertex* pVertices, UINT32 VertexCount);
+    void DrawTerrainSprites(GraphicsContext* pContext, GridBlockCoord Coord, FLOAT ViewScaleFactor, const TerrainSpriteVertex* pVertices, UINT32 VertexCount);
 
 private:
     friend struct TerrainGpuJob;
