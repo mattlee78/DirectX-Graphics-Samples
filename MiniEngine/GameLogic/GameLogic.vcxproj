@@ -27,9 +27,11 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="LevelDesc.cpp" />
     <ClCompile Include="NetworkLayer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="LevelDesc.h" />
     <ClInclude Include="NetworkLayer.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -68,7 +70,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
-   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'" Label="PropertySheets">
     <Import Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" />
     <Import Project="..\PropertySheets\Profile.props" />
     <Import Project="..\PropertySheets\Win32.props" />
@@ -86,7 +88,7 @@
     <Import Project="..\PropertySheets\Win32.props" />
     <Import Project="..\PropertySheets\VS14.props" />
   </ImportGroup>
- <ImportGroup Label="Shared">
+  <ImportGroup Label="Shared">
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

@@ -54,6 +54,16 @@ struct DecomposedTransform
         return dt;
     }
 
+    static DecomposedTransform CreateFromComponents(const Math::Vector3& InPosition, const Math::Vector4& InOrientation = Math::Vector4(0, 0, 0, 1), FLOAT InScale = 1.0f)
+    {
+        DecomposedTransform dt;
+        XMVECTOR PosScale = InPosition;
+        PosScale = XMVectorSetW(PosScale, InScale);
+        XMStoreFloat4(&dt.PositionScale, PosScale);
+        XMStoreFloat4(&dt.Orientation, InOrientation);
+        return dt;
+    }
+
     static DecomposedTransform CreateFromComponents(XMFLOAT3 InPosition, FLOAT RotationPitch, FLOAT RotationYaw, FLOAT InScale = 1.0f)
     {
         DecomposedTransform dt;

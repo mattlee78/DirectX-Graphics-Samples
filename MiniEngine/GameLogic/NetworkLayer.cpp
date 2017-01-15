@@ -409,6 +409,132 @@ void GameNetServer::Terminate()
     m_World.Terminate();
 }
 
+bool GameNetServer::LoadLevel(const CHAR* strLevelName)
+{
+    if (m_pLevelDesc != nullptr)
+    {
+        ClearLevel();
+    }
+
+    LevelDesc* pLevelDesc = (LevelDesc*)DataFile::LoadStructFromFile(STRUCT_TEMPLATE_REFERENCE(LevelDesc), strLevelName);
+    if (pLevelDesc == nullptr)
+    {
+        return false;
+    }
+
+    strcpy_s(m_strLevelName, strLevelName);
+    m_pLevelDesc = pLevelDesc;
+
+    const UINT32 TemplateCount = (UINT32)m_pLevelDesc->Templates.size();
+    for (UINT32 i = 0; i < TemplateCount; ++i)
+    {
+        TemplateDesc* pTD = m_pLevelDesc->Templates[i];
+        m_TemplateDescs[pTD->Name] = pTD;
+    }
+
+    const UINT32 NodeCount = (UINT32)m_pLevelDesc->Nodes.size();
+    for (UINT32 i = 0; i < NodeCount; ++i)
+    {
+        BuildNode(XMMatrixIdentity(), m_pLevelDesc->Nodes[i]);
+    }
+
+    return true;
+}
+
+void GameNetServer::BuildNode(FXMMATRIX matTransform, PlaceNode* pNode)
+{
+    const XMMATRIX matLocal = pNode->GetLocalTransform();
+    const Math::Matrix4 matWorld(matLocal * matTransform);
+
+    if (!pNode->TemplateName.IsEmptyString())
+    {
+        if (pNode->Type == PNT_ModelOrNull)
+        {
+            Math::Vector3 Pos;
+            Math::Vector4 Orientation;
+            FLOAT Scale;
+            matWorld.Decompose(Pos, Scale, Orientation);
+            DecomposedTransform DT = DecomposedTransform::CreateFromComponents(Pos, Orientation, Scale);
+            const WCHAR* strWideTemplateName = pNode->TemplateName.GetSafeString();
+            CHAR strTemplateName[64];
+            WideCharToMultiByte(CP_ACP, 0, strWideTemplateName, (INT)wcslen(strWideTemplateName) + 1, strTemplateName, ARRAYSIZE(strTemplateName), nullptr, nullptr);
+            INetworkObject* pNO = SpawnObject(nullptr, strTemplateName, nullptr, DT, XMFLOAT3(0, 0, 0));
+            pNode->pGameObject = pNO;
+        }
+        else if (pNode->Type == PNT_Template)
+        {
+            auto iter = m_TemplateDescs.find(pNode->TemplateName);
+            if (iter != m_TemplateDescs.end())
+            {
+                TemplateDesc* pTemplate = iter->second;
+                const UINT32 NodeCount = (UINT32)pTemplate->Nodes.size();
+                for (UINT32 i = 0; i < NodeCount; ++i)
+                {
+                    CopyNodes(pNode, pTemplate->Nodes[i]);
+                }
+            }
+        }
+    }
+
+    const UINT32 ChildCount = (UINT32)pNode->Children.size();
+    for (UINT32 i = 0; i < ChildCount; ++i)
+    {
+        BuildNode(matWorld, pNode->Children[i]);
+    }
+}
+
+void GameNetServer::CopyNodes(PlaceNode* pDestParent, PlaceNode* pSrc)
+{
+    PlaceNode* pCopy = (PlaceNode*)DataFile::StructAlloc(sizeof(PlaceNode));
+    new (pCopy) PlaceNode();
+    pCopy->Position = pSrc->Position;
+    pCopy->RotationYaw = pSrc->RotationYaw;
+    pCopy->RotationPitch = pSrc->RotationPitch;
+    pCopy->RotationRoll = pSrc->RotationRoll;
+    pCopy->Type = pSrc->Type;
+    pCopy->TemplateName = pSrc->TemplateName;
+
+    pDestParent->Children.push_back(pCopy);
+
+    const UINT32 ChildCount = (UINT32)pSrc->Children.size();
+    for (UINT32 i = 0; i < ChildCount; ++i)
+    {
+        CopyNodes(pCopy, pSrc->Children[i]);
+    }
+}
+
+void GameNetServer::ClearLevel()
+{
+    const UINT32 NodeCount = (UINT32)m_pLevelDesc->Nodes.size();
+    for (UINT32 i = 0; i < NodeCount; ++i)
+    {
+        ClearNode(m_pLevelDesc->Nodes[i]);
+    }
+
+    m_TemplateDescs.clear();
+
+    DataFile::Unload(m_pLevelDesc);
+    m_pLevelDesc = nullptr;
+}
+
+void GameNetServer::ClearNode(PlaceNode* pNode)
+{
+    if (pNode->pGameObject != nullptr)
+    {
+        ModelInstance* pMI = (ModelInstance*)pNode->pGameObject;
+        pMI->MarkForDeletion();
+        pNode->pGameObject = nullptr;
+    }
+
+    const UINT32 ChildCount = (UINT32)pNode->Children.size();
+    for (UINT32 i = 0; i < ChildCount; ++i)
+    {
+        ClearNode(pNode->Children[i]);
+    }
+
+    DataFile::Unload(pNode);
+}
+
 void InputRemotingObject::GetMemberDatas(const MemberDataPosition** ppMemberDatas, UINT* pMemberDataCount) const
 {
     static const MemberDataPosition Members[] =
