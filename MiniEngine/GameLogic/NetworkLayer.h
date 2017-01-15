@@ -5,6 +5,7 @@
 #include "ModelInstance.h"
 #include "Network\NetServerBase.h"
 #include "Network\NetClientBase.h"
+#include "LevelDesc.h"
 
 class GameNetClient;
 class GameNetServer;
@@ -109,6 +110,10 @@ private:
     std::set<SystemNetworkObject*> m_SystemObjects;
     std::unordered_map<UINT32, ModelInstance*> m_ModelInstances;
 
+    CHAR m_strLevelName[32];
+    LevelDesc* m_pLevelDesc;
+    TemplateDescMap m_TemplateDescs;
+
 public:
     INetworkObject* SpawnObject(ConnectedClient* pClient, const CHAR* strTemplateName, const CHAR* strObjectName, const DecomposedTransform& InitialTransform, const XMFLOAT3& LinearImpulse);
     INetworkObject* SpawnObject(ConnectedClient* pClient, const RMsg_SpawnObject* pMsg);
@@ -116,6 +121,9 @@ public:
     ModelInstance* FindModelInstance(UINT32 NodeID);
     virtual void ModelInstanceDeleted(ModelInstance* pMI);
     void Terminate();
+
+    bool LoadLevel(const CHAR* strLevelName);
+    void ResetLevel();
 
 private:
     virtual VOID InitializeServer();
@@ -126,6 +134,11 @@ private:
     virtual VOID ClientConnected(ConnectedClient* pClient);
     virtual VOID ClientDisconnected(ConnectedClient* pClient);
     virtual BOOL HandleReliableMessage(VOID* pSenderContext, const UINT Opcode, const UINT UniqueIndex, const BYTE* pPayload, const UINT PayloadSizeBytes);
+
+    void ClearLevel();
+    void ClearNode(PlaceNode* pNode);
+    void BuildNode(FXMMATRIX matTransform, PlaceNode* pNode);
+    void CopyNodes(PlaceNode* pDestParent, PlaceNode* pSrc);
 };
 
 SystemNetworkObject* CreateSystemNetworkObject(const CHAR* strTemplateName);

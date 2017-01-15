@@ -18,9 +18,15 @@
     <ClCompile Include="NetworkLayer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="LevelDesc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NetworkLayer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LevelDesc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

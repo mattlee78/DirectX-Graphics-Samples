@@ -97,6 +97,7 @@ public:
     static VOID WriteStructToFile( const DataStructTemplate* pTemplate, const CHAR* strName, const VOID* pBuffer );
     static VOID Unload( VOID* pBuffer );
     static VOID UnloadAll();
+    static VOID* StructAlloc(SIZE_T SizeBytes);
 };
 
 struct GrowableArrayBase

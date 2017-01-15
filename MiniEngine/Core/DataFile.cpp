@@ -370,11 +370,11 @@ DWORD DataFile::GetStructSize( const DataStructTemplate* pTemplate )
     return dwTotalSize;
 }
 
-VOID* AllocateStructMemory( DWORD dwSize )
+VOID* AllocateStructMemory( SIZE_T Size )
 {
-    assert( dwSize > 0 );
-    VOID* pBuffer = malloc( dwSize );
-    ZeroMemory( pBuffer, dwSize );
+    assert( Size > 0 );
+    VOID* pBuffer = malloc( Size );
+    ZeroMemory( pBuffer, Size );
     return pBuffer;
 }
 
@@ -521,6 +521,11 @@ VOID DataFile::UnloadAll()
         LDF.pBuffer = nullptr;
     }
     g_LoadedDataFiles.clear();
+}
+
+VOID* DataFile::StructAlloc(SIZE_T SizeBytes)
+{
+    return AllocateStructMemory(SizeBytes);
 }
 
 VOID WriteStruct( json& Writer, BOOL bWriteEnclosingTag, const DataStructTemplate* pTemplate, const VOID* pBuffer );
