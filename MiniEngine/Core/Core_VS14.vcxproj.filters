@@ -265,6 +265,9 @@
     <ClInclude Include="TiledResources.h">
       <Filter>Source Files\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="TessTerrain.h">
+      <Filter>Source Files\Graphics</Filter>
+    </ClInclude>
     <ClInclude Include="DynamicUploadBuffer.h">
       <Filter>Source Files\Graphics</Filter>
     </ClInclude>
@@ -459,6 +462,9 @@
     <ClCompile Include="TiledResources.cpp">
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="TessTerrain.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
     <ClCompile Include="Color.cpp">
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
@@ -520,6 +526,9 @@
     </Filter>
     <Filter Include="Shaders\Terrain">
       <UniqueIdentifier>{7391668e-7b3f-41cd-8db8-17f6c57977fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\TerrainTessellation">
+      <UniqueIdentifier>{db3416aa-5a40-4566-b703-ec5e5271b6fc}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -919,6 +928,36 @@
     <FxCompile Include="Shaders\TerrainSpriteVS.hlsl">
       <Filter>Shaders\Terrain</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\Terrain\GradientPS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\HwTessellationPassThruVS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\InitializationPS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\InitializationVS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\GSSolidWire.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\PSSolidWire.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\SmoothShadePS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\TerrainDisplaceDS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\TerrainScreenspaceLODHS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\VTFDisplacementVS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
     <FxCompile Include="Shaders\BoundNeighborhoodCS.hlsl">
       <Filter>Shaders\MB+TAA</Filter>
     </FxCompile>
@@ -1004,6 +1043,21 @@
     </None>
     <None Include="Shaders\TerrainSpriteRS.hlsli">
       <Filter>Shaders\Terrain</Filter>
+    </None>
+    <None Include="Shaders\Terrain\Common.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </None>
+    <None Include="Shaders\Terrain\Deformation.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </None>
+    <None Include="Shaders\Terrain\INoise.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </None>
+    <None Include="Shaders\Terrain\TerrainTessellation.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </None>
+    <None Include="Shaders\Terrain\Wireframe.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
     </None>
   </ItemGroup>
 </Project>
