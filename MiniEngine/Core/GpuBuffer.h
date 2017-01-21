@@ -91,6 +91,12 @@ inline D3D12_VERTEX_BUFFER_VIEW GpuBuffer::VertexBufferView(size_t Offset, uint3
 
 inline D3D12_INDEX_BUFFER_VIEW GpuBuffer::IndexBufferView(size_t Offset, uint32_t Size, bool b32Bit) const
 {
+    if (Size == -1)
+    {
+        assert(Offset < m_BufferSize);
+        Size = (uint32_t)(m_BufferSize - Offset);
+    }
+
 	D3D12_INDEX_BUFFER_VIEW IBView;
 	IBView.BufferLocation = m_GpuVirtualAddress + Offset;
 	IBView.Format = b32Bit ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;

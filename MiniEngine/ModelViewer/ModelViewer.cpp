@@ -40,6 +40,8 @@
 #include "GridTerrainJobs.h"
 #include "GpuJobQueue.h"
 
+#include "TessTerrain.h"
+
 #include "CompiledShaders/DepthViewerVS.h"
 #include "CompiledShaders/DepthViewerPS.h"
 #include "CompiledShaders/ModelViewerVS.h"
@@ -127,6 +129,8 @@ private:
     std::vector<ModelInstance*> m_PlacedModelInstances;
 
     GridTerrain m_GT;
+
+    TessellatedTerrain m_TessTerrain;
 
     Vector3 DebugVector;
 };
@@ -379,6 +383,8 @@ void ModelViewer::Startup( void )
         Config.pd3dDevice = Graphics::g_Device;
         m_GT.Initialize(&Config);
     }
+
+    m_TessTerrain.Initialize();
 }
 
 bool ModelViewer::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument)
@@ -495,6 +501,7 @@ void ModelViewer::Cleanup( void )
     m_NetClient.Terminate();
 
     m_GT.Terminate();
+    m_TessTerrain.Terminate();
 
 	delete m_pCameraController;
 	m_pCameraController = nullptr;
@@ -771,6 +778,15 @@ void ModelViewer::RenderScene( void )
 
 	ParticleEffects::Update(gfxContext.GetComputeContext(), Graphics::GetFrameTime());
 
+    TessellatedTerrainRenderDesc RD = {};
+    XMStoreFloat4x4A(&RD.matView, m_Camera.GetViewMatrix());
+    XMStoreFloat4x4A(&RD.matProjection, m_Camera.GetProjMatrix());
+    XMStoreFloat4A(&RD.CameraPosWorld, m_Camera.GetPosition());
+    RD.Viewport = m_MainViewport;
+    RD.ZPrePass = false;
+
+    m_TessTerrain.OffscreenRender(&gfxContext, &RD);
+
 	__declspec(align(16)) struct
 	{
 		Vector3 sunDirection;
@@ -797,6 +813,9 @@ void ModelViewer::RenderScene( void )
 		gfxContext.SetDepthStencilTarget(g_SceneDepthBuffer.GetDSV());
 		gfxContext.SetViewportAndScissor(m_MainViewport, m_MainScissor);
 		RenderObjects(gfxContext, m_Camera, &m_DepthPSOCache, RenderPass_ZPrePass);
+
+        RD.ZPrePass = true;
+        m_TessTerrain.Render(&gfxContext, &RD);
 	}
 
 	SSAO::Render(gfxContext, m_Camera);
@@ -845,7 +864,7 @@ void ModelViewer::RenderScene( void )
 			gfxContext.TransitionResource(g_SSAOFullScreen, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			gfxContext.TransitionResource(g_SceneColorBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET);
 			gfxContext.TransitionResource(g_SceneDepthBuffer, D3D12_RESOURCE_STATE_DEPTH_READ);
-			gfxContext.SetRenderTarget(g_SceneColorBuffer.GetRTV(), g_SceneDepthBuffer.GetDSV_DepthReadOnly());
+			gfxContext.SetRenderTarget(g_SceneColorBuffer.GetRTV(), g_SceneDepthBuffer.GetDSV());
 			gfxContext.SetViewportAndScissor(m_MainViewport, m_MainScissor);
             gfxContext.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             RenderObjects(gfxContext, m_Camera, &m_ModelPSOCache, RenderPass_Color);
@@ -861,6 +880,9 @@ void ModelViewer::RenderScene( void )
                 GTR.Wireframe = false;
                 m_GT.RenderOpaque(GTR);
             }
+
+            RD.ZPrePass = false;
+            m_TessTerrain.Render(&gfxContext, &RD);
         }
 	}
 
