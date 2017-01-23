@@ -47,7 +47,7 @@ cbuffer cbTerrain : register(b0)
     float g_fDisplacementHeight : packoffset(c22);
     float2 g_screenSize : packoffset(c23);				// Render target size for screen-space calculations.
     int g_tessellatedTriWidth : packoffset(c24);
-    float g_tileSize : packoffset(c25);
+    float2 g_tileWorldSize : packoffset(c25);
 };
 
 struct VS_CONTROL_POINT_OUTPUT
@@ -75,7 +75,7 @@ void ReconstructPosition(AppVertex input, out float3 pos, out int2 intUV)
     float v = iv / (CONTROL_VTX_PER_TILE_EDGE - 1.0);
 
 	// Shrink tiles slightly to show gaps between them.
-	float size = g_tileSize;
+	float size = g_tileWorldSize.x;
 	if (g_DebugShowTiles)
 		size *= 0.98;
 
@@ -144,14 +144,12 @@ float2 SampleDetailGradOctaves(float2 uv)
 
 float2 worldXZtoHeightUV(float2 worldXZ)
 {
-	// [-8,8] -> [0,1]  TBD: Ought to depend on world size though.
-	return worldXZ / 16 + 0.5;
+	return (worldXZ / g_tileWorldSize.y) + 0.5;
 }
 
 float2 heightUVToWorldXZ(float2 uv)
 {
-	// [0,1] -> [-8,8]  TBD: Ought to depend on world size though.
-	return 16 * (uv - 0.5);
+	return g_tileWorldSize.y * (uv - 0.5);
 }
 
 // Wrappers for displacement map sampling allow us to substitute a 100% procedural surface.
@@ -172,7 +170,7 @@ float SampleHeightForVS(Texture2D coarseTex, SamplerState coarseSampler, float2 
 	// repeating fBm.
 	float coarse = coarseTex.SampleLevel(coarseSampler, uv, mipLevel, offset).r;	// coarse
 
-	return VERTICAL_SCALE * (coarse + SampleLevelDetailNoise(uv, coarse));		// detail
+	return g_CoarseSampleSpacing.z * (coarse + SampleLevelDetailNoise(uv, coarse));		// detail
 }
 
 float SampleHeightForVS(Texture2D tex, SamplerState sam, float2 worldXZ)
@@ -280,7 +278,7 @@ float SphereToScreenSpaceTessellation(float3 p0, float3 p1, float diameter)
 	float3 centre = 0.5 * (p0+p1);
 	float4 view0 = mul(float4(centre,1), g_WorldViewLOD);
 	float4 view1 = view0;
-	view1.x += WORLD_SCALE * diameter;
+	view1.x += g_CoarseSampleSpacing.y * diameter;
 
 	float4 clip0 = mul(view0, g_Proj);
 	float4 clip1 = mul(view1, g_Proj);
@@ -388,7 +386,7 @@ HS_CONSTANT_DATA_OUTPUT TerrainScreenspaceLODConstantsHS(InputPatch<VS_CONTROL_P
 	const float  sideLen = max(abs(ip[1].vPosition.x - ip[0].vPosition.x), abs(ip[1].vPosition.x - ip[2].vPosition.x));		// assume square & uniform
 	const float  diagLen = sqrt(2*sideLen*sideLen);
 
-	if (!inFrustum(centre, g_EyePos / WORLD_SCALE, g_ViewDir, diagLen))
+	if (!inFrustum(centre, g_EyePos / g_CoarseSampleSpacing.y, g_ViewDir, diagLen))
 	{
 		Output.Inside[0] = Output.Inside[1] = -1;
 		Output.Edges[0]  = Output.Edges[1]  = Output.Edges[2] = Output.Edges[3] = -1;
@@ -597,12 +595,12 @@ float3 SampleDetailNormal(float2 worldXZ)
 	const float2 uv = worldXZtoHeightUV(worldXZ);
 	float coarse = g_CoarseHeightMap.Sample(SamplerClampLinear, uv).r;
 
-	const float vScale = saturate(coarse) * WORLD_SCALE * VERTICAL_SCALE;
+	const float vScale = saturate(coarse) * g_CoarseSampleSpacing.y * g_CoarseSampleSpacing.z;
 
 	// The MIP-mapping doesn't seem to work very well.  Maybe I need to think more carefully about
 	// anti-aliasing the normal function?
 	float2 grad = SampleDetailGradOctaves(uv);
-	return normalize(float3(-vScale * grad.x, g_CoarseSampleSpacing * WORLD_UV_REPEATS_RECIP * g_DetailUVScale.y, vScale * grad.y));
+	return normalize(float3(-vScale * grad.x, g_CoarseSampleSpacing.x * WORLD_UV_REPEATS_RECIP * g_DetailUVScale.y, vScale * grad.y));
 }
 
 float DebugCracksPattern(MeshVertex input)
@@ -622,8 +620,8 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
 	// the texture sizes that I overlooked?!?
 	const float ARBITRARY_FUDGE = 2;
 	const float2 grad = g_CoarseGradientMap.Sample(SamplerRepeatLinear, worldXZtoHeightUV(input.vWorldXZ)).rg;
-	const float vScale = ARBITRARY_FUDGE * g_fDisplacementHeight * WORLD_SCALE * VERTICAL_SCALE;
-	const float3 coarseNormal = normalize(float3(vScale * grad.x, g_CoarseSampleSpacing, -vScale * grad.y));
+	const float vScale = ARBITRARY_FUDGE * g_fDisplacementHeight * g_CoarseSampleSpacing.y * g_CoarseSampleSpacing.z;
+	const float3 coarseNormal = normalize(float3(vScale * grad.x, g_CoarseSampleSpacing.x, -vScale * grad.y));
 	const float3 detailNormal = SampleDetailNormal(input.vWorldXZ);
 	const float3 normal = normalize(coarseNormal + detailNormal);
 
@@ -664,6 +662,7 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
     //return float4(1, 1, 1, 1);
 }
 
+#if 0
 // Miscellaneous states
 BlendState EnableColorWrites
 {
@@ -694,7 +693,6 @@ RasterizerState NoMultisampling
     CullMode = None;
 };
 
-#if 0
 technique11 TesselationTechnique
 {
     pass HwTessellated

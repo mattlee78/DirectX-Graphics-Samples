@@ -15,6 +15,7 @@
 #include "pch.h"
 #include "TessTerrain.h"
 #include "BufferManager.h"
+#include "LineRender.h"
 
 #include "CompiledShaders\InitializationVS.h"
 #include "CompiledShaders\InitializationPS.h"
@@ -27,6 +28,7 @@
 #include "CompiledShaders\GSSolidWire.h"
 #include "CompiledShaders\PSSolidWire.h"
 
+BoolVar g_TerrainEnabled("Terrain/Enabled", false);
 BoolVar g_HwTessellation("Terrain/HW Tessellation", true);
 IntVar g_TessellatedTriWidth("Terrain/Tessellated Triangle Width", 6, 1, 100);
 
@@ -34,12 +36,20 @@ BoolVar g_TerrainWireframe("Terrain/Wireframe", false);
 NumVar g_WireframeAlpha("Terrain/Wireframe Alpha", 0.5f, 0, 5, 0.1f);
 BoolVar g_DebugDrawPatches("Terrain/Debug Draw Patches", false);
 BoolVar g_DebugDrawTiles("Terrain/Debug Draw Tiles", false);
+BoolVar g_DrawHeightmap("Terrain/Debug Draw Heightmap", false);
+BoolVar g_DrawGradientmap("Terrain/Debug Draw Gradient Map", false);
+BoolVar g_PlaceAtOrigin("Terrain/Place at Origin", false);
 
 static const int MAX_OCTAVES = 15;
 IntVar g_RidgeOctaves("Terrain/Ridge Octaves", 3, 1, MAX_OCTAVES);
 IntVar g_fBmOctaves("Terrain/fBm Octaves", 3, 1, MAX_OCTAVES);
 IntVar g_TexTwistOctaves("Terrain/Tex Twist Octaves", 1, 1, MAX_OCTAVES);
 IntVar g_DetailNoiseScale("Terrain/Detail Noise Scale", 20, 1, 200);
+NumVar g_WorldScale("Terrain/World Scale", 800, 50, 2000, 50);
+NumVar g_VerticalScale("Terrain/Vertical Scale", 1.5f, 0.05f, 25.0f, 0.05f);
+
+BoolVar g_DebugGrid("Terrain/Debug Grid Enable", false);
+NumVar g_DebugGridScale("Terrain/Debug Grid Scale", 500.0f, 50.0f, 5000.0f, 50.0f);
 
 struct Adjacency
 {
@@ -301,6 +311,10 @@ void TessellatedTerrain::CreateTessellationPSO()
     D3D12_RASTERIZER_DESC NormalDesc = Graphics::RasterizerDefault;
     NormalDesc.MultisampleEnable = TRUE;
     NormalDesc.CullMode = D3D12_CULL_MODE_FRONT;
+    if (!m_Culling)
+    {
+        NormalDesc.CullMode = D3D12_CULL_MODE_NONE;
+    }
     D3D12_RASTERIZER_DESC WireframeDesc = NormalDesc;
     WireframeDesc.FillMode = D3D12_FILL_MODE_WIREFRAME;
 
@@ -328,10 +342,14 @@ void TessellatedTerrain::CreateTessellationPSO()
     m_TessellationWireframePSO.SetRasterizerState(WireframeDesc);
     m_TessellationWireframePSO.SetGeometryShader(g_pGSSolidWire, sizeof(g_pGSSolidWire));
     m_TessellationWireframePSO.SetPixelShader(g_pPSSolidWire, sizeof(g_pPSSolidWire));
+    m_TessellationWireframePSO.SetDepthStencilState(Graphics::DepthStateReadOnly);
     m_TessellationWireframePSO.Finalize();
 
-    NormalDesc.CullMode = D3D12_CULL_MODE_BACK;
-    WireframeDesc.CullMode = D3D12_CULL_MODE_BACK;
+    if (m_Culling)
+    {
+        NormalDesc.CullMode = D3D12_CULL_MODE_BACK;
+        WireframeDesc.CullMode = D3D12_CULL_MODE_BACK;
+    }
 
     m_NoTessellationPSO = m_TessellationPSO;
     m_NoTessellationPSO.SetRasterizerState(NormalDesc);
@@ -353,6 +371,7 @@ void TessellatedTerrain::CreateTessellationPSO()
     m_NoTessellationWireframePSO.SetRasterizerState(WireframeDesc);
     m_NoTessellationWireframePSO.SetGeometryShader(g_pGSSolidWire, sizeof(g_pGSSolidWire));
     m_NoTessellationWireframePSO.SetPixelShader(g_pPSSolidWire, sizeof(g_pPSSolidWire));
+    m_NoTessellationWireframePSO.SetDepthStencilState(Graphics::DepthStateReadOnly);
     m_NoTessellationWireframePSO.Finalize();
 }
 
@@ -390,7 +409,7 @@ void TessellatedTerrain::CreateTextures()
 
 void TessellatedTerrain::CreateTileRings()
 {
-    int widths[] = { 0, 16, 16, 16, 16 };
+    int widths[] = { 0, 16, 16, 16, 32 };
     m_nRings = sizeof(widths) / sizeof(widths[0]) - 1;		// widths[0] doesn't define a ring hence -1
     assert(m_nRings <= MAX_RINGS);
 
@@ -400,24 +419,18 @@ void TessellatedTerrain::CreateTileRings()
         m_pTileRings[i] = new TileRing(widths[i] / 2, widths[i + 1], tileWidth);
         tileWidth *= 2.0f;
     }
-}
 
-void TessellatedTerrain::SetUVOffset(const TessellatedTerrainRenderDesc* pDesc, XMFLOAT4* pDest) const
-{
-    XMFLOAT4 eye = pDesc->CameraPosWorld;
-    eye.y = 0;
-    if (SNAP_GRID_SIZE > 0)
-    {
-        eye.x = floorf(eye.x / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
-        eye.z = floorf(eye.z / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
-    }
-    eye.x /= WORLD_SCALE;
-    eye.z /= -WORLD_SCALE;
-    *pDest = eye;
+    TileRing* pLastRing = m_pTileRings[m_nRings - 1];
+    m_OuterRingWorldSize = (FLOAT)pLastRing->outerWidth() * pLastRing->tileSize();
 }
 
 void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
 {
+    if (!g_TerrainEnabled)
+    {
+        return;
+    }
+
     // TODO: compare camera eye pos to previous and set m_UpdateTerrainTexture if different
     m_UpdateTerrainTexture = true;
 
@@ -427,9 +440,20 @@ void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const Tessel
     m_CBCommon.FractalOctaves.y = g_fBmOctaves;
     m_CBCommon.FractalOctaves.z = g_TexTwistOctaves;
 
-    m_CBCommon.CoarseSampleSpacing.x = WORLD_SCALE * m_pTileRings[m_nRings - 1]->outerWidth() / (float)COARSE_HEIGHT_MAP_SIZE;
+    m_CBCommon.CoarseSampleSpacing.x = g_WorldScale * m_pTileRings[m_nRings - 1]->outerWidth() / (float)COARSE_HEIGHT_MAP_SIZE;
+    m_CBCommon.CoarseSampleSpacing.y = g_WorldScale;
+    m_CBCommon.CoarseSampleSpacing.z = g_VerticalScale;
 
-    SetUVOffset(pDesc, &m_CBCommon.TextureWorldOffset);
+    XMFLOAT4 eye = pDesc->CameraPosWorld;
+    eye.y = 0;
+    if (SNAP_GRID_SIZE > 0)
+    {
+        eye.x = floorf(eye.x / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+        eye.z = floorf(eye.z / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+    }
+    eye.x /= (g_WorldScale * 4);
+    eye.z /= -(g_WorldScale * 4);
+    m_CBCommon.TextureWorldOffset = eye;
 
     pContext->SetDynamicConstantBufferView(1, sizeof(m_CBCommon), &m_CBCommon);
 
@@ -441,13 +465,18 @@ void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const Tessel
 
     if (m_UpdateTerrainTexture)
     {
-        DeformInitTerrain(pContext, pDesc);
+        RenderTerrainHeightmap(pContext, pDesc);
         m_UpdateTerrainTexture = false;
     }
 }
 
 void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
 {
+    if (!g_TerrainEnabled)
+    {
+        return;
+    }
+
     if (pDesc->ZPrePass && g_TerrainWireframe)
     {
         return;
@@ -501,9 +530,24 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
     m_CBTerrain.DetailUVScale.y = 1.0f / DETAIL_UV_SCALE;
 
     RenderTerrain(pContext, pDesc);
+
+    if (g_DebugGrid)
+    {
+        const FLOAT BoxScale = g_DebugGridScale;
+        for (INT32 z = -20; z < 20; ++z)
+        {
+            for (INT32 x = -20; x < 20; ++x)
+            {
+                XMVECTOR Min = XMVectorSet((FLOAT)x, -1, (FLOAT)z, 0) * BoxScale;
+                XMVECTOR Max = XMVectorSet((FLOAT)(x + 1), 1, (FLOAT)(z + 1), 0) * BoxScale;
+                XMVECTOR Color = (x == 0 && z == 0) ? XMVectorSet(1, 0, 1, 1) : g_XMOne;
+                LineRender::DrawAxisAlignedBox(Min, Max, Color);
+            }
+        }
+    }
 }
 
-void TessellatedTerrain::DeformInitTerrain(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
+void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
 {
     static const D3D12_VIEWPORT vp = { 0,0, (float)COARSE_HEIGHT_MAP_SIZE, (float)COARSE_HEIGHT_MAP_SIZE, 0.0f, 1.0f };
     static const D3D12_RECT rect = { 0, 0, COARSE_HEIGHT_MAP_SIZE, COARSE_HEIGHT_MAP_SIZE };
@@ -597,7 +641,8 @@ void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const Tessella
         const TileRing* pRing = m_pTileRings[i];
         pRing->SetRenderingState(pContext);
 
-        m_CBTerrain.tileSize.x = pRing->tileSize();
+        m_CBTerrain.tileWorldSize.x = pRing->tileSize();
+        m_CBTerrain.tileWorldSize.y = m_OuterRingWorldSize;
 
         pContext->SetDynamicConstantBufferView(0, sizeof(m_CBTerrain), &m_CBTerrain);
 
@@ -612,7 +657,7 @@ void TessellatedTerrain::SetMatrices(const TessellatedTerrainRenderDesc* pDesc)
 {
     // Set matrices
     XMMATRIX mWorld, mScale, mTrans;
-    mScale = XMMatrixScaling(WORLD_SCALE, WORLD_SCALE, WORLD_SCALE);
+    mScale = XMMatrixScalingFromVector(XMVectorReplicate(g_WorldScale));
 
     // We keep the eye centered in the middle of the tile rings.  The height map scrolls in the horizontal 
     // plane instead.
@@ -628,6 +673,10 @@ void TessellatedTerrain::SetMatrices(const TessellatedTerrainRenderDesc* pDesc)
     snappedX = eye.x - 2 * dx;				// Why the 2x?  I'm confused.  But it works.
     snappedZ = eye.z - 2 * dz;
     mTrans = XMMatrixTranslation(snappedX, 0, snappedZ);
+    if (g_PlaceAtOrigin)
+    {
+        mTrans = XMMatrixIdentity();
+    }
     mWorld = XMMatrixMultiply(mScale, mTrans);
 
     XMMATRIX mView = XMLoadFloat4x4A(&pDesc->matView);
@@ -653,4 +702,32 @@ void TessellatedTerrain::SetMatrices(const TessellatedTerrainRenderDesc* pDesc)
     XMVECTOR Det;
     XMMATRIX mCameraWorld = XMMatrixInverse(&Det, mView);
     XMStoreFloat4(&m_CBTerrain.ViewDir, mCameraWorld.r[2]);
+}
+
+void TessellatedTerrain::UIRender(TextContext& Text)
+{
+    if (!g_TerrainEnabled)
+    {
+        return;
+    }
+
+    INT Xpos = 0;
+    const INT Ypos = 100;
+    const INT Width = COARSE_HEIGHT_MAP_SIZE / 4;
+    const INT Spacing = 10;
+    if (g_DrawHeightmap)
+    {
+        Text.DrawTexturedRect(m_HeightMap.GetSRV(), Xpos, Ypos, Width, Width, true);
+        Xpos += (Width + Spacing);
+    }
+    if (g_DrawGradientmap)
+    {
+        Text.DrawTexturedRect(m_GradientMap.GetSRV(), Xpos, Ypos, Width, Width, false);
+        Xpos += (Width + Spacing);
+    }
+
+//     Text.SetCursorX(0);
+//     Text.SetCursorY(Ypos + Width + Spacing);
+//     const XMFLOAT4& TWO = m_CBCommon.TextureWorldOffset;
+//     Text.DrawFormattedString("Terrain Eye XYZ: <%0.2f, %0.2f, %0.2f>", TWO.x, TWO.y, TWO.z);
 }

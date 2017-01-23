@@ -94,7 +94,6 @@ class TessellatedTerrain
 {
 private:
     static const int COARSE_HEIGHT_MAP_SIZE = 1024;
-    float WORLD_SCALE = 400;
     static const int VTX_PER_TILE_EDGE = 9;				// overlap => -2
     static const int TRI_STRIP_INDEX_COUNT = (VTX_PER_TILE_EDGE - 1) * (2 * VTX_PER_TILE_EDGE + 2);
     static const int QUAD_LIST_INDEX_COUNT = (VTX_PER_TILE_EDGE - 1) * (VTX_PER_TILE_EDGE - 1) * 4;
@@ -102,8 +101,10 @@ private:
     int m_nRings = 0;
 
     TileRing* m_pTileRings[MAX_RINGS];
-    float SNAP_GRID_SIZE = 0;
+    float m_OuterRingWorldSize = 0.0f;
+    float SNAP_GRID_SIZE = 0.0f;
 
+    bool m_Culling = true;
     bool m_UpdateTerrainTexture = false;
 
     ByteAddressBuffer m_TileTriStripIB;
@@ -146,7 +147,7 @@ private:
         XMFLOAT4 fDisplacementHeight;
         XMFLOAT4 screenSize;
         XMINT4 tessellatedTriWidth;
-        XMFLOAT4 tileSize;
+        XMFLOAT4 tileWorldSize;
     } m_CBTerrain;
     C_ASSERT(sizeof(CBTerrain) == 26 * sizeof(XMFLOAT4));
 
@@ -184,6 +185,7 @@ public:
 
     void OffscreenRender(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
     void Render(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
+    void UIRender(TextContext& Text);
 
 private:
     void CreateTileTriangleIB();
@@ -194,9 +196,7 @@ private:
     void CreateDeformPSO();
     void CreateTileRings();
 
-    void InitializeHeights(GraphicsContext* pContext);
-    void DeformInitTerrain(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
+    void RenderTerrainHeightmap(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
     void RenderTerrain(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
-    void SetUVOffset(const TessellatedTerrainRenderDesc* pDesc, XMFLOAT4* pDest) const;
     void SetMatrices(const TessellatedTerrainRenderDesc* pDesc);
 };
