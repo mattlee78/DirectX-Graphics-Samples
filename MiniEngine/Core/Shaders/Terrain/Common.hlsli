@@ -18,8 +18,6 @@
 static const int CONTROL_VTX_PER_TILE_EDGE = 9;
 static const int PATCHES_PER_TILE_EDGE = 8;
 static const float RECIP_CONTROL_VTX_PER_TILE_EDGE = 1.0 / 9;
-static const float WORLD_SCALE = 400;
-static const float VERTICAL_SCALE = 0.65;
 static const float WORLD_UV_REPEATS = 8;	// How many UV repeats across the world for fractal generation.
 static const float WORLD_UV_REPEATS_RECIP = 1.0 / WORLD_UV_REPEATS;
 
@@ -27,7 +25,7 @@ cbuffer cbCommon : register(b1)
 {
     int3   g_FractalOctaves : packoffset(c0);		// ridge, fBm, uv twist
     float3 g_TextureWorldOffset : packoffset(c1);	// Offset of fractal terrain in texture space.
-    float  g_CoarseSampleSpacing : packoffset(c2);	// World space distance between samples in the coarse height map.
+    float3 g_CoarseSampleSpacing : packoffset(c2);	// x = World space distance between samples in the coarse height map. y = world scale z = vertical scale
 };
 
 struct Adjacency

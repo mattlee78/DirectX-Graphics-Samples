@@ -868,7 +868,6 @@ void ModelViewer::RenderScene( void )
 			gfxContext.SetViewportAndScissor(m_MainViewport, m_MainScissor);
             gfxContext.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             RenderObjects(gfxContext, m_Camera, &m_ModelPSOCache, RenderPass_Color);
-            LineRender::Render(gfxContext, m_ViewProjMatrix);
 
             if (g_TestTerrain)
             {
@@ -883,6 +882,8 @@ void ModelViewer::RenderScene( void )
 
             RD.ZPrePass = false;
             m_TessTerrain.Render(&gfxContext, &RD);
+
+            LineRender::Render(gfxContext, m_ViewProjMatrix);
         }
 	}
 
@@ -908,6 +909,8 @@ void ModelViewer::RenderUI(class GraphicsContext& Context)
         Text.DrawString("Connecting...");
     }
     //Text.DrawFormattedString("Debug Vector: %10.3f %10.3f %10.3f", (FLOAT)DebugVector.GetX(), (FLOAT)DebugVector.GetY(), (FLOAT)DebugVector.GetZ());
+
+    m_TessTerrain.UIRender(Text);
 
     if (0)
     {

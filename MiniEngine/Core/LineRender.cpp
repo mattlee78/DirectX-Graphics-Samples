@@ -70,7 +70,7 @@ HRESULT LineRender::Initialize(UINT32 LinesPerSlab)
     RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
     s_PipelineState.SetRasterizerState(RasterizerState);
     s_PipelineState.SetBlendState(CD3DX12_BLEND_DESC(D3D12_DEFAULT));
-    s_PipelineState.SetDepthStencilState(DepthStateReadWrite);
+    s_PipelineState.SetDepthStencilState(DepthStateReadOnly);
     s_PipelineState.SetRenderTargetFormat(g_SceneColorBuffer.GetFormat(), g_SceneDepthBuffer.GetFormat(), 1);
     s_PipelineState.Finalize();
 
