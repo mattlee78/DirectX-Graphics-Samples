@@ -145,7 +145,7 @@ NumVar ShadowDimX("Application/Shadow Dim X", 5000, 100, 10000, 100 );
 NumVar ShadowDimY("Application/Shadow Dim Y", 3000, 100, 10000, 100 );
 NumVar ShadowDimZ("Application/Shadow Dim Z", 3000, 1000, 10000, 100 );
 BoolVar DisplayPhysicsDebug("Application/Debug Draw Physics", false);
-BoolVar DisplayServerPhysicsDebug("Application/Debug Draw Server Physics", false);
+BoolVar DisplayServerPhysicsDebug("Application/Debug Draw Server Physics", true);
 
 struct TestData
 {
@@ -373,6 +373,8 @@ void ModelViewer::Startup( void )
             DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, Ypos, -100), Pitch, 0);
             m_NetServer.SpawnObject(nullptr, "*cube1.5", nullptr, DT, XMFLOAT3(0, 0, 0));
         }
+
+        m_NetServer.GetWorld()->InitializeTerrain(&m_TessTerrain);
     }
 
     if (g_TestTerrain)
@@ -616,10 +618,6 @@ void ModelViewer::Update( float deltaT )
     {
         m_pClientWorld->GetPhysicsWorld()->DebugRender();
     }
-    else if (DisplayServerPhysicsDebug)
-    {
-        m_NetServer.GetWorld()->GetPhysicsWorld()->DebugRender();
-    }
 
 	if (GameInput::IsFirstPressed(GameInput::kLShoulder))
 		DebugZoom.Decrement();
@@ -746,6 +744,11 @@ void ModelViewer::Update( float deltaT )
     LineRender::DrawAxis(XMMatrixScalingFromVector(XMVectorReplicate(10)));
 
     m_NetServer.SingleThreadedTick();
+
+    if (DisplayServerPhysicsDebug && !DisplayPhysicsDebug)
+    {
+        m_NetServer.GetWorld()->GetPhysicsWorld()->DebugRender();
+    }
 }
 
 bool ModelViewer::IsDone()
@@ -776,6 +779,11 @@ void ModelViewer::RenderScene( void )
 
     GraphicsContext& gfxContext = GraphicsContext::Begin(L"Scene Render");
 
+    if (m_NetServer.IsStarted())
+    {
+        m_NetServer.GetWorld()->GetTerrainPhysicsTracker()->ServerRender(&gfxContext);
+    }
+
 	ParticleEffects::Update(gfxContext.GetComputeContext(), Graphics::GetFrameTime());
 
     TessellatedTerrainRenderDesc RD = {};
@@ -784,6 +792,30 @@ void ModelViewer::RenderScene( void )
     XMStoreFloat4A(&RD.CameraPosWorld, m_Camera.GetPosition());
     RD.Viewport = m_MainViewport;
     RD.ZPrePass = false;
+
+    if (0)
+    {
+        UINT32 HeightmapIndex;
+        const FLOAT WorldScale = 400;
+        const XMVECTOR CenterEyePos = XMVectorSet((FLOAT)Graphics::GetFrameCount() * 10.0f, 0, 0, 0);
+        XMVECTOR EyePos;
+
+        EyePos = CenterEyePos + XMVectorSet(0, 0, 0, 0);
+        HeightmapIndex = m_TessTerrain.PhysicsRender(&gfxContext, EyePos, WorldScale, nullptr, nullptr);
+        m_TessTerrain.FreePhysicsHeightmap(HeightmapIndex);
+
+        EyePos = CenterEyePos + XMVectorSet(WorldScale, 0, 0, 0);
+        HeightmapIndex = m_TessTerrain.PhysicsRender(&gfxContext, EyePos, WorldScale, nullptr, nullptr);
+        m_TessTerrain.FreePhysicsHeightmap(HeightmapIndex);
+
+        EyePos = CenterEyePos + XMVectorSet(0, 0, WorldScale, 0);
+        HeightmapIndex = m_TessTerrain.PhysicsRender(&gfxContext, EyePos, WorldScale, nullptr, nullptr);
+        m_TessTerrain.FreePhysicsHeightmap(HeightmapIndex);
+
+        EyePos = CenterEyePos + XMVectorSet(WorldScale, 0, WorldScale, 0);
+        HeightmapIndex = m_TessTerrain.PhysicsRender(&gfxContext, EyePos, WorldScale, nullptr, nullptr);
+        m_TessTerrain.FreePhysicsHeightmap(HeightmapIndex);
+    }
 
     m_TessTerrain.OffscreenRender(&gfxContext, &RD);
 

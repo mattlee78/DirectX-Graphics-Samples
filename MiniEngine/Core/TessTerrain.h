@@ -93,7 +93,6 @@ struct TessellatedTerrainRenderDesc
 class TessellatedTerrain
 {
 private:
-    static const int COARSE_HEIGHT_MAP_SIZE = 1024;
     static const int VTX_PER_TILE_EDGE = 9;				// overlap => -2
     static const int TRI_STRIP_INDEX_COUNT = (VTX_PER_TILE_EDGE - 1) * (2 * VTX_PER_TILE_EDGE + 2);
     static const int QUAD_LIST_INDEX_COUNT = (VTX_PER_TILE_EDGE - 1) * (VTX_PER_TILE_EDGE - 1) * 4;
@@ -105,13 +104,22 @@ private:
     float SNAP_GRID_SIZE = 0.0f;
 
     bool m_Culling = true;
-    bool m_UpdateTerrainTexture = false;
 
     ByteAddressBuffer m_TileTriStripIB;
     ByteAddressBuffer m_TileQuadListIB;
 
     ColorBuffer m_HeightMap;
     ColorBuffer m_GradientMap;
+
+    D3D12_SUBRESOURCE_FOOTPRINT m_PhysicsFootprint;
+    UINT32 m_FootprintSizeBytes;
+    ColorBuffer m_PhysicsHeightMap;
+    GpuResource m_ReadbackResource;
+    BYTE* m_pReadbackData;
+    UINT32 m_PhysicsHeightmapCount;
+    UINT64 m_AvailableMapMask;
+    ColorBuffer m_DebugPhysicsHeightMaps[4];
+    UINT32 m_CurrentDebugHeightmapIndex;
 
     RootSignature m_RootSig;
     GraphicsPSO m_TessellationPSO;
@@ -183,20 +191,29 @@ public:
     void Initialize();
     void Terminate();
 
+    FLOAT GetWorldScale() const;
+    FLOAT GetVerticalScale() const;
+
     void OffscreenRender(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
     void Render(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
     void UIRender(TextContext& Text);
+
+    UINT32 PhysicsRender(GraphicsContext* pContext, const XMVECTOR& EyePos, FLOAT WorldScale, const FLOAT** ppHeightSamples, D3D12_SUBRESOURCE_FOOTPRINT* pFootprint);
+    void FreePhysicsHeightmap(UINT32 Index);
 
 private:
     void CreateTileTriangleIB();
     void CreateTileQuadListIB();
     void CreateTextures();
+    void CreatePhysicsTextures();
+    void CreateNoiseTextures();
     void CreateRootSignature();
     void CreateTessellationPSO();
     void CreateDeformPSO();
     void CreateTileRings();
 
-    void RenderTerrainHeightmap(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
+    void RenderTerrainHeightmap(GraphicsContext* pContext, ColorBuffer* pHeightmap, ColorBuffer* pGradientMap, XMFLOAT4 CameraPosWorld, FLOAT UVScale);
     void RenderTerrain(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
     void SetMatrices(const TessellatedTerrainRenderDesc* pDesc);
+    UINT32 FindAvailablePhysicsHeightmap();
 };
