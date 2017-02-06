@@ -337,17 +337,20 @@ void ModelViewer::Startup( void )
         m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
         m_NetServer.SpawnObject(nullptr, "ramp1", nullptr, DT, XMFLOAT3(0, 0, 0));
 
-        XMFLOAT3 CenterPos(200, 0, 150);
-        for (UINT32 i = 0; i < (g_RingSize * 8); ++i)
+        if (0)
         {
-            DT = CreateCylinderTransform(i, CenterPos);
-            ModelInstance* pMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
-            m_PlacedModelInstances.push_back(pMI);
+            XMFLOAT3 CenterPos(200, 0, 150);
+            for (UINT32 i = 0; i < (g_RingSize * 8); ++i)
+            {
+                DT = CreateCylinderTransform(i, CenterPos);
+                ModelInstance* pMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
+                m_PlacedModelInstances.push_back(pMI);
+            }
         }
 
-        DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 50, 0));
-        ModelInstance* pMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
-        pMI->SetLifetimeRemaining(10);
+        //DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 50, 0));
+        //ModelInstance* pMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
+        //pMI->SetLifetimeRemaining(10);
 
         DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 9, -100));
         m_NetServer.SpawnObject(nullptr, "*waterbox20:9:20", nullptr, DT, XMFLOAT3(0, 0, 0));
@@ -366,13 +369,13 @@ void ModelViewer::Startup( void )
         DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(12.5, 17.5, -100), -18.43f * (XM_PI / 180.0f), XM_PIDIV2);
         m_NetServer.SpawnObject(nullptr, "*staticbox20:0.5:7.875", nullptr, DT, XMFLOAT3(0, 0, 0));
 
-        for (UINT32 i = 0; i < 10; ++i)
-        {
-            FLOAT Pitch = (FLOAT)i * 0.1f;
-            FLOAT Ypos = 25.0f + (FLOAT)i * 4;
-            DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, Ypos, -100), Pitch, 0);
-            m_NetServer.SpawnObject(nullptr, "*cube1.5", nullptr, DT, XMFLOAT3(0, 0, 0));
-        }
+//        for (UINT32 i = 0; i < 10; ++i)
+//        {
+//            FLOAT Pitch = (FLOAT)i * 0.1f;
+//            FLOAT Ypos = 25.0f + (FLOAT)i * 4;
+//            DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, Ypos, -100), Pitch, 0);
+//            m_NetServer.SpawnObject(nullptr, "*cube1.5", nullptr, DT, XMFLOAT3(0, 0, 0));
+//        }
 
         m_NetServer.GetWorld()->InitializeTerrain(&m_TessTerrain);
     }
@@ -559,8 +562,8 @@ void ModelViewer::Update( float deltaT )
         if (!m_ClientObjectsCreated && m_NetClient.CanSpawnObjects())
         {
             m_ClientObjectsCreated = true;
-            DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 3, 100));
-            m_NetClient.SpawnObjectOnServer("Vehicle1", nullptr, DT, XMFLOAT3(0, 0, 0));
+            DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 640, 100));
+            m_NetClient.SpawnObjectOnServer("Vehicle1", nullptr, DT, XMFLOAT3(0, 00, 0));
         }
 
         if (m_pInputRemoting == nullptr)
