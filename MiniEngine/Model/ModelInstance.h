@@ -12,6 +12,8 @@ namespace Graphics
     class Model;
 }
 class Vehicle;
+class TessellatedTerrain;
+class TerrainPhysicsTracker;
 
 enum RenderPass
 {
@@ -156,6 +158,9 @@ public:
     Math::Matrix4 GetWorldTransform() const { return Math::Matrix4(XMLoadFloat4x4(&m_WorldTransform)); }
     Math::Matrix4 GetScaledWorldTransform() const { return Math::Matrix4(XMLoadFloat4x4(&m_ScaledWorldTransform)); }
     Math::Vector3 GetWorldPosition() const { return Math::Vector3(XMLoadFloat3((XMFLOAT3*)&m_WorldTransform._41)); }
+    Math::Vector3 GetWorldVelocity() const;
+    FLOAT GetRadius() const;
+    bool IsDynamic() const;
 
     bool PrePhysicsUpdate(float deltaT, INT64 ClientTicks);
     void PostPhysicsUpdate(float deltaT);
@@ -173,6 +178,68 @@ private:
 typedef std::unordered_map<UINT32, ModelInstance*> ModelInstanceMap;
 typedef std::unordered_set<ModelInstance*> ModelInstanceSet;
 
+class TerrainPhysicsTracker
+{
+private:
+    TessellatedTerrain* m_pTerrain;
+    PhysicsWorld* m_pPhysicsWorld;
+    FLOAT m_TerrainBlockWorldScale;
+
+    union TerrainCoord
+    {
+        struct
+        {
+            INT32 X;
+            INT32 Z;
+        };
+        UINT64 Hash;
+
+        XMVECTOR GetWorldPosition(FLOAT WorldScale, FLOAT BlockOffset = 0.0f) const;
+    };
+
+    struct TerrainBlock
+    {
+        UINT64 AvailableFence;
+        UINT64 LastFrameUsed;
+        TerrainCoord Coord;
+        CollisionShape* pShape;
+        RigidBody* pRigidBody;
+        UINT32 HeightmapIndex;
+        const FLOAT* pGpuSamples;
+        FLOAT* pHeightmapSamples;
+    };
+
+    typedef std::unordered_map<UINT64, TerrainBlock*> TerrainBlockMap;
+    TerrainBlockMap m_BlockMap;
+
+    D3D12_SUBRESOURCE_FOOTPRINT m_HeightmapFootprint;
+
+public:
+    TerrainPhysicsTracker()
+        : m_pTerrain(nullptr),
+          m_pPhysicsWorld(nullptr)
+    { 
+        ZeroMemory(&m_HeightmapFootprint, sizeof(m_HeightmapFootprint));
+    }
+    bool IsInitialized() const { return m_pTerrain != nullptr; }
+
+    void Initialize(TessellatedTerrain* pTerrain, PhysicsWorld* pWorld, FLOAT BlockWorldScale);
+    void Terminate();
+
+    void ClearBlocks();
+
+    void TrackObject(const XMVECTOR& Origin, const XMVECTOR& Velocity, FLOAT Radius);
+    void Update();
+
+    void ServerRender(GraphicsContext* pContext);
+
+private:
+    TerrainCoord VectorToCoord(const XMVECTOR& Coord) const;
+    void TrackRect(const TerrainCoord& MinCoord, const TerrainCoord& MaxCoord);
+    void FreeTerrainBlock(TerrainBlock* pTB);
+    void CompleteTerrainBlock(TerrainBlock* pTB);
+};
+
 interface IWorldNotifications
 {
 public:
@@ -183,6 +250,7 @@ class World
 {
 private:
     PhysicsWorld m_PhysicsWorld;
+    TerrainPhysicsTracker m_TerrainPhysicsTracker;
     ModelInstanceSet m_ModelInstances;
     bool m_GraphicsEnabled;
 
@@ -194,6 +262,7 @@ public:
     virtual ~World();
 
     void Initialize(bool GraphicsEnabled, IWorldNotifications* pNotify);
+    void InitializeTerrain(TessellatedTerrain* pTerrain);
     void Terminate();
     void Tick(float deltaT, INT64 Ticks);
     void Render(ModelRenderContext& MRC);
@@ -202,6 +271,8 @@ public:
     ModelInstance* SpawnModelInstance(ModelTemplate* pTemplate, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, bool IsRemote = false);
 
     PhysicsWorld* GetPhysicsWorld() { return &m_PhysicsWorld; }
+    TerrainPhysicsTracker* GetTerrainPhysicsTracker() { return &m_TerrainPhysicsTracker; }
 
     ModelTemplate* FindOrCreateModelTemplate(const CHAR* strTemplateName);
 };
+

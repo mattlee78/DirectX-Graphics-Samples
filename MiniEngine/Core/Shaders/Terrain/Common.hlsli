@@ -18,7 +18,7 @@
 static const int CONTROL_VTX_PER_TILE_EDGE = 9;
 static const int PATCHES_PER_TILE_EDGE = 8;
 static const float RECIP_CONTROL_VTX_PER_TILE_EDGE = 1.0 / 9;
-static const float WORLD_UV_REPEATS = 8;	// How many UV repeats across the world for fractal generation.
+static const float WORLD_UV_REPEATS = 1;	// How many UV repeats across the world for fractal generation.
 static const float WORLD_UV_REPEATS_RECIP = 1.0 / WORLD_UV_REPEATS;
 
 cbuffer cbCommon : register(b1)

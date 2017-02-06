@@ -124,7 +124,8 @@ public:
 	void CopyBuffer( GpuResource& Dest, GpuResource& Src );
 	void CopyBufferRegion( GpuResource& Dest, size_t DestOffset, GpuResource& Src, size_t SrcOffset, size_t NumBytes );
 	void CopySubresource(GpuResource& Dest, UINT DestSubIndex, GpuResource& Src, UINT SrcSubIndex, const DestinationPoint* pDestPoint = nullptr, const D3D12_BOX* pSrcBox = nullptr);
-	void CopyCounter(GpuResource& Dest, size_t DestOffset, StructuredBuffer& Src);
+    void CopySubresource(GpuResource& Dest, const D3D12_PLACED_SUBRESOURCE_FOOTPRINT& DestFootprint, GpuResource& Src, UINT SrcSubIndex, const DestinationPoint* pDestPoint = nullptr, const D3D12_BOX* pSrcBox = nullptr);
+    void CopyCounter(GpuResource& Dest, size_t DestOffset, StructuredBuffer& Src);
 	void ResetCounter(StructuredBuffer& Buf, uint32_t Value = 0);
 
 	DynAlloc ReserveUploadMemory(size_t SizeInBytes)

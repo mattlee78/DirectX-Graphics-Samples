@@ -19,7 +19,7 @@
 cbuffer cbDeform : register(b0)
 {
     float3 g_DeformMin : packoffset(c0);
-    float3 g_DeformMax : packoffset(c1);
+    float3 g_DeformMax : packoffset(c1);  // Z component is a UV scaling factor applied to the initialization pass
 };
 
 // Null in that there is no associated VB set by the API.
@@ -42,22 +42,22 @@ DeformVertex InitializationVS( NullVertex input )
 	if (input.VertexId == 0)
 	{
 	    output.pos = float4(g_DeformMin.x, g_DeformMin.y, 0, 1);
-	    output.texCoord = float2(0,0);
+	    output.texCoord = float2(0,0) * g_DeformMax.z;
 	}
 	else if (input.VertexId == 1)
 	{
 	    output.pos = float4(g_DeformMax.x, g_DeformMin.y, 0, 1);
-	    output.texCoord = float2(1,0);
+	    output.texCoord = float2(1,0) * g_DeformMax.z;
 	}
 	else if (input.VertexId == 2)
 	{
 	    output.pos = float4(g_DeformMin.x, g_DeformMax.y, 0, 1);
-	    output.texCoord = float2(0,1);
+	    output.texCoord = float2(0,1) * g_DeformMax.z;
 	}
 	else if (input.VertexId == 3)
 	{
 	    output.pos = float4(g_DeformMax.x, g_DeformMax.y, 0, 1);
-	    output.texCoord = float2(1,1);
+	    output.texCoord = float2(1,1) * g_DeformMax.z;
 	}
     
     return output;
@@ -72,7 +72,7 @@ float3 debugCubes(float2 uv)
 
 float3 debugXRamps(float2 uv)
 {
-	const float HORIZ_SCALE = 2, VERT_SCALE = 1;
+	const float HORIZ_SCALE = 4, VERT_SCALE = 1;
 	uv *= HORIZ_SCALE;
 	return VERT_SCALE * frac(uv.x);
 }
@@ -91,14 +91,32 @@ float3 debugFlat(float2 uv)
 	return VERT_SCALE;
 }
 
+float4 debugDualRamps(float2 uv)
+{
+    if (uv.x >= 0 && uv.x < 0.5)
+    {
+        return 0.5;
+    }
+    else if (uv.y >= 0 && uv.y < 0.5)
+    {
+        return 0.5;
+    }
+//    if (floor(uv.x) == 0 && floor(uv.y) == 0)
+//    {
+//        return float4(1, 1, 1, 1);
+//    }
+    return float4(max(frac(uv.x), frac(uv.y)).xxx, 1);
+}
+
 float4 InitializationPS( DeformVertex input ) : SV_Target
 {
 	const float2 uv = g_TextureWorldOffset.xz + WORLD_UV_REPEATS * input.texCoord;
 	//return float4(debugXRamps(uv),  1);
 	//return float4(debugFlat(uv),  1);
-	//return float4(debugSineHills(uv),  1);
+	//return float4(debugSineHills(uv * 16),  1);
 	//return float4(debugCubes(uv), 1);
 	return hybridTerrain(uv, g_FractalOctaves);
+    //return debugDualRamps(uv * 16);
 }
 
 Texture2D g_InputTexture : register(t0);

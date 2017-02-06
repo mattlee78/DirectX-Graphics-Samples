@@ -147,11 +147,6 @@ float2 worldXZtoHeightUV(float2 worldXZ)
 	return (worldXZ / g_tileWorldSize.y) + 0.5;
 }
 
-float2 heightUVToWorldXZ(float2 uv)
-{
-	return g_tileWorldSize.y * (uv - 0.5);
-}
-
 // Wrappers for displacement map sampling allow us to substitute a 100% procedural surface.
 // VS and DS sampling have to agree and use common code.
 float SampleHeightForVS(Texture2D coarseTex, SamplerState coarseSampler, float2 worldXZ, int2 offset)

@@ -107,7 +107,7 @@ float ridgedmf(float2 p, int octaves, float lacunarity = 2.0, float gain = 0.5, 
 // mixture of ridged and fbm noise
 float hybridTerrain(float2 x, int3 octaves)
 {
-	const float SCALE = 256;
+	const float SCALE = 32;
 	x /= SCALE;
 
 	const int RIDGE_OCTAVES = octaves.x;
