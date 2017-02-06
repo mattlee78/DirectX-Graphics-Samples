@@ -630,7 +630,7 @@ TerrainPhysicsTracker::TerrainCoord TerrainPhysicsTracker::VectorToCoord(const X
     FLOAT Z = floorf(XMVectorGetZ(Coord) / m_TerrainBlockWorldScale);
     TerrainCoord TC;
     TC.X = (INT32)X;
-    TC.Z = (INT32)Z;
+    TC.Z = (INT32)Z + 1;
     return TC;
 }
 
