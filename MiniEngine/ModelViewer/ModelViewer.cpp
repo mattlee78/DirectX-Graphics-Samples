@@ -145,7 +145,7 @@ NumVar ShadowDimX("Application/Shadow Dim X", 5000, 100, 10000, 100 );
 NumVar ShadowDimY("Application/Shadow Dim Y", 3000, 100, 10000, 100 );
 NumVar ShadowDimZ("Application/Shadow Dim Z", 3000, 1000, 10000, 100 );
 BoolVar DisplayPhysicsDebug("Application/Debug Draw Physics", false);
-BoolVar DisplayServerPhysicsDebug("Application/Debug Draw Server Physics", true);
+BoolVar DisplayServerPhysicsDebug("Application/Debug Draw Server Physics", false);
 
 struct TestData
 {
@@ -562,7 +562,7 @@ void ModelViewer::Update( float deltaT )
         if (!m_ClientObjectsCreated && m_NetClient.CanSpawnObjects())
         {
             m_ClientObjectsCreated = true;
-            DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 640, 100));
+            DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 400, 100));
             m_NetClient.SpawnObjectOnServer("Vehicle1", nullptr, DT, XMFLOAT3(0, 00, 0));
         }
 
