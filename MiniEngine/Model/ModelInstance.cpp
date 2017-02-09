@@ -576,8 +576,8 @@ void TerrainPhysicsTracker::Initialize(TessellatedTerrain* pTerrain, PhysicsWorl
         TerrainCoord TC = {};
         //TC.X = 1;
         TerrainCoord TC2 = TC;
-        ++TC2.X;
-        ++TC2.Z;
+        TC2.X += 4;
+        TC2.Z += 4;
         TrackRect(TC, TC2);
     }
 }
@@ -667,7 +667,7 @@ void TerrainPhysicsTracker::TrackRect(const TerrainCoord& MinCoord, const Terrai
 void TerrainPhysicsTracker::Update()
 {
     const UINT64 CurrentFrameIndex = Graphics::GetFrameCount();
-    const UINT64 ExpireFrameCount = -1; //5 * 60;
+    const UINT64 ExpireFrameCount = 5 * 60;
     CommandQueue& CQ = Graphics::g_CommandManager.GetQueue();
 
     auto iter = m_BlockMap.begin();

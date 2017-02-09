@@ -113,10 +113,10 @@ float4 InitializationPS( DeformVertex input ) : SV_Target
 	const float2 uv = g_TextureWorldOffset.xz + WORLD_UV_REPEATS * input.texCoord;
 	//return float4(debugXRamps(uv),  1);
 	//return float4(debugFlat(uv),  1);
-	//return float4(debugSineHills(uv * 16),  1);
+	//return float4(debugSineHills(uv * 2) * 0.25f,  1);
 	//return float4(debugCubes(uv), 1);
-	return hybridTerrain(uv, g_FractalOctaves);
     //return debugDualRamps(uv * 16);
+    return hybridTerrain(uv, g_FractalOctaves);
 }
 
 Texture2D g_InputTexture : register(t0);
