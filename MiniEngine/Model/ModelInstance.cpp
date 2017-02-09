@@ -420,7 +420,7 @@ void World::Initialize(bool GraphicsEnabled, IWorldNotifications* pNotify)
 
 void World::InitializeTerrain(TessellatedTerrain* pTerrain)
 {
-    m_TerrainPhysicsTracker.Initialize(pTerrain, &m_PhysicsWorld, pTerrain->GetWorldScale());
+    m_TerrainPhysicsTracker.Initialize(pTerrain, &m_PhysicsWorld, pTerrain->GetWorldScale() * 0.25f);
 }
 
 void World::Tick(float deltaT, INT64 Ticks)

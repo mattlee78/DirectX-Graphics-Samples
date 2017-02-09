@@ -165,7 +165,10 @@ float SampleHeightForVS(Texture2D coarseTex, SamplerState coarseSampler, float2 
 	// repeating fBm.
 	float coarse = coarseTex.SampleLevel(coarseSampler, uv, mipLevel, offset).r;	// coarse
 
-	return g_CoarseSampleSpacing.z * (coarse + SampleLevelDetailNoise(uv, coarse));		// detail
+    //float detail = SampleLevelDetailNoise(uv, coarse);  // detail
+    float detail = 0;
+
+	return g_CoarseSampleSpacing.z * (coarse + detail);		
 }
 
 float SampleHeightForVS(Texture2D tex, SamplerState sam, float2 worldXZ)

@@ -36,7 +36,7 @@ BoolVar g_TerrainWireframe("Terrain/Wireframe", false);
 NumVar g_WireframeAlpha("Terrain/Wireframe Alpha", 0.5f, 0, 5, 0.1f);
 BoolVar g_DebugDrawPatches("Terrain/Debug Draw Patches", false);
 BoolVar g_DebugDrawTiles("Terrain/Debug Draw Tiles", false);
-BoolVar g_DrawHeightmap("Terrain/Debug Draw Heightmap", true);
+BoolVar g_DrawHeightmap("Terrain/Debug Draw Heightmap", false);
 BoolVar g_DrawGradientmap("Terrain/Debug Draw Gradient Map", false);
 BoolVar g_PlaceAtOrigin("Terrain/Place at Origin", false);
 BoolVar g_CameraAtOrigin("Terrain/Camera at Origin", false);
@@ -45,13 +45,13 @@ static const int MAX_OCTAVES = 15;
 IntVar g_RidgeOctaves("Terrain/Ridge Octaves", 3, 1, MAX_OCTAVES);
 IntVar g_fBmOctaves("Terrain/fBm Octaves", 3, 1, MAX_OCTAVES);
 IntVar g_TexTwistOctaves("Terrain/Tex Twist Octaves", 1, 1, MAX_OCTAVES);
-IntVar g_DetailNoiseScale("Terrain/Detail Noise Scale", 20, 1, 200);
-NumVar g_WorldScale("Terrain/World Scale", 800, 50, 2000, 50);
+IntVar g_DetailNoiseScale("Terrain/Detail Noise Scale", 0, 0, 200);
+NumVar g_WorldScale("Terrain/World Scale", 512, 50, 2000, 50);
 NumVar g_VerticalScale("Terrain/Vertical Scale", 1.5f, 0.05f, 25.0f, 0.05f);
 ExpVar g_HeightmapDimension("Terrain/Heightmap Dimension", 1024, 5, 12, 1);
 
 BoolVar g_DebugGrid("Terrain/Debug Grid Enable", false);
-NumVar g_DebugGridScale("Terrain/Debug Grid Scale", 500.0f, 50.0f, 5000.0f, 50.0f);
+NumVar g_DebugGridScale("Terrain/Debug Grid Scale", 512, 50.0f, 5000.0f, 50.0f);
 
 struct Adjacency
 {
@@ -833,7 +833,7 @@ UINT32 TessellatedTerrain::PhysicsRender(GraphicsContext* pContext, const XMVECT
 
     const UINT32 HeightmapWidth = m_PhysicsHeightMap.GetWidth();
     const FLOAT PlusOneScalingFactor = (FLOAT)HeightmapWidth / (FLOAT)(HeightmapWidth - 1);
-    const FLOAT UVScale = (WorldScale / (g_WorldScale * 2)) / 16.0f;
+    const FLOAT UVScale = PlusOneScalingFactor * ((WorldScale / (g_WorldScale * 2)) / 16.0f);
 
     XMFLOAT4 CameraPos;
     XMStoreFloat4(&CameraPos, EyePos);
