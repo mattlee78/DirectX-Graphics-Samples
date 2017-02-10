@@ -116,7 +116,7 @@ UINT ModelInstance::CreateAdditionalBindings(StateInputOutput* pStateIO, UINT Pa
             pStateIO->CreateNode(
                 ParentID,
                 ChildID++,
-                StateNodeType::Float3AsQwordDelta,
+                StateNodeType::Float3Delta,
                 &WD.Position,
                 sizeof(WD.Position),
                 0,
