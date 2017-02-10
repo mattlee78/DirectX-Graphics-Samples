@@ -53,6 +53,8 @@ using namespace Graphics;
 
 static const bool g_TestTerrain = false;
 
+const XMFLOAT3 g_CylinderCenterPos(100, 360, 0);
+
 class PrintfDebugListener : public INetDebugListener
 {
 public:
@@ -337,12 +339,11 @@ void ModelViewer::Startup( void )
         m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
         m_NetServer.SpawnObject(nullptr, "ramp1", nullptr, DT, XMFLOAT3(0, 0, 0));
 
-        if (0)
+        if (1)
         {
-            XMFLOAT3 CenterPos(200, 0, 150);
             for (UINT32 i = 0; i < (g_RingSize * 8); ++i)
             {
-                DT = CreateCylinderTransform(i, CenterPos);
+                DT = CreateCylinderTransform(i, g_CylinderCenterPos);
                 ModelInstance* pMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
                 m_PlacedModelInstances.push_back(pMI);
             }
@@ -369,13 +370,13 @@ void ModelViewer::Startup( void )
         DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(12.5, 17.5, -100), -18.43f * (XM_PI / 180.0f), XM_PIDIV2);
         m_NetServer.SpawnObject(nullptr, "*staticbox20:0.5:7.875", nullptr, DT, XMFLOAT3(0, 0, 0));
 
-//        for (UINT32 i = 0; i < 10; ++i)
-//        {
-//            FLOAT Pitch = (FLOAT)i * 0.1f;
-//            FLOAT Ypos = 25.0f + (FLOAT)i * 4;
-//            DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, Ypos, -100), Pitch, 0);
-//            m_NetServer.SpawnObject(nullptr, "*cube1.5", nullptr, DT, XMFLOAT3(0, 0, 0));
-//        }
+//         for (UINT32 i = 0; i < 10; ++i)
+//         {
+//             FLOAT Pitch = (FLOAT)i * 0.1f;
+//             FLOAT Ypos = 25.0f + (FLOAT)i * 4;
+//             DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, Ypos, -100), Pitch, 0);
+//             m_NetServer.SpawnObject(nullptr, "*cube1.5", nullptr, DT, XMFLOAT3(0, 0, 0));
+//         }
 
         m_NetServer.GetWorld()->InitializeTerrain(&m_TessTerrain);
     }
@@ -563,7 +564,7 @@ void ModelViewer::Update( float deltaT )
         {
             m_ClientObjectsCreated = true;
             DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 400, 100));
-            m_NetClient.SpawnObjectOnServer("Vehicle1", nullptr, DT, XMFLOAT3(0, 00, 0));
+            m_NetClient.SpawnObjectOnServer("Vehicle2", nullptr, DT, XMFLOAT3(0, 00, 0));
         }
 
         if (m_pInputRemoting == nullptr)
@@ -643,10 +644,9 @@ void ModelViewer::Update( float deltaT )
     if (GameInput::IsFirstPressed(GameInput::kKey_p))
     {
         const UINT32 Count = (UINT32)m_PlacedModelInstances.size();
-        XMFLOAT3 CenterPos(200, 0, 150);
         for (UINT32 i = 0; i < Count; ++i)
         {
-            DecomposedTransform DT = CreateCylinderTransform(i, CenterPos);
+            DecomposedTransform DT = CreateCylinderTransform(i, g_CylinderCenterPos);
             m_PlacedModelInstances[i]->SetWorldTransform(DT.GetMatrix());
         }
     }
