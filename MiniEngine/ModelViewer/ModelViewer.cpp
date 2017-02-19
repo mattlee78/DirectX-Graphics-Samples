@@ -36,9 +36,6 @@
 #include "ModelInstance.h"
 #include "NetworkLayer.h"
 #include "DataFile.h"
-#include "GridTerrain.h"
-#include "GridTerrainJobs.h"
-#include "GpuJobQueue.h"
 
 #include "TessTerrain.h"
 
@@ -50,8 +47,6 @@
 using namespace GameCore;
 using namespace Math;
 using namespace Graphics;
-
-static const bool g_TestTerrain = false;
 
 const XMFLOAT3 g_CylinderCenterPos(100, 360, 0);
 
@@ -130,8 +125,6 @@ private:
     PrintfDebugListener m_ServerDebugListener;
     std::vector<ModelInstance*> m_PlacedModelInstances;
 
-    GridTerrain m_GT;
-
     TessellatedTerrain m_TessTerrain;
 
     Vector3 DebugVector;
@@ -143,9 +136,10 @@ ExpVar m_SunLightIntensity("Application/Sun Light Intensity", 4.0f, 0.0f, 16.0f,
 ExpVar m_AmbientIntensity("Application/Ambient Intensity", 0.1f, -16.0f, 16.0f, 0.1f);
 NumVar m_SunOrientation("Application/Sun Orientation", -0.5f, -100.0f, 100.0f, 0.1f );
 NumVar m_SunInclination("Application/Sun Inclination", 0.75f, 0.0f, 1.0f, 0.01f );
-NumVar ShadowDimX("Application/Shadow Dim X", 5000, 100, 10000, 100 );
-NumVar ShadowDimY("Application/Shadow Dim Y", 3000, 100, 10000, 100 );
-NumVar ShadowDimZ("Application/Shadow Dim Z", 3000, 1000, 10000, 100 );
+NumVar ShadowDimX("Application/Shadow Dim X", 384, 100, 10000, 100 );
+NumVar ShadowDimY("Application/Shadow Dim Y", 256, 100, 10000, 100 );
+NumVar ShadowDimZ("Application/Shadow Dim Z", 1000, 100, 10000, 100 );
+BoolVar ShadowDebug("Application/Render Shadow Map", false);
 BoolVar DisplayPhysicsDebug("Application/Debug Draw Physics", false);
 BoolVar DisplayServerPhysicsDebug("Application/Debug Draw Server Physics", false);
 
@@ -198,7 +192,7 @@ void ModelViewer::Startup( void )
 
 	m_RootSig.Reset(6, 2);
 	m_RootSig.InitStaticSampler(0, SamplerAnisoWrapDesc, D3D12_SHADER_VISIBILITY_PIXEL);
-	m_RootSig.InitStaticSampler(1, SamplerShadowDesc, D3D12_SHADER_VISIBILITY_PIXEL);
+	m_RootSig.InitStaticSampler(15, SamplerShadowDesc, D3D12_SHADER_VISIBILITY_PIXEL);
 	m_RootSig[0].InitAsConstantBuffer(0, D3D12_SHADER_VISIBILITY_VERTEX);
 	m_RootSig[1].InitAsConstantBuffer(0, D3D12_SHADER_VISIBILITY_PIXEL);
 	m_RootSig[2].InitAsBufferSRV(0, D3D12_SHADER_VISIBILITY_VERTEX);
@@ -381,15 +375,6 @@ void ModelViewer::Startup( void )
         m_NetServer.GetWorld()->InitializeTerrain(&m_TessTerrain);
     }
 
-    if (g_TestTerrain)
-    {
-        GridTerrainConfig Config = {};
-        Config.SetDefault();
-        Config.pWorld = m_NetClient.GetWorld();
-        Config.pd3dDevice = Graphics::g_Device;
-        m_GT.Initialize(&Config);
-    }
-
     m_TessTerrain.Initialize();
 }
 
@@ -506,7 +491,6 @@ void ModelViewer::Cleanup( void )
 
     m_NetClient.Terminate();
 
-    m_GT.Terminate();
     m_TessTerrain.Terminate();
 
 	delete m_pCameraController;
@@ -677,18 +661,6 @@ void ModelViewer::Update( float deltaT )
     }
 	m_ViewProjMatrix = m_Camera.GetViewProjMatrix();
 
-    if (g_TestTerrain)
-    {
-        DirectX::BoundingFrustum BF;
-        DirectX::BoundingFrustum::CreateFromMatrix(BF, m_Camera.GetProjMatrix());
-        XMMATRIX CameraWorld = m_Camera.GetWorldMatrix();
-        GridTerrainUpdate GTU = {};
-        BF.Transform(GTU.TransformedFrustum, CameraWorld);
-        GTU.matVP = m_ViewProjMatrix;
-        GTU.matCameraWorld = CameraWorld;
-        m_GT.Update(GTU);
-    }
-
 	float costheta = cosf(m_SunOrientation);
 	float sintheta = sinf(m_SunOrientation);
 	float cosphi = cosf(m_SunInclination * 3.14159f * 0.5f);
@@ -778,7 +750,10 @@ void ModelViewer::RenderObjects(GraphicsContext& gfxContext, const BaseCamera& C
 
 void ModelViewer::RenderScene( void )
 {
-    g_GpuJobQueue.ExecuteGraphicsJobs();
+    const Vector3 CameraPos = m_Camera.GetPosition();
+    m_SunShadow.SetSceneCameraPos(CameraPos);
+    m_SunShadow.UpdateMatrix(-m_SunDirection, CameraPos - m_SunDirection * (ShadowDimZ * 0.25f), Vector3(ShadowDimX, ShadowDimY, ShadowDimZ),
+        (uint32_t)g_ShadowBuffer.GetWidth(), (uint32_t)g_ShadowBuffer.GetHeight(), 16);
 
     GraphicsContext& gfxContext = GraphicsContext::Begin(L"Scene Render");
 
@@ -789,51 +764,24 @@ void ModelViewer::RenderScene( void )
 
 	ParticleEffects::Update(gfxContext.GetComputeContext(), Graphics::GetFrameTime());
 
+    CBLightShadowWorldConstants psConstants = {};
+    psConstants.sunDirection = m_SunDirection;
+    psConstants.sunLight = Vector3(1.0f, 1.0f, 1.0f) * m_SunLightIntensity;
+    psConstants.ambientLight = Vector3(1.0f, 1.0f, 1.0f) * m_AmbientIntensity;
+    psConstants.ShadowTexelSize = 1.0f / g_ShadowBuffer.GetWidth();
+
     TessellatedTerrainRenderDesc RD = {};
     XMStoreFloat4x4A(&RD.matView, m_Camera.GetViewMatrix());
     XMStoreFloat4x4A(&RD.matProjection, m_Camera.GetProjMatrix());
-    XMStoreFloat4A(&RD.CameraPosWorld, m_Camera.GetPosition());
+    const XMMATRIX matShadow = m_SunShadow.GetShadowMatrix();
+    XMStoreFloat4x4A(&RD.matWorldToShadow, matShadow);
+    XMStoreFloat4A(&RD.CameraPosWorld, CameraPos);
     RD.Viewport = m_MainViewport;
     RD.ZPrePass = false;
-
-    if (0)
-    {
-        UINT32 HeightmapIndex;
-        const FLOAT WorldScale = 400;
-        const XMVECTOR CenterEyePos = XMVectorSet((FLOAT)Graphics::GetFrameCount() * 10.0f, 0, 0, 0);
-        XMVECTOR EyePos;
-
-        EyePos = CenterEyePos + XMVectorSet(0, 0, 0, 0);
-        HeightmapIndex = m_TessTerrain.PhysicsRender(&gfxContext, EyePos, WorldScale, nullptr, nullptr);
-        m_TessTerrain.FreePhysicsHeightmap(HeightmapIndex);
-
-        EyePos = CenterEyePos + XMVectorSet(WorldScale, 0, 0, 0);
-        HeightmapIndex = m_TessTerrain.PhysicsRender(&gfxContext, EyePos, WorldScale, nullptr, nullptr);
-        m_TessTerrain.FreePhysicsHeightmap(HeightmapIndex);
-
-        EyePos = CenterEyePos + XMVectorSet(0, 0, WorldScale, 0);
-        HeightmapIndex = m_TessTerrain.PhysicsRender(&gfxContext, EyePos, WorldScale, nullptr, nullptr);
-        m_TessTerrain.FreePhysicsHeightmap(HeightmapIndex);
-
-        EyePos = CenterEyePos + XMVectorSet(WorldScale, 0, WorldScale, 0);
-        HeightmapIndex = m_TessTerrain.PhysicsRender(&gfxContext, EyePos, WorldScale, nullptr, nullptr);
-        m_TessTerrain.FreePhysicsHeightmap(HeightmapIndex);
-    }
+    RD.pLightShadowConstants = &psConstants;
+    RD.pExtraTextures = m_ExtraTextures;
 
     m_TessTerrain.OffscreenRender(&gfxContext, &RD);
-
-	__declspec(align(16)) struct
-	{
-		Vector3 sunDirection;
-		Vector3 sunLight;
-		Vector3 ambientLight;
-		float ShadowTexelSize;
-	} psConstants;
-
-	psConstants.sunDirection = m_SunDirection;
-	psConstants.sunLight = Vector3(1.0f, 1.0f, 1.0f) * m_SunLightIntensity;
-	psConstants.ambientLight = Vector3(1.0f, 1.0f, 1.0f) * m_AmbientIntensity;
-	psConstants.ShadowTexelSize = 1.0f / g_ShadowBuffer.GetWidth();
 
 	{
 		ScopedTimer _prof(L"Z PrePass", gfxContext);
@@ -876,10 +824,6 @@ void ModelViewer::RenderScene( void )
 		{
 			ScopedTimer _prof(L"Render Shadow Map", gfxContext);
 
-            m_SunShadow.SetSceneCameraPos(m_Camera.GetPosition());
-			m_SunShadow.UpdateMatrix(-m_SunDirection, Vector3(0, -500.0f, 0), Vector3(ShadowDimX, ShadowDimY, ShadowDimZ),
-				(uint32_t)g_ShadowBuffer.GetWidth(), (uint32_t)g_ShadowBuffer.GetHeight(), 16);
-
 			g_ShadowBuffer.BeginRendering(gfxContext);
             RenderObjects(gfxContext, m_SunShadow, &m_ShadowPSOCache, RenderPass_Shadow);
 			g_ShadowBuffer.EndRendering(gfxContext);
@@ -903,17 +847,6 @@ void ModelViewer::RenderScene( void )
 			gfxContext.SetViewportAndScissor(m_MainViewport, m_MainScissor);
             gfxContext.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             RenderObjects(gfxContext, m_Camera, &m_ModelPSOCache, RenderPass_Color);
-
-            if (g_TestTerrain)
-            {
-                GridTerrainRender GTR = {};
-                GTR.AbsoluteTime = SystemTime::TicksToSeconds(SystemTime::GetCurrentTick());
-                GTR.matVP = m_ViewProjMatrix;
-                GTR.pContext = &gfxContext;
-                GTR.vCameraOffset = g_XMZero;
-                GTR.Wireframe = false;
-                m_GT.RenderOpaque(GTR);
-            }
 
             RD.ZPrePass = false;
             m_TessTerrain.Render(&gfxContext, &RD);
@@ -945,31 +878,13 @@ void ModelViewer::RenderUI(class GraphicsContext& Context)
     }
     //Text.DrawFormattedString("Debug Vector: %10.3f %10.3f %10.3f", (FLOAT)DebugVector.GetX(), (FLOAT)DebugVector.GetY(), (FLOAT)DebugVector.GetZ());
 
-    m_TessTerrain.UIRender(Text);
-
-    if (0)
+    if (ShadowDebug)
     {
-        const PagingQueueEntryDeque& PMD = g_GpuJobQueue.GetPagingMapDeque();
-        auto iter = PMD.begin();
-        auto end = PMD.end();
-        while (iter != end)
-        {
-            const PagingQueueEntry* pEntry = *iter++;
-            if (pEntry->IsUnmapped())
-            {
-                continue;
-            }
-            const TiledTextureBuffer& TTB = pEntry->TiledTexture[0];
-            UINT32 Format = TTB.GetFormat();
-            if (TTB.IsSubresourceMapped(0) && Format == g_GridTerrainJobs.GetHeightmapFormat())
-            {
-                UINT32 Width = TTB.GetWidth();
-                UINT32 Height = TTB.GetHeight();
-                Text.DrawTexturedRect(TTB.GetSRV(), 10, 100, Width, Height, true);
-                break;
-            }
-        }
+        INT Width = 256;
+        Text.DrawTexturedRect(g_ShadowBuffer.GetSRV(), 1920 - Width, 0, Width, Width, true);
     }
+
+    m_TessTerrain.UIRender(Text);
 
     Text.End();
 }

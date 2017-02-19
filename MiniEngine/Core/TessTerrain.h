@@ -27,6 +27,7 @@
 
 struct InstanceData;
 struct Adjacency;
+struct CBLightShadowWorldConstants;
 
 // Int dimensions specified to the ctor are in numbers of tiles.  It's symmetrical in
 // each direction.  (Don't read much into the exact numbers of #s in this diagram.)
@@ -85,9 +86,12 @@ struct TessellatedTerrainRenderDesc
 {
     XMFLOAT4X4A matView;
     XMFLOAT4X4A matProjection;
+    XMFLOAT4X4A matWorldToShadow;
     XMFLOAT4A CameraPosWorld;
     D3D12_VIEWPORT Viewport;
     bool ZPrePass;
+    const CBLightShadowWorldConstants* pLightShadowConstants;
+    D3D12_CPU_DESCRIPTOR_HANDLE* pExtraTextures;
 };
 
 class TessellatedTerrain
@@ -156,8 +160,11 @@ private:
         XMFLOAT4 screenSize;
         XMINT4 tessellatedTriWidth;
         XMFLOAT4 tileWorldSize;
+
+        XMFLOAT4X4 ModelToShadow;
+        XMFLOAT4X4 World;
     } m_CBTerrain;
-    C_ASSERT(sizeof(CBTerrain) == 26 * sizeof(XMFLOAT4));
+    C_ASSERT(sizeof(CBTerrain) == 34 * sizeof(XMFLOAT4));
 
     __declspec(align(16))
     struct CBCommon

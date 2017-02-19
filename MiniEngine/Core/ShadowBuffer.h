@@ -37,3 +37,12 @@ private:
 	D3D12_VIEWPORT m_Viewport;
 	D3D12_RECT m_Scissor;
 };
+
+__declspec(align(16)) 
+struct CBLightShadowWorldConstants
+{
+    Math::Vector3 sunDirection;
+    Math::Vector3 sunLight;
+    Math::Vector3 ambientLight;
+    float ShadowTexelSize;
+};

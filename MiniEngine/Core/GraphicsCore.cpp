@@ -369,7 +369,9 @@ void Graphics::Initialize(void)
 			// This occurs when a descriptor table is unbound even when a shader does not access the missing
 			// descriptors.  This is common with a root signature shared between disparate shaders that
 			// don't all need the same types of resources.
-			D3D12_MESSAGE_ID_COMMAND_LIST_DESCRIPTOR_TABLE_NOT_SET
+			D3D12_MESSAGE_ID_COMMAND_LIST_DESCRIPTOR_TABLE_NOT_SET,
+
+            D3D12_MESSAGE_ID_EXECUTECOMMANDLISTS_GPU_WRITTEN_READBACK_RESOURCE_MAPPED,
 		};
 
 		D3D12_INFO_QUEUE_FILTER NewFilter = {};

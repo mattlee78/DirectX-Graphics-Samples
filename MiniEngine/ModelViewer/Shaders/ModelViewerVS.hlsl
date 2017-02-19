@@ -31,21 +31,10 @@ struct VSInput
 	float3 bitangent : BITANGENT;
 };
 
-struct VSOutput
-{
-	float4 position : SV_Position;
-	float2 texcoord0 : texcoord0;
-	float3 viewDir : texcoord1;
-	float3 shadowCoord : texcoord2;
-	float3 normal : normal;
-	float3 tangent : tangent;
-	float3 bitangent : bitangent;
-};
-
 [RootSignature(ModelViewer_RootSig)]
-VSOutput main(VSInput vsInput)
+ObjectVSOutput main(VSInput vsInput)
 {
-	VSOutput vsOutput;
+	ObjectVSOutput vsOutput;
 
 	vsOutput.position = mul(modelToProjection, float4(vsInput.position, 1.0));
 	vsOutput.texcoord0 = vsInput.texcoord0;

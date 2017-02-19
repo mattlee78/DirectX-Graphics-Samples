@@ -124,6 +124,7 @@ float4 PSSolidWire(WireVertex input) : SV_Target
 	mv.vPosition = 0;
 	mv.vNormal  = input.vNormal;
 	mv.vWorldXZ = input.vWorldXZ;
+    mv.vShadowPos = 0;
 	
 	// Invoke the non-wire PS to reuse its shading calculation, whatever that is.
 	float4 color = SmoothShadePS(mv);
