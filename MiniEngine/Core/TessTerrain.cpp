@@ -30,7 +30,7 @@
 
 BoolVar g_TerrainEnabled("Terrain/Enabled", true);
 BoolVar g_HwTessellation("Terrain/HW Tessellation", true);
-IntVar g_TessellatedTriWidth("Terrain/Tessellated Triangle Width", 6, 1, 100);
+IntVar g_TessellatedTriWidth("Terrain/Tessellated Triangle Width", 20, 1, 100);
 
 BoolVar g_TerrainWireframe("Terrain/Wireframe", false);
 NumVar g_WireframeAlpha("Terrain/Wireframe Alpha", 0.5f, 0, 5, 0.1f);
@@ -299,9 +299,21 @@ void TessellatedTerrain::CreateTileQuadListIB()
     delete[] pIndices;
 }
 
+enum TerrainRootParams
+{
+    TerrainRootParam_CBLightAndShadow = 0,
+    TerrainRootParam_CBDeform = 0,
+    TerrainRootParam_CBCommon,
+    TerrainRootParam_CBWireframe,
+    TerrainRootParam_CBTerrain,
+    TerrainRootParam_DTHeightmap,
+    TerrainRootParam_DTNoisemap,
+    TerrainRootParam_DTShadowSSAO,
+};
+
 void TessellatedTerrain::CreateRootSignature()
 {
-    m_RootSig.Reset(5, 5);
+    m_RootSig.Reset(7, 6);
     m_RootSig.InitStaticSampler(0, Graphics::SamplerLinearClampDesc, D3D12_SHADER_VISIBILITY_ALL);
     m_RootSig.InitStaticSampler(1, Graphics::SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_ALL);
     SamplerDesc PointWrapDesc;
@@ -313,11 +325,14 @@ void TessellatedTerrain::CreateRootSignature()
     m_RootSig.InitStaticSampler(3, AnisoDesc, D3D12_SHADER_VISIBILITY_ALL);
     AnisoDesc.MaxAnisotropy = 16;
     m_RootSig.InitStaticSampler(4, AnisoDesc, D3D12_SHADER_VISIBILITY_ALL);
+    m_RootSig.InitStaticSampler(15, Graphics::SamplerShadowDesc, D3D12_SHADER_VISIBILITY_PIXEL);
     m_RootSig[0].InitAsConstantBuffer(0, D3D12_SHADER_VISIBILITY_ALL);
     m_RootSig[1].InitAsConstantBuffer(1, D3D12_SHADER_VISIBILITY_ALL);
     m_RootSig[2].InitAsConstantBuffer(2, D3D12_SHADER_VISIBILITY_ALL);
-    m_RootSig[3].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 4, D3D12_SHADER_VISIBILITY_ALL);
-    m_RootSig[4].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 3, D3D12_SHADER_VISIBILITY_ALL);
+    m_RootSig[3].InitAsConstantBuffer(3, D3D12_SHADER_VISIBILITY_ALL);
+    m_RootSig[4].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 4, D3D12_SHADER_VISIBILITY_ALL);
+    m_RootSig[5].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 3, D3D12_SHADER_VISIBILITY_ALL);
+    m_RootSig[6].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 64, 3, D3D12_SHADER_VISIBILITY_PIXEL);
     m_RootSig.Finalize(L"TessellatedTerrain RootSig", D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 }
 
@@ -452,7 +467,7 @@ void TessellatedTerrain::CreatePhysicsTextures()
     m_CurrentDebugHeightmapIndex = 0;
 
     m_FootprintSizeBytes = m_PhysicsFootprint.RowPitch * m_PhysicsFootprint.Height;
-    const UINT32 AllocCount = 16;
+    const UINT32 AllocCount = 24;
     const UINT32 ReadbackSizeBytes = AllocCount * m_FootprintSizeBytes;
     D3D12_RESOURCE_DESC BufferDesc = CD3DX12_RESOURCE_DESC::Buffer(ReadbackSizeBytes);
     CD3DX12_HEAP_PROPERTIES HeapProps(D3D12_HEAP_TYPE_READBACK);
@@ -525,13 +540,15 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
 
     pContext->SetRootSignature(m_RootSig);
 
-    pContext->SetDynamicConstantBufferView(1, sizeof(m_CBCommon), &m_CBCommon);
+    pContext->SetDynamicConstantBufferView(TerrainRootParam_CBLightAndShadow, sizeof(*pDesc->pLightShadowConstants), pDesc->pLightShadowConstants);
+    pContext->SetDynamicConstantBufferView(TerrainRootParam_CBCommon, sizeof(m_CBCommon), &m_CBCommon);
+    pContext->SetDynamicDescriptors(TerrainRootParam_DTShadowSSAO, 0, 2, pDesc->pExtraTextures);
 
     D3D12_CPU_DESCRIPTOR_HANDLE hNoiseTextures[3] = {};
     hNoiseTextures[0] = m_pDetailNoiseTexture->GetSRV();
     hNoiseTextures[1] = m_pDetailNoiseGradTexture->GetSRV();
     hNoiseTextures[2] = m_pNoiseTexture->GetSRV();
-    pContext->SetDynamicDescriptors(4, 0, ARRAYSIZE(hNoiseTextures), hNoiseTextures);
+    pContext->SetDynamicDescriptors(TerrainRootParam_DTNoisemap, 0, ARRAYSIZE(hNoiseTextures), hNoiseTextures);
 
     // Something's wrong in the shader and the tri size is out by a factor of 2.  Why?!?
     m_CBTerrain.tessellatedTriWidth.x = 2 * g_TessellatedTriWidth;
@@ -618,13 +635,13 @@ void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, Color
     eye.z /= -(g_WorldScale * 32);
     m_CBCommon.TextureWorldOffset = eye;
 
-    pContext->SetDynamicConstantBufferView(1, sizeof(m_CBCommon), &m_CBCommon);
+    pContext->SetDynamicConstantBufferView(TerrainRootParam_CBCommon, sizeof(m_CBCommon), &m_CBCommon);
 
     D3D12_CPU_DESCRIPTOR_HANDLE hNoiseTextures[3] = {};
     hNoiseTextures[0] = m_pDetailNoiseTexture->GetSRV();
     hNoiseTextures[1] = m_pDetailNoiseGradTexture->GetSRV();
     hNoiseTextures[2] = m_pNoiseTexture->GetSRV();
-    pContext->SetDynamicDescriptors(4, 0, ARRAYSIZE(hNoiseTextures), hNoiseTextures);
+    pContext->SetDynamicDescriptors(TerrainRootParam_DTNoisemap, 0, ARRAYSIZE(hNoiseTextures), hNoiseTextures);
 
     const D3D12_VIEWPORT vp = { 0,0, (FLOAT)Dimension, (FLOAT)Dimension, 0.0f, 1.0f };
     const D3D12_RECT rect = { 0, 0, (LONG)Dimension, (LONG)Dimension };
@@ -641,7 +658,7 @@ void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, Color
 
     pContext->SetPipelineState(m_InitializationPSO);
     pContext->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-    pContext->SetDynamicConstantBufferView(0, sizeof(m_CBDeform), &m_CBDeform);
+    pContext->SetDynamicConstantBufferView(TerrainRootParam_CBDeform, sizeof(m_CBDeform), &m_CBDeform);
     pContext->Draw(4, 0);
 
     pContext->TransitionResource(*pHeightmap, D3D12_RESOURCE_STATE_GENERIC_READ);
@@ -657,11 +674,11 @@ void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, Color
         pContext->SetPipelineState(m_GradientPSO);
 
         D3D12_CPU_DESCRIPTOR_HANDLE hSRVs[4] = { pHeightmap->GetSRV() };
-        pContext->SetDynamicDescriptors(3, 0, 1, hSRVs);
+        pContext->SetDynamicDescriptors(TerrainRootParam_DTHeightmap, 0, 1, hSRVs);
 
         pContext->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         m_CBDeform.DeformMax.z = 1.0f;
-        pContext->SetDynamicConstantBufferView(0, sizeof(m_CBDeform), &m_CBDeform);
+        pContext->SetDynamicConstantBufferView(TerrainRootParam_CBDeform, sizeof(m_CBDeform), &m_CBDeform);
         pContext->Draw(4, 0);
 
         pContext->SetRenderTargets(0, nullptr);
@@ -711,12 +728,12 @@ void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const Tessella
         }
     }
 
-    pContext->SetDynamicConstantBufferView(2, sizeof(m_CBWireframe), &m_CBWireframe);
+    pContext->SetDynamicConstantBufferView(TerrainRootParam_CBWireframe, sizeof(m_CBWireframe), &m_CBWireframe);
 
     D3D12_CPU_DESCRIPTOR_HANDLE hSRVs[4] = {};
     hSRVs[0] = m_HeightMap.GetSRV();
     hSRVs[1] = m_GradientMap.GetSRV();
-    pContext->SetDynamicDescriptors(3, 0, 2, hSRVs);
+    pContext->SetDynamicDescriptors(TerrainRootParam_DTHeightmap, 0, 2, hSRVs);
 
     for (int i = 0; i < m_nRings; ++i)
     {
@@ -726,7 +743,7 @@ void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const Tessella
         m_CBTerrain.tileWorldSize.x = pRing->tileSize();
         m_CBTerrain.tileWorldSize.y = m_OuterRingWorldSize;
 
-        pContext->SetDynamicConstantBufferView(0, sizeof(m_CBTerrain), &m_CBTerrain);
+        pContext->SetDynamicConstantBufferView(TerrainRootParam_CBTerrain, sizeof(m_CBTerrain), &m_CBTerrain);
 
         // Instancing is used: one tiles is one instance and the index buffer describes all the 
         // NxN patches within one tile.
@@ -773,6 +790,13 @@ void TessellatedTerrain::SetMatrices(const TessellatedTerrainRenderDesc* pDesc)
     XMMATRIX mWorldViewProjLOD = mWorldViewLOD * mProj;
     XMStoreFloat4x4(&m_CBTerrain.WorldViewProjLOD, mWorldViewProjLOD);
     XMStoreFloat4x4(&m_CBTerrain.WorldViewLOD, mWorldViewLOD);
+
+    XMMATRIX matCCWorld = mWorld;
+    XMVECTOR ccOffset = mWorld.r[3] - XMLoadFloat4A(&pDesc->CameraPosWorld);
+    matCCWorld.r[3] = XMVectorSelect(g_XMOne, ccOffset, g_XMSelect1110);
+    XMMATRIX mModelToShadow = matCCWorld * XMLoadFloat4x4A(&pDesc->matWorldToShadow);
+    XMStoreFloat4x4(&m_CBTerrain.ModelToShadow, mModelToShadow);
+    XMStoreFloat4x4(&m_CBTerrain.World, mWorld);
 
     // Due to the snapping tricks, the centre of projection moves by a small amount in the range ([0,2*dx],[0,2*dz])
     // relative to the terrain.  For frustum culling, we need this eye position.

@@ -43,6 +43,9 @@ namespace EngineTuning
 
 	EngineVar* sm_SelectedVariable = nullptr;
 	bool sm_IsVisible = false;
+
+    std::vector<std::string> s_FrameStrings;
+    void PrintFrameStrings(TextContext& Text);
 }
 
 // Not open to the public.  Groups are auto-created when a tweaker's path includes the group name.
@@ -597,6 +600,45 @@ void StartLoad(void*)
 std::function<void(void*)> StartLoadFunc = StartLoad;
 static CallbackTrigger Load("Load Settings", StartLoadFunc, nullptr); 
 
+void EngineTuning::PrintLine(const CHAR* strLine)
+{
+    s_FrameStrings.push_back(strLine);
+}
+
+void EngineTuning::FormatLine(const CHAR* strFormat, ...)
+{
+    CHAR strLine[256];
+    va_list args = nullptr;
+    va_start(args, strFormat);
+    vsprintf_s(strLine, strFormat, args);
+    va_end(args);
+    PrintLine(strLine);
+}
+
+void EngineTuning::PrintVector(const CHAR* strLabel, const XMVECTOR& Value)
+{
+    FormatLine("%s: <%0.3f %0.3f %0.3f %0.3f>", strLabel,
+        XMVectorGetX(Value),
+        XMVectorGetY(Value),
+        XMVectorGetZ(Value),
+        XMVectorGetW(Value));
+}
+
+void EngineTuning::PrintFrameStrings(TextContext& Text)
+{
+    if (!s_FrameStrings.empty())
+    {
+        auto iter = s_FrameStrings.begin();
+        auto end = s_FrameStrings.end();
+        while (iter != end)
+        {
+            std::string& Line = *iter++;
+            Text.DrawString(Line);
+            Text.NewLine();
+        }
+        s_FrameStrings.clear();
+    }
+}
 
 void EngineTuning::Display( GraphicsContext& Context, float x, float y, float w, float h )
 {
@@ -612,6 +654,7 @@ void EngineTuning::Display( GraphicsContext& Context, float x, float y, float w,
 	if (!sm_IsVisible)
 	{
 		EngineProfiling::Display(Text, x, y, w, h);
+        PrintFrameStrings(Text);
 		return;
 	}
 
@@ -626,6 +669,8 @@ void EngineTuning::Display( GraphicsContext& Context, float x, float y, float w,
 	Text.SetTextSize(20.0f);
 
 	VariableGroup::sm_RootGroup.Display( Text, x, sm_SelectedVariable );
+
+    PrintFrameStrings(Text);
 	
 	EngineProfiling::DisplayPerfGraph(Context);
 

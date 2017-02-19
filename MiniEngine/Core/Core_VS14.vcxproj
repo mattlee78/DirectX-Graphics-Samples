@@ -544,6 +544,7 @@
     <None Include="Shaders\FXAARootSignature.hlsli" />
     <None Include="Shaders\GenerateMipsCS.hlsli" />
     <None Include="Shaders\GridTerrain.hlsli" />
+    <None Include="Shaders\LightAndShadow.hlsli" />
     <None Include="Shaders\MotionBlurRS.hlsli" />
     <None Include="Shaders\ParticleRS.hlsli" />
     <None Include="Shaders\ParticleUpdateCommon.hlsli" />

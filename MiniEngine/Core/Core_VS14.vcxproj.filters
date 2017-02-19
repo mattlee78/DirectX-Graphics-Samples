@@ -1059,5 +1059,8 @@
     <None Include="Shaders\Terrain\Wireframe.hlsli">
       <Filter>Shaders\TerrainTessellation</Filter>
     </None>
+    <None Include="Shaders\LightAndShadow.hlsli">
+      <Filter>Shaders\Misc</Filter>
+    </None>
   </ItemGroup>
 </Project>

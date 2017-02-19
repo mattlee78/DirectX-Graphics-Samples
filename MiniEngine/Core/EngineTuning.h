@@ -174,4 +174,8 @@ namespace EngineTuning
 	void Display( GraphicsContext& Context, float x, float y, float w, float h );
 	bool IsFocused( void );
 
+    void PrintLine(const CHAR* strLine);
+    void FormatLine(const CHAR* strFormat, ...);
+    void PrintVector(const CHAR* strLabel, const DirectX::XMVECTOR& Value);
+
 } // namespace EngineTuning

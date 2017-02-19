@@ -14,6 +14,7 @@
 
 #include "INoise.hlsli"
 #include "Common.hlsli"
+#include "..\LightAndShadow.hlsli"
 
 // Work-around for an optimization rule problem in the June 2010 HLSL Compiler (9.29.952.3111).
 // Without this, we get cracks in the terrain.
@@ -28,7 +29,7 @@ Texture2D g_CoarseGradientMap : register(t1);
 Texture2D g_DetailNoiseTexture : register(t4);
 Texture2D g_DetailNoiseGradTexture : register(t5);
 
-cbuffer cbTerrain : register(b0)
+cbuffer cbTerrain : register(b3)
 {
     float     g_DetailNoiseScale : packoffset(c0);
     float2    g_DetailUVScale : packoffset(c1);				// x is scale; y is 1/scale
@@ -48,6 +49,9 @@ cbuffer cbTerrain : register(b0)
     float2 g_screenSize : packoffset(c23);				// Render target size for screen-space calculations.
     int g_tessellatedTriWidth : packoffset(c24);
     float2 g_tileWorldSize : packoffset(c25);
+
+    row_major float4x4 g_ModelToShadow : packoffset(c26);
+    row_major float4x4 g_WorldMatrix : packoffset(c30);
 };
 
 struct VS_CONTROL_POINT_OUTPUT
@@ -63,6 +67,7 @@ struct MeshVertex
     float2 vWorldXZ         : TEXCOORD1;
     float3 vNormal          : NORMAL;
 	float3 debugColour      : COLOR;
+    float3 vShadowPos       : TEXCOORD2;
 };
 
 
@@ -197,6 +202,7 @@ MeshVertex VTFDisplacementVS(AppVertex input)
     output.vNormal = normalize(normal);
 	output.debugColour = float3(1, 0.1, 0);
 	output.vNormal = float3(1,1,1);
+    output.vShadowPos = mul(float4(displacedPos, 1), g_ModelToShadow).xyz;
     
     // For debugging, darken a chequer board pattern of tiles to highlight tile boundaries.
 	if (g_DebugShowPatches)
@@ -560,6 +566,10 @@ MeshVertex TerrainDisplaceDS( HS_CONSTANT_DATA_OUTPUT input,
 	Output.vWorldXZ = worldPos.xz;
 	Output.vNormal = float3(1,1,1);
 
+    float3 ActualWorldPos = mul(float4(worldPos.xyz, 1), g_WorldMatrix).xyz;
+    Output.vShadowPos = mul(float4(worldPos.xyz, 1), g_ModelToShadow).xyz;
+    //Output.vShadowPos = ActualWorldPos;
+
 	// For debugging, darken a chequer board pattern of tiles to highlight tile boundaries.
 	if (g_DebugShowPatches)
 	{
@@ -624,7 +634,22 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
 	const float3 normal = normalize(coarseNormal + detailNormal);
 
 	// Texture coords have to be offset by the eye's 2D world position.  Why the 2x???
-	const float2 texUV = input.vWorldXZ + 2 * float2(g_TextureWorldOffset.x, -g_TextureWorldOffset.z);;
+	const float2 texUV = input.vWorldXZ + 2 * float2(g_TextureWorldOffset.x, -g_TextureWorldOffset.z);
+
+    float3 TempDiffuse = float3(1, 1, 1);
+    float3 TempSpecular = float3(0, 0, 0);
+    float TempSpecularMask = 0;
+
+    float3 viewDir = normalize(float3(1, 0, 1));
+    float3 shadowCoord = input.vShadowPos;
+
+    float3 LitResult = DefaultLightAndShadowModelNormal(TempDiffuse, TempSpecular, TempSpecularMask, normal, uint2(input.vPosition.xy), viewDir, shadowCoord);
+    return float4(LitResult, 1);
+    //bool inShadowMap = (shadowCoord.x >= 0 && shadowCoord.x < 1 && shadowCoord.y >= 0 && shadowCoord.y < 1);
+    //return float4(frac(shadowCoord.xy), inShadowMap ? 1 : 0, 1);
+    //return float4(input.vShadowPos, 1);
+
+    /*
 
 	// We apply two textures at vastly different scales: macro and micro detail.
 	float3 macroDetail = g_TerrainColourTexture1.Sample(SamplerRepeatMaxAniso, texUV).xyz;				// we know that this is grey only
@@ -658,6 +683,7 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
 	return lit;
 	//return float4(colour * macroDetail * randomizedDetail * lit, 1);
     //return float4(1, 1, 1, 1);
+    */
 }
 
 #if 0

@@ -18,9 +18,20 @@
 	"DescriptorTable(SRV(t0, numDescriptors = 6), visibility = SHADER_VISIBILITY_PIXEL)," \
 	"DescriptorTable(SRV(t64, numDescriptors = 6), visibility = SHADER_VISIBILITY_PIXEL)," \
 	"StaticSampler(s0, maxAnisotropy = 8, visibility = SHADER_VISIBILITY_PIXEL)," \
-	"StaticSampler(s1, visibility = SHADER_VISIBILITY_PIXEL," \
+	"StaticSampler(s15, visibility = SHADER_VISIBILITY_PIXEL," \
 		"addressU = TEXTURE_ADDRESS_CLAMP," \
 		"addressV = TEXTURE_ADDRESS_CLAMP," \
 		"addressW = TEXTURE_ADDRESS_CLAMP," \
 		"comparisonFunc = COMPARISON_GREATER_EQUAL," \
 		"filter = FILTER_MIN_MAG_LINEAR_MIP_POINT)"
+
+struct ObjectVSOutput
+{
+    float4 position : SV_Position;
+    float2 texcoord0 : texcoord0;
+    float3 viewDir : texcoord1;
+    float3 shadowCoord : texcoord2;
+    float3 normal : normal;
+    float3 tangent : tangent;
+    float3 bitangent : bitangent;
+};
