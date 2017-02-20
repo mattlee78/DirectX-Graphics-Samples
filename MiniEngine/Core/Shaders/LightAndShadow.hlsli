@@ -119,6 +119,8 @@ float3 DefaultLightAndShadowModelNormal(
     float3 sunlightContribution = ApplyDirectionalLight(diffuseAlbedo, specularAlbedo, specularMask, gloss, ModelNormal, viewDir, SunDirection, SunColor, InputShadowCoord);
 
     return ambientContribution + sunlightContribution;
+    //return ambientContribution;
+    //return sunlightContribution;
 }
 
 float3 DefaultLightAndShadow(

@@ -68,6 +68,7 @@ struct MeshVertex
     float3 vNormal          : NORMAL;
 	float3 debugColour      : COLOR;
     float3 vShadowPos       : TEXCOORD2;
+    float3 vViewDir         : TEXCOORD3;
 };
 
 
@@ -203,6 +204,7 @@ MeshVertex VTFDisplacementVS(AppVertex input)
 	output.debugColour = float3(1, 0.1, 0);
 	output.vNormal = float3(1,1,1);
     output.vShadowPos = mul(float4(displacedPos, 1), g_ModelToShadow).xyz;
+    output.vViewDir = mul(float4(displacedPos, 1), g_WorldMatrix).xyz;
     
     // For debugging, darken a chequer board pattern of tiles to highlight tile boundaries.
 	if (g_DebugShowPatches)
@@ -566,9 +568,8 @@ MeshVertex TerrainDisplaceDS( HS_CONSTANT_DATA_OUTPUT input,
 	Output.vWorldXZ = worldPos.xz;
 	Output.vNormal = float3(1,1,1);
 
-    float3 ActualWorldPos = mul(float4(worldPos.xyz, 1), g_WorldMatrix).xyz;
     Output.vShadowPos = mul(float4(worldPos.xyz, 1), g_ModelToShadow).xyz;
-    //Output.vShadowPos = ActualWorldPos;
+    Output.vViewDir = mul(float4(worldPos.xyz, 1), g_WorldMatrix).xyz;
 
 	// For debugging, darken a chequer board pattern of tiles to highlight tile boundaries.
 	if (g_DebugShowPatches)
@@ -608,7 +609,7 @@ float3 SampleDetailNormal(float2 worldXZ)
 	// The MIP-mapping doesn't seem to work very well.  Maybe I need to think more carefully about
 	// anti-aliasing the normal function?
 	float2 grad = SampleDetailGradOctaves(uv);
-	return normalize(float3(-vScale * grad.x, g_CoarseSampleSpacing.x * WORLD_UV_REPEATS_RECIP * g_DetailUVScale.y, vScale * grad.y));
+	return normalize(float3(-vScale * grad.x, g_CoarseSampleSpacing.x * WORLD_UV_REPEATS_RECIP * g_DetailUVScale.y, -vScale * grad.y));
 }
 
 float DebugCracksPattern(MeshVertex input)
@@ -629,9 +630,10 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
 	const float ARBITRARY_FUDGE = 2;
 	const float2 grad = g_CoarseGradientMap.Sample(SamplerRepeatLinear, worldXZtoHeightUV(input.vWorldXZ)).rg;
 	const float vScale = ARBITRARY_FUDGE * g_fDisplacementHeight * g_CoarseSampleSpacing.y * g_CoarseSampleSpacing.z;
-	const float3 coarseNormal = normalize(float3(vScale * grad.x, g_CoarseSampleSpacing.x, -vScale * grad.y));
+	const float3 coarseNormal = normalize(float3(-vScale * grad.x, g_CoarseSampleSpacing.x, -vScale * grad.y));
 	const float3 detailNormal = SampleDetailNormal(input.vWorldXZ);
-	const float3 normal = normalize(coarseNormal + detailNormal);
+	//const float3 normal = normalize(coarseNormal + detailNormal);
+    const float3 normal = coarseNormal;
 
 	// Texture coords have to be offset by the eye's 2D world position.  Why the 2x???
 	const float2 texUV = input.vWorldXZ + 2 * float2(g_TextureWorldOffset.x, -g_TextureWorldOffset.z);
@@ -640,50 +642,15 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
     float3 TempSpecular = float3(0, 0, 0);
     float TempSpecularMask = 0;
 
-    float3 viewDir = normalize(float3(1, 0, 1));
+    float3 viewDir = normalize(input.vViewDir);
     float3 shadowCoord = input.vShadowPos;
 
     float3 LitResult = DefaultLightAndShadowModelNormal(TempDiffuse, TempSpecular, TempSpecularMask, normal, uint2(input.vPosition.xy), viewDir, shadowCoord);
+    if (g_DebugShowPatches)
+    {
+        LitResult *= input.vNormal.x;
+    }
     return float4(LitResult, 1);
-    //bool inShadowMap = (shadowCoord.x >= 0 && shadowCoord.x < 1 && shadowCoord.y >= 0 && shadowCoord.y < 1);
-    //return float4(frac(shadowCoord.xy), inShadowMap ? 1 : 0, 1);
-    //return float4(input.vShadowPos, 1);
-
-    /*
-
-	// We apply two textures at vastly different scales: macro and micro detail.
-	float3 macroDetail = g_TerrainColourTexture1.Sample(SamplerRepeatMaxAniso, texUV).xyz;				// we know that this is grey only
-	float4 microDetail = g_TerrainColourTexture2.Sample(SamplerRepeatMedAniso, texUV * 50);
-	float  gaussian = g_NoiseTexture.Sample(SamplerRepeatPoint, texUV * 50.0 / 256.0).x;
-	float  uniformRandom = frac(gaussian * 10);
-	float  randomizedDetail = 1;
-
-	// Randomly choose between four versions of the micro texture in RGBA.  This sort of 
-	// blending is representative of game-engine terrain shaders (and the perf).
-	if (uniformRandom >= 0.75)
-		randomizedDetail = microDetail.x;
-	else if (uniformRandom >= 0.5)
-		randomizedDetail = microDetail.y;
-	else if (uniformRandom >= 0.25)
-		randomizedDetail = microDetail.z;
-	else
-		randomizedDetail = microDetail.w;
-
-	// Some of the lunar reference photos have a brownish tint.  IMO, it looks slightly better here.
-	const float3 colour = float3(0.988, 0.925, 0.847);
-
-	// This light direction approximately matches the pre-baked direction in the NASA photos.
-	const float3 lightDir = normalize(float3(-0.74,0.45,-0.15));
-	float lit = saturate(HighContrast(dot(lightDir, normal)));
-
-	// Chequer pattern still comes down from the DS.
-	if (g_DebugShowPatches)
-		lit *= input.vNormal.x;
-
-	return lit;
-	//return float4(colour * macroDetail * randomizedDetail * lit, 1);
-    //return float4(1, 1, 1, 1);
-    */
 }
 
 #if 0
