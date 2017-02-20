@@ -135,7 +135,7 @@ CREATE_APPLICATION( ModelViewer )
 ExpVar m_SunLightIntensity("Application/Sun Light Intensity", 4.0f, 0.0f, 16.0f, 0.1f);
 ExpVar m_AmbientIntensity("Application/Ambient Intensity", 0.1f, -16.0f, 16.0f, 0.1f);
 NumVar m_SunOrientation("Application/Sun Orientation", -0.5f, -100.0f, 100.0f, 0.1f );
-NumVar m_SunInclination("Application/Sun Inclination", 0.75f, 0.0f, 1.0f, 0.01f );
+NumVar m_SunInclination("Application/Sun Inclination", 0.5f, 0.0f, 1.0f, 0.01f );
 NumVar ShadowDimX("Application/Shadow Dim X", 384, 100, 10000, 100 );
 NumVar ShadowDimY("Application/Shadow Dim Y", 256, 100, 10000, 100 );
 NumVar ShadowDimZ("Application/Shadow Dim Z", 1000, 100, 10000, 100 );
@@ -589,11 +589,14 @@ void ModelViewer::Update( float deltaT )
                 InputState.YAxis1 = ascent;
                 InputState.LeftTrigger = lt;
                 InputState.RightTrigger = rt;
+                InputState.Buttons[1] = GameInput::IsPressed(GameInput::kKey_f);
                 m_pInputRemoting->ClientUpdate(InputState);
             }
             else
             {
-                m_pInputRemoting->ClientZero();
+                NetworkInputState InputState = {};
+                InputState.Buttons[1] = true;
+                m_pInputRemoting->ClientUpdate(InputState);
             }
         }
 

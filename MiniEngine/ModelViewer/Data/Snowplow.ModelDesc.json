@@ -1,0 +1,76 @@
+{
+    "ModelFileName" : "models/truck2.bmesh",
+    "WheelModelFileName" : "models/tire2.bmesh",
+    "RenderOffset" : [ 0.0, 1.5, 0.0 ],
+    "IsPlayerControllable" : "true",
+    "RigidBody" : {
+        "Mass" : 400.0,
+        "Shape" : {
+           "AABBShape" : {
+              "Center" : [ 0.0, 1.5, 0.0 ],
+              "HalfSize" : [ 2.00, 0.90, 3.00 ]
+           },
+           "Type" : "AABB"
+        },
+        "VehicleConfig" : {
+            "Axles" : [
+               {
+                  "RollInfluence" : 0.1,
+                  "SuspensionCompression" : 4.4,
+                  "SuspensionDamping" : 2.3,
+                  "SuspensionRestLength" : 1.0,
+                  "SuspensionStiffness" : 20.0,
+                  "WheelFriction" : 1000.0,
+                  "WheelRadius" : 1.0,
+                  "Width" : 1.3,
+                  "YPos" : 1.0,
+                  "ZPos" : 2.0,
+                  "SteeringMax" : 0.4,
+                  "SteeringResponse" : 1.0,
+                  "ThrottleResponse" : 0.3
+               },
+               {
+                  "RollInfluence" : 0.1,
+                  "SuspensionCompression" : 4.4,
+                  "SuspensionDamping" : 2.3,
+                  "SuspensionRestLength" : 1.0,
+                  "SuspensionStiffness" : 20.0,
+                  "WheelFriction" : 1000.0,
+                  "WheelRadius" : 1.0,
+                  "Width" : 1.3,
+                  "YPos" : 1.0,
+                  "ZPos" : -2.0,
+                  "SteeringResponse" : 0.0,
+                  "ThrottleResponse" : 0.7
+               }
+            ],
+            "Seats" : [
+               {
+                  "SeatPosition" : [ -0.55, 0.5, 0.5 ],
+                  "DismountPosition" : [ -1.5, 0, 0.5 ],
+                  "ViewConstraintYaw" : [ -2.0, 0.79 ],
+                  "ViewConstraintPitch" : [ -0.39, 0.79 ]
+               },
+               {
+                  "SeatPosition" : [ 0.55, 0.5, 0.5 ],
+                  "DismountPosition" : [ 1.5, 0, 0.5 ],
+                  "ViewConstraintYaw" : [ -0.79, 2.0 ],
+                  "ViewConstraintPitch" : [ -0.39, 0.79 ]
+               },
+               {
+                  "SeatPosition" : [ 0.0, 1.0, -1.5 ],
+                  "DismountPosition" : [ 0.0, 0, -3.5 ]
+               }
+            ],
+            "WaterThrusters" : [
+               {
+                  "Thrust" : 1000,
+                  "SteeringMaxAngle" : 0.785,
+                  "LocalPosition" : [ 0.0, -0.5, -1.0 ]
+               }
+            ],
+            "BrakingForce" : 50.0,
+            "EngineForce" : 1000.0            
+        }
+    }
+}

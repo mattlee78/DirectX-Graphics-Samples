@@ -406,6 +406,10 @@ void ModelInstance::ServerProcessInput(const NetworkInputState& InputState, FLOA
             Gas = -InputState.LeftTrigger;
             Brake = InputState.RightTrigger;
         }
+        if (InputState.Buttons[1])
+        {
+            Brake = 1.0f;
+        }
         m_pVehicle->SetGasAndBrake(Gas, Brake);
         m_pVehicle->SetSteering(-InputState.XAxis0);
     }

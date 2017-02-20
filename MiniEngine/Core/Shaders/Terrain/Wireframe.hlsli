@@ -120,11 +120,10 @@ void GSSolidWire(triangle MeshVertex input[3], inout TriangleStream<WireVertex> 
 
 float4 PSSolidWire(WireVertex input) : SV_Target
 {
-	MeshVertex mv;
-	mv.vPosition = 0;
+	MeshVertex mv = (MeshVertex)0;
 	mv.vNormal  = input.vNormal;
 	mv.vWorldXZ = input.vWorldXZ;
-    mv.vShadowPos = 0;
+    mv.vViewDir = float3(1, 0, 0);
 	
 	// Invoke the non-wire PS to reuse its shading calculation, whatever that is.
 	float4 color = SmoothShadePS(mv);

@@ -796,7 +796,7 @@ void TessellatedTerrain::SetMatrices(const TessellatedTerrainRenderDesc* pDesc)
     matCCWorld.r[3] = XMVectorSelect(g_XMOne, ccOffset, g_XMSelect1110);
     XMMATRIX mModelToShadow = matCCWorld * XMLoadFloat4x4A(&pDesc->matWorldToShadow);
     XMStoreFloat4x4(&m_CBTerrain.ModelToShadow, mModelToShadow);
-    XMStoreFloat4x4(&m_CBTerrain.World, mWorld);
+    XMStoreFloat4x4(&m_CBTerrain.World, matCCWorld);
 
     // Due to the snapping tricks, the centre of projection moves by a small amount in the range ([0,2*dx],[0,2*dz])
     // relative to the terrain.  For frustum culling, we need this eye position.
