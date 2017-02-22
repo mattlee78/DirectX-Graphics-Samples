@@ -104,6 +104,9 @@
     <ProjectReference Include="..\3rdParty\Bullet\build3\vs2015\LinearMath.vcxproj">
       <Project>{2a3727d9-9a74-a042-9d05-f57047ce1891}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\3rdParty\lua\lua.vcxproj">
+      <Project>{04ef6618-fa38-4e56-a1b5-6aabfe397e48}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\3rdParty\zlib-win64\ZLib_VS14.vcxproj">
       <Project>{ae5221d1-87e2-4428-8ef9-f25909c43291}</Project>
     </ProjectReference>
