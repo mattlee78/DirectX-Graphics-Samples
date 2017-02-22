@@ -316,6 +316,7 @@ void RenderModel(ModelRenderContext &MRC, Graphics::Model* pModel, const Matrix4
     {
         Matrix4 modelToProjection;
         Matrix4 modelToShadow;
+        Matrix4 modelToShadowOuter;
         Matrix4 modelToWorld;
         XMFLOAT3 viewerPos;
     } vsConstants;
@@ -326,6 +327,7 @@ void RenderModel(ModelRenderContext &MRC, Graphics::Model* pModel, const Matrix4
 
     vsConstants.modelToProjection = MRC.ViewProjection * WT;
     vsConstants.modelToShadow = MRC.ModelToShadow * WT;
+    vsConstants.modelToShadowOuter = MRC.ModelToShadowOuter * WT;
     vsConstants.modelToWorld = WT;
     XMStoreFloat3(&vsConstants.viewerPos, g_XMZero);
 

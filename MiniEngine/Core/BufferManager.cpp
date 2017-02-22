@@ -27,6 +27,7 @@ namespace Graphics
 	ColorBuffer g_HorizontalBuffer;
 
 	ShadowBuffer g_ShadowBuffer;
+    ShadowBuffer g_OuterShadowBuffer;
 
 	ColorBuffer g_SSAOFullScreen(Color(1.0f, 1.0f, 1.0f));
 	ColorBuffer g_LinearDepth;
@@ -147,7 +148,8 @@ void Graphics::InitializeRenderingBuffers( uint32_t bufferWidth, uint32_t buffer
 						g_AOHighQuality4.Create( L"AO High Quality 4", bufferWidth4, bufferHeight4, 1, DXGI_FORMAT_R8_UNORM, esram );
 					esram.PopStack();	// End generating SSAO
 
-					g_ShadowBuffer.Create( L"Shadow Map", 2048, 2048, esram );
+					g_ShadowBuffer.Create( L"Inner Shadow Map", 2048, 2048 );//, esram );
+                    g_OuterShadowBuffer.Create(L"Outer Shadow Map", 2048, 2048);//, esram );
 
 				esram.PopStack();	// End Shading
 
@@ -235,6 +237,7 @@ void Graphics::DestroyRenderingBuffers()
 	g_PostEffectsBuffer.Destroy();
 
 	g_ShadowBuffer.Destroy();
+    g_OuterShadowBuffer.Destroy();
 
 	g_SSAOFullScreen.Destroy();
 	g_LinearDepth.Destroy();

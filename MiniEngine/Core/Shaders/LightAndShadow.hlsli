@@ -7,6 +7,7 @@ Texture2D<float3> texNormal : register(t3);
 //Texture2D<float4> texReflection : register(t5);
 Texture2D<float> texSSAO : register(t64);
 Texture2D<float> texShadow : register(t65);
+Texture2D<float> texShadowOuter : register(t66);
 
 cbuffer LightShadowWorldConstants : register(b0)
 {
@@ -40,7 +41,7 @@ float3 ApplyAmbientLight(
 float GetShadow(float3 ShadowCoord)
 {
 #ifdef SINGLE_SAMPLE
-    float result = ShadowMap.SampleCmpLevelZero(ShadowSampler, ShadowCoord.xy, ShadowCoord.z);
+    float result = texShadow.SampleCmpLevelZero(ShadowSampler, ShadowCoord.xy, ShadowCoord.z);
 #else
     const float Dilation = 2.0;
     float d1 = Dilation * ShadowTexelSize * 0.125;
@@ -62,6 +63,24 @@ float GetShadow(float3 ShadowCoord)
     return result * result;
 }
 
+float GetShadowSingle(float3 ShadowCoord)
+{
+    float result = texShadowOuter.SampleCmpLevelZero(shadowSampler, ShadowCoord.xy, ShadowCoord.z);
+    return result * result;
+}
+
+float CascadedShadow(float3 shadowCoordInner, float3 shadowCoordOuter)
+{
+    float minVal = 0.01;
+    float maxVal = 1 - minVal;
+    if (shadowCoordInner.x <= maxVal && shadowCoordInner.y <= maxVal && 
+        shadowCoordInner.x >= minVal && shadowCoordInner.y >= minVal)
+    {
+        return GetShadow(shadowCoordInner);
+    }
+    return GetShadowSingle(shadowCoordOuter);
+}
+
 float3 ApplyDirectionalLight(
     float3 diffuseColor,	// Diffuse albedo
     float3 specularColor,	// Specular albedo
@@ -71,7 +90,8 @@ float3 ApplyDirectionalLight(
     float3 viewDir,			// World-space vector from eye to point
     float3 lightDir,		// World-space vector from point to light
     float3 lightColor,		// Radiance of directional light
-    float3 shadowCoord		// Shadow coordinate (Shadow map UV & light-relative Z)
+    float3 shadowCoord,     // Shadow coordinate (Shadow map UV & light-relative Z)
+    float3 shadowCoordOuter	// Outer shadow coordinate (Shadow map UV & light-relative Z)
 )
 {
     // normal and lightDir are assumed to be pre-normalized
@@ -87,7 +107,11 @@ float3 ApplyDirectionalLight(
 
     float specularFactor = specularMask * pow(nDotH, gloss) * (gloss + 2) / 8;
 
-    float shadow = GetShadow(shadowCoord);
+#ifdef NO_SHADOW_MAP
+    float shadow = 1.0f;
+#else
+    float shadow = CascadedShadow(shadowCoord, shadowCoordOuter);
+#endif
 
     return shadow * nDotL * lightColor * (diffuseColor + specularFactor * specularColor);
 }
@@ -106,7 +130,8 @@ float3 DefaultLightAndShadowModelNormal(
     float3 ModelNormal,
     uint2 InputScreenPositionXY,
     float3 InputViewDir,
-    float3 InputShadowCoord
+    float3 InputShadowCoord,
+    float3 InputShadowCoordOuter
 )
 {
     float gloss = 128.0;
@@ -116,7 +141,7 @@ float3 DefaultLightAndShadowModelNormal(
     float3 ambientContribution = ApplyAmbientLight(diffuseAlbedo, ao, AmbientColor);
 
     float3 viewDir = normalize(InputViewDir);
-    float3 sunlightContribution = ApplyDirectionalLight(diffuseAlbedo, specularAlbedo, specularMask, gloss, ModelNormal, viewDir, SunDirection, SunColor, InputShadowCoord);
+    float3 sunlightContribution = ApplyDirectionalLight(diffuseAlbedo, specularAlbedo, specularMask, gloss, ModelNormal, viewDir, SunDirection, SunColor, InputShadowCoord, InputShadowCoordOuter);
 
     return ambientContribution + sunlightContribution;
     //return ambientContribution;
@@ -133,7 +158,8 @@ float3 DefaultLightAndShadow(
     float3 InputTangent,
     float3 InputBitangent,
     float3 InputNormal,
-    float3 InputShadowCoord
+    float3 InputShadowCoord,
+    float3 InputShadowCoordOuter
 )
 {
     float gloss = 128.0;
@@ -145,7 +171,7 @@ float3 DefaultLightAndShadow(
     float3 ambientContribution = ApplyAmbientLight(diffuseAlbedo, ao, AmbientColor);
 
     float3 viewDir = normalize(InputViewDir);
-    float3 sunlightContribution = ApplyDirectionalLight(diffuseAlbedo, specularAlbedo, specularMask, gloss, normal, viewDir, SunDirection, SunColor, InputShadowCoord);
+    float3 sunlightContribution = ApplyDirectionalLight(diffuseAlbedo, specularAlbedo, specularMask, gloss, normal, viewDir, SunDirection, SunColor, InputShadowCoord, InputShadowCoordOuter);
 
     return ambientContribution + sunlightContribution;
 }
@@ -157,7 +183,8 @@ float3 DefaultMaterialLightAndShadow(
     float3 InputTangent,
     float3 InputBitangent,
     float3 InputNormal,
-    float3 InputShadowCoord
+    float3 InputShadowCoord,
+    float3 InputShadowCoordOuter
 )
 {
     float3 diffuseAlbedo = texDiffuse.Sample(sampler0, InputTexCoord0);
@@ -165,5 +192,5 @@ float3 DefaultMaterialLightAndShadow(
     float specularMask = texSpecular.Sample(sampler0, InputTexCoord0).g;
     float3 normal = texNormal.Sample(sampler0, InputTexCoord0) * 2.0 - 1.0;
 
-    return DefaultLightAndShadow(diffuseAlbedo, specularAlbedo, specularMask, normal, InputScreenPositionXY, InputViewDir, InputTangent, InputBitangent, InputNormal, InputShadowCoord);
+    return DefaultLightAndShadow(diffuseAlbedo, specularAlbedo, specularMask, normal, InputScreenPositionXY, InputViewDir, InputTangent, InputBitangent, InputNormal, InputShadowCoord, InputShadowCoordOuter);
 }

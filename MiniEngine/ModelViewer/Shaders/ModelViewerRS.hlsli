@@ -31,6 +31,7 @@ struct ObjectVSOutput
     float2 texcoord0 : texcoord0;
     float3 viewDir : texcoord1;
     float3 shadowCoord : texcoord2;
+    float3 shadowCoordOuter : texcoord3;
     float3 normal : normal;
     float3 tangent : tangent;
     float3 bitangent : bitangent;

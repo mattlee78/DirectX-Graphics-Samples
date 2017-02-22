@@ -958,6 +958,9 @@
     <FxCompile Include="Shaders\Terrain\VTFDisplacementVS.hlsl">
       <Filter>Shaders\TerrainTessellation</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\Terrain\SmoothShadeDistantPS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
     <FxCompile Include="Shaders\BoundNeighborhoodCS.hlsl">
       <Filter>Shaders\MB+TAA</Filter>
     </FxCompile>
