@@ -7,3 +7,6 @@
 [submodule "MiniEngine/3rdParty/ContentExporter"]
 	path = MiniEngine/3rdParty/ContentExporter
 	url = https://github.com/mattlee78/contentexporter.git
+[submodule "MiniEngine/3rdParty/lua"]
+	path = MiniEngine/3rdParty/lua
+	url = https://github.com/mattlee78/lua.git
