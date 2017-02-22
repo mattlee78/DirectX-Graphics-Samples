@@ -106,10 +106,11 @@ private:
 	GraphicsPSO m_ShadowPSO;
     PsoLayoutCache m_ShadowPSOCache;
 
-	D3D12_CPU_DESCRIPTOR_HANDLE m_ExtraTextures[2];
+	D3D12_CPU_DESCRIPTOR_HANDLE m_ExtraTextures[3];
 
 	Vector3 m_SunDirection;
 	ShadowCamera m_SunShadow;
+    ShadowCamera m_SunShadowOuter;
 
     CHAR m_strConnectToServerName[64];
     UINT32 m_ConnectToPort;
@@ -136,9 +137,13 @@ ExpVar m_SunLightIntensity("Application/Sun Light Intensity", 4.0f, 0.0f, 16.0f,
 ExpVar m_AmbientIntensity("Application/Ambient Intensity", 0.1f, -16.0f, 16.0f, 0.1f);
 NumVar m_SunOrientation("Application/Sun Orientation", -0.5f, -100.0f, 100.0f, 0.1f );
 NumVar m_SunInclination("Application/Sun Inclination", 0.5f, 0.0f, 1.0f, 0.01f );
-NumVar ShadowDimX("Application/Shadow Dim X", 384, 100, 10000, 100 );
-NumVar ShadowDimY("Application/Shadow Dim Y", 256, 100, 10000, 100 );
+NumVar ShadowDimX("Application/Shadow Dim X", 64, 16, 10000, 16 );
+NumVar ShadowDimY("Application/Shadow Dim Y", 64, 16, 10000, 16 );
 NumVar ShadowDimZ("Application/Shadow Dim Z", 1000, 100, 10000, 100 );
+NumVar OuterShadowDimX("Application/Outer Shadow Dim X", 512, 16, 10000, 16);
+NumVar OuterShadowDimY("Application/Outer Shadow Dim Y", 512, 16, 10000, 16);
+NumVar ShadowCamOffset("Application/Shadow Cam Position Offset", 0.5f, 0, 3.0f, 0.025f);
+NumVar OuterShadowCamOffset("Application/Outer Shadow Cam Position Offset", 0.25f, 0, 3.0f, 0.025f);
 BoolVar ShadowDebug("Application/Render Shadow Map", false);
 BoolVar DisplayPhysicsDebug("Application/Debug Draw Physics", false);
 BoolVar DisplayServerPhysicsDebug("Application/Debug Draw Server Physics", false);
@@ -204,6 +209,7 @@ void ModelViewer::Startup( void )
 	DXGI_FORMAT ColorFormat = g_SceneColorBuffer.GetFormat();
 	DXGI_FORMAT DepthFormat = g_SceneDepthBuffer.GetFormat();
 	DXGI_FORMAT ShadowFormat = g_ShadowBuffer.GetFormat();
+    assert(g_OuterShadowBuffer.GetFormat() == ShadowFormat);
 
 	D3D12_INPUT_ELEMENT_DESC vertElem[] =
 	{
@@ -245,6 +251,7 @@ void ModelViewer::Startup( void )
 
 	m_ExtraTextures[0] = g_SSAOFullScreen.GetSRV();
 	m_ExtraTextures[1] = g_ShadowBuffer.GetSRV();
+    m_ExtraTextures[2] = g_OuterShadowBuffer.GetSRV();
 
 	TextureManager::Initialize(L"Textures/");
 
@@ -297,6 +304,12 @@ void ModelViewer::Startup( void )
             m_NetClient.SetNotificationClient(this);
             m_NetClient.Connect(15, m_strConnectToServerName, m_ConnectToPort, L"", L"");
         }
+    }
+
+    m_TessTerrain.Initialize();
+    if (m_NetServer.IsStarted())
+    {
+        m_NetServer.GetWorld()->InitializeTerrain(&m_TessTerrain);
     }
 
     if (m_NetServer.IsStarted())
@@ -371,11 +384,7 @@ void ModelViewer::Startup( void )
 //             DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, Ypos, -100), Pitch, 0);
 //             m_NetServer.SpawnObject(nullptr, "*cube1.5", nullptr, DT, XMFLOAT3(0, 0, 0));
 //         }
-
-        m_NetServer.GetWorld()->InitializeTerrain(&m_TessTerrain);
     }
-
-    m_TessTerrain.Initialize();
 }
 
 bool ModelViewer::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument)
@@ -740,6 +749,7 @@ void ModelViewer::RenderObjects(GraphicsContext& gfxContext, const BaseCamera& C
     MRC.pContext = &gfxContext;
     MRC.CameraPosition = Camera.GetPosition();
     MRC.ModelToShadow = m_SunShadow.GetShadowMatrix();
+    MRC.ModelToShadowOuter = m_SunShadowOuter.GetShadowMatrix();
     Matrix4 ViewMatrix = Camera.GetViewMatrix();
     ViewMatrix.SetW(Vector4(g_XMIdentityR3));
     Matrix4 VPMatrix = Camera.GetProjMatrix() * ViewMatrix;
@@ -754,9 +764,16 @@ void ModelViewer::RenderObjects(GraphicsContext& gfxContext, const BaseCamera& C
 void ModelViewer::RenderScene( void )
 {
     const Vector3 CameraPos = m_Camera.GetPosition();
+    
     m_SunShadow.SetSceneCameraPos(CameraPos);
-    m_SunShadow.UpdateMatrix(-m_SunDirection, CameraPos - m_SunDirection * (ShadowDimZ * 0.25f), Vector3(ShadowDimX, ShadowDimY, ShadowDimZ),
+    Vector3 ShadowTargetPos = ((ShadowDimX + ShadowDimY) * ShadowCamOffset * 0.5f) * m_Camera.GetForwardVec() + CameraPos;
+    m_SunShadow.UpdateMatrix(-m_SunDirection, ShadowTargetPos - m_SunDirection * (ShadowDimZ * 0.25f), Vector3(ShadowDimX, ShadowDimY, ShadowDimZ),
         (uint32_t)g_ShadowBuffer.GetWidth(), (uint32_t)g_ShadowBuffer.GetHeight(), 16);
+
+    m_SunShadowOuter.SetSceneCameraPos(CameraPos);
+    ShadowTargetPos = ((OuterShadowDimX + OuterShadowDimY) * OuterShadowCamOffset * 0.5f) * m_Camera.GetForwardVec() + CameraPos;
+    m_SunShadowOuter.UpdateMatrix(-m_SunDirection, ShadowTargetPos - m_SunDirection * (ShadowDimZ * 0.25f), Vector3(OuterShadowDimX, OuterShadowDimY, ShadowDimZ),
+        (uint32_t)g_OuterShadowBuffer.GetWidth(), (uint32_t)g_OuterShadowBuffer.GetHeight(), 16);
 
     GraphicsContext& gfxContext = GraphicsContext::Begin(L"Scene Render");
 
@@ -778,6 +795,7 @@ void ModelViewer::RenderScene( void )
     XMStoreFloat4x4A(&RD.matProjection, m_Camera.GetProjMatrix());
     const XMMATRIX matShadow = m_SunShadow.GetShadowMatrix();
     XMStoreFloat4x4A(&RD.matWorldToShadow, matShadow);
+    XMStoreFloat4x4A(&RD.matWorldToShadowOuter, m_SunShadowOuter.GetShadowMatrix());
     XMStoreFloat4A(&RD.CameraPosWorld, CameraPos);
     RD.Viewport = m_MainViewport;
     RD.ZPrePass = false;
@@ -818,21 +836,29 @@ void ModelViewer::RenderScene( void )
 		{
 			gfxContext.SetRootSignature(m_RootSig);
 			gfxContext.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-			gfxContext.SetDynamicDescriptors(4, 0, 2, m_ExtraTextures);
+			gfxContext.SetDynamicDescriptors(4, 0, 3, m_ExtraTextures);
 			gfxContext.SetDynamicConstantBufferView(1, sizeof(psConstants), &psConstants);
 		};
 
 		pfnSetupGraphicsState();
 
 		{
-			ScopedTimer _prof(L"Render Shadow Map", gfxContext);
+			ScopedTimer _prof(L"Render Inner Shadow Map", gfxContext);
 
 			g_ShadowBuffer.BeginRendering(gfxContext);
             RenderObjects(gfxContext, m_SunShadow, &m_ShadowPSOCache, RenderPass_Shadow);
 			g_ShadowBuffer.EndRendering(gfxContext);
 		}
 
-		if (SSAO::AsyncCompute)
+        {
+            ScopedTimer _prof(L"Render Outer Shadow Map", gfxContext);
+
+            g_OuterShadowBuffer.BeginRendering(gfxContext);
+            RenderObjects(gfxContext, m_SunShadowOuter, &m_ShadowPSOCache, RenderPass_Shadow);
+            g_OuterShadowBuffer.EndRendering(gfxContext);
+        }
+
+        if (SSAO::AsyncCompute)
 		{
 			gfxContext.Flush();
 			pfnSetupGraphicsState();
@@ -885,6 +911,7 @@ void ModelViewer::RenderUI(class GraphicsContext& Context)
     {
         INT Width = 256;
         Text.DrawTexturedRect(g_ShadowBuffer.GetSRV(), 1920 - Width, 0, Width, Width, true);
+        Text.DrawTexturedRect(g_OuterShadowBuffer.GetSRV(), 1920 - Width, Width, Width, Width, true);
     }
 
     m_TessTerrain.UIRender(Text);

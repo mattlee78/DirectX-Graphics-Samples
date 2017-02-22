@@ -25,6 +25,7 @@ float3 main(ObjectVSOutput vsOutput) : SV_Target0
         vsOutput.tangent,
         vsOutput.bitangent,
         vsOutput.normal,
-        vsOutput.shadowCoord
+        vsOutput.shadowCoord,
+        vsOutput.shadowCoordOuter
     );
 }

@@ -87,6 +87,7 @@ struct TessellatedTerrainRenderDesc
     XMFLOAT4X4A matView;
     XMFLOAT4X4A matProjection;
     XMFLOAT4X4A matWorldToShadow;
+    XMFLOAT4X4A matWorldToShadowOuter;
     XMFLOAT4A CameraPosWorld;
     D3D12_VIEWPORT Viewport;
     bool ZPrePass;
@@ -127,6 +128,7 @@ private:
 
     RootSignature m_RootSig;
     GraphicsPSO m_TessellationPSO;
+    GraphicsPSO m_TessellationDistantPSO;
     GraphicsPSO m_TessellationWireframePSO;
     GraphicsPSO m_TessellationDepthPSO;
     GraphicsPSO m_NoTessellationPSO;
@@ -162,9 +164,10 @@ private:
         XMFLOAT4 tileWorldSize;
 
         XMFLOAT4X4 ModelToShadow;
+        XMFLOAT4X4 ModelToShadowOuter;
         XMFLOAT4X4 World;
     } m_CBTerrain;
-    C_ASSERT(sizeof(CBTerrain) == 34 * sizeof(XMFLOAT4));
+    C_ASSERT(sizeof(CBTerrain) == 38 * sizeof(XMFLOAT4));
 
     __declspec(align(16))
     struct CBCommon

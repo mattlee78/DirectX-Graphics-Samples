@@ -29,6 +29,7 @@ namespace Graphics
 	extern ColorBuffer g_ReprojectionBuffer;// R16G16_FLOAT
 	extern ColorBuffer g_VelocityBuffer;	// R8G8_SNORM
 	extern ShadowBuffer g_ShadowBuffer;
+    extern ShadowBuffer g_OuterShadowBuffer;
 
 	extern ColorBuffer g_SSAOFullScreen;	// R8_UNORM
 	extern ColorBuffer g_LinearDepth;		// Normalized planar distance (0 at eye, 1 at far plane) computed from the SceneDepthBuffer

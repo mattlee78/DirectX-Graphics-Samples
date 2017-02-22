@@ -24,6 +24,7 @@
 #include "CompiledShaders\TerrainScreenspaceLODHS.h"
 #include "CompiledShaders\TerrainDisplaceDS.h"
 #include "CompiledShaders\SmoothShadePS.h"
+#include "CompiledShaders\SmoothShadeDistantPS.h"
 #include "CompiledShaders\VTFDisplacementVS.h"
 #include "CompiledShaders\GSSolidWire.h"
 #include "CompiledShaders\PSSolidWire.h"
@@ -382,6 +383,10 @@ void TessellatedTerrain::CreateTessellationPSO()
     m_TessellationWireframePSO.SetDepthStencilState(Graphics::DepthStateReadOnly);
     m_TessellationWireframePSO.Finalize();
 
+    m_TessellationDistantPSO = m_TessellationPSO;
+    m_TessellationDistantPSO.SetPixelShader(g_pSmoothShadeDistantPS, sizeof(g_pSmoothShadeDistantPS));
+    m_TessellationDistantPSO.Finalize();
+
     if (m_Culling)
     {
         NormalDesc.CullMode = D3D12_CULL_MODE_BACK;
@@ -542,7 +547,7 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
 
     pContext->SetDynamicConstantBufferView(TerrainRootParam_CBLightAndShadow, sizeof(*pDesc->pLightShadowConstants), pDesc->pLightShadowConstants);
     pContext->SetDynamicConstantBufferView(TerrainRootParam_CBCommon, sizeof(m_CBCommon), &m_CBCommon);
-    pContext->SetDynamicDescriptors(TerrainRootParam_DTShadowSSAO, 0, 2, pDesc->pExtraTextures);
+    pContext->SetDynamicDescriptors(TerrainRootParam_DTShadowSSAO, 0, 3, pDesc->pExtraTextures);
 
     D3D12_CPU_DESCRIPTOR_HANDLE hNoiseTextures[3] = {};
     hNoiseTextures[0] = m_pDetailNoiseTexture->GetSRV();
@@ -691,6 +696,7 @@ void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const Tessella
 {
     SetMatrices(pDesc);
 
+    bool LODShaderEnabled = false;
     if (g_HwTessellation)
     {
         pContext->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST);
@@ -707,6 +713,7 @@ void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const Tessella
         else
         {
             pContext->SetPipelineState(m_TessellationPSO);
+            LODShaderEnabled = true;
         }
     }
     else
@@ -737,6 +744,11 @@ void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const Tessella
 
     for (int i = 0; i < m_nRings; ++i)
     {
+        if (LODShaderEnabled && i > 0)
+        {
+            pContext->SetPipelineState(m_TessellationDistantPSO);
+        }
+
         const TileRing* pRing = m_pTileRings[i];
         pRing->SetRenderingState(pContext);
 
@@ -795,7 +807,9 @@ void TessellatedTerrain::SetMatrices(const TessellatedTerrainRenderDesc* pDesc)
     XMVECTOR ccOffset = mWorld.r[3] - XMLoadFloat4A(&pDesc->CameraPosWorld);
     matCCWorld.r[3] = XMVectorSelect(g_XMOne, ccOffset, g_XMSelect1110);
     XMMATRIX mModelToShadow = matCCWorld * XMLoadFloat4x4A(&pDesc->matWorldToShadow);
+    XMMATRIX mModelToShadowOuter = matCCWorld * XMLoadFloat4x4A(&pDesc->matWorldToShadowOuter);
     XMStoreFloat4x4(&m_CBTerrain.ModelToShadow, mModelToShadow);
+    XMStoreFloat4x4(&m_CBTerrain.ModelToShadowOuter, mModelToShadowOuter);
     XMStoreFloat4x4(&m_CBTerrain.World, matCCWorld);
 
     // Due to the snapping tricks, the centre of projection moves by a small amount in the range ([0,2*dx],[0,2*dz])

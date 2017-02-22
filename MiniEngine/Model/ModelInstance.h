@@ -25,6 +25,7 @@ enum RenderPass
 struct ModelRenderContext
 {
     Math::Matrix4 ModelToShadow;
+    Math::Matrix4 ModelToShadowOuter;
     Math::Matrix4 ViewProjection;
     Math::Vector3 CameraPosition;
 

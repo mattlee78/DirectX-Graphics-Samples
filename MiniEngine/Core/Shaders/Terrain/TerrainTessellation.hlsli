@@ -51,7 +51,8 @@ cbuffer cbTerrain : register(b3)
     float2 g_tileWorldSize : packoffset(c25);
 
     row_major float4x4 g_ModelToShadow : packoffset(c26);
-    row_major float4x4 g_WorldMatrix : packoffset(c30);
+    row_major float4x4 g_ModelToShadowOuter : packoffset(c30);
+    row_major float4x4 g_WorldMatrix : packoffset(c34);
 };
 
 struct VS_CONTROL_POINT_OUTPUT
@@ -68,7 +69,8 @@ struct MeshVertex
     float3 vNormal          : NORMAL;
 	float3 debugColour      : COLOR;
     float3 vShadowPos       : TEXCOORD2;
-    float3 vViewDir         : TEXCOORD3;
+    float3 vShadowPosOuter  : TEXCOORD3;
+    float3 vViewDir         : TEXCOORD4;
 };
 
 
@@ -204,6 +206,7 @@ MeshVertex VTFDisplacementVS(AppVertex input)
 	output.debugColour = float3(1, 0.1, 0);
 	output.vNormal = float3(1,1,1);
     output.vShadowPos = mul(float4(displacedPos, 1), g_ModelToShadow).xyz;
+    output.vShadowPosOuter = mul(float4(displacedPos, 1), g_ModelToShadowOuter).xyz;
     output.vViewDir = mul(float4(displacedPos, 1), g_WorldMatrix).xyz;
     
     // For debugging, darken a chequer board pattern of tiles to highlight tile boundaries.
@@ -569,6 +572,7 @@ MeshVertex TerrainDisplaceDS( HS_CONSTANT_DATA_OUTPUT input,
 	Output.vNormal = float3(1,1,1);
 
     Output.vShadowPos = mul(float4(worldPos.xyz, 1), g_ModelToShadow).xyz;
+    Output.vShadowPosOuter = mul(float4(worldPos.xyz, 1), g_ModelToShadowOuter).xyz;
     Output.vViewDir = mul(float4(worldPos.xyz, 1), g_WorldMatrix).xyz;
 
 	// For debugging, darken a chequer board pattern of tiles to highlight tile boundaries.
@@ -644,8 +648,9 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
 
     float3 viewDir = normalize(input.vViewDir);
     float3 shadowCoord = input.vShadowPos;
+    float3 shadowCoordOuter = input.vShadowPosOuter;
 
-    float3 LitResult = DefaultLightAndShadowModelNormal(TempDiffuse, TempSpecular, TempSpecularMask, normal, uint2(input.vPosition.xy), viewDir, shadowCoord);
+    float3 LitResult = DefaultLightAndShadowModelNormal(TempDiffuse, TempSpecular, TempSpecularMask, normal, uint2(input.vPosition.xy), viewDir, shadowCoord, shadowCoordOuter);
     if (g_DebugShowPatches)
     {
         LitResult *= input.vNormal.x;
