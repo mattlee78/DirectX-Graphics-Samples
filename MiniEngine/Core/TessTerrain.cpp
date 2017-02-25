@@ -50,6 +50,8 @@ IntVar g_DetailNoiseScale("Terrain/Detail Noise Scale", 0, 0, 200);
 NumVar g_WorldScale("Terrain/World Scale", 512, 50, 2000, 50);
 NumVar g_VerticalScale("Terrain/Vertical Scale", 1.5f, 0.05f, 25.0f, 0.05f);
 ExpVar g_HeightmapDimension("Terrain/Heightmap Dimension", 1024, 5, 12, 1);
+NumVar g_DeformScale("Terrain/Generated Scale", 1.0f, 0.01f, 100.0f, 0.01f);
+NumVar g_DeformOffset("Terrain/Generated Offset", 0.0f, -500.0f, 500.0f, 0.01f);
 
 BoolVar g_DebugGrid("Terrain/Debug Grid Enable", false);
 NumVar g_DebugGridScale("Terrain/Debug Grid Scale", 512, 50.0f, 5000.0f, 50.0f);
@@ -223,10 +225,13 @@ void TessellatedTerrain::Terminate()
 
     m_HeightMap.Destroy();
     m_GradientMap.Destroy();
+    m_ZoneMap.Destroy();
     m_TileTriStripIB.Destroy();
     m_TileQuadListIB.Destroy();
+    m_ColorNoiseTexture.Destroy();
 
     m_PhysicsHeightMap.Destroy();
+    m_PhysicsZoneMap.Destroy();
     m_ReadbackResource.GetResource()->Release();
     m_ReadbackResource.Destroy();
     for (UINT32 i = 0; i < ARRAYSIZE(m_DebugPhysicsHeightMaps); ++i)
@@ -332,7 +337,7 @@ void TessellatedTerrain::CreateRootSignature()
     m_RootSig[2].InitAsConstantBuffer(2, D3D12_SHADER_VISIBILITY_ALL);
     m_RootSig[3].InitAsConstantBuffer(3, D3D12_SHADER_VISIBILITY_ALL);
     m_RootSig[4].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 4, D3D12_SHADER_VISIBILITY_ALL);
-    m_RootSig[5].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 3, D3D12_SHADER_VISIBILITY_ALL);
+    m_RootSig[5].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 4, D3D12_SHADER_VISIBILITY_ALL);
     m_RootSig[6].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 64, 3, D3D12_SHADER_VISIBILITY_PIXEL);
     m_RootSig.Finalize(L"TessellatedTerrain RootSig", D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 }
@@ -419,7 +424,7 @@ void TessellatedTerrain::CreateTessellationPSO()
 
 void TessellatedTerrain::CreateDeformPSO()
 {
-    DXGI_FORMAT ColorFormat = m_HeightMap.GetFormat();
+    DXGI_FORMAT ColorFormat[2] = { m_HeightMap.GetFormat(), m_ZoneMap.GetFormat() };
 
     m_InitializationPSO.SetRootSignature(m_RootSig);
     m_InitializationPSO.SetRasterizerState(Graphics::RasterizerDefault);
@@ -427,15 +432,15 @@ void TessellatedTerrain::CreateDeformPSO()
     m_InitializationPSO.SetDepthStencilState(Graphics::DepthStateDisabled);
     m_InitializationPSO.SetInputLayout(0, nullptr);
     m_InitializationPSO.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
-    m_InitializationPSO.SetRenderTargetFormats(1, &ColorFormat, DXGI_FORMAT_UNKNOWN);
+    m_InitializationPSO.SetRenderTargetFormats(2, ColorFormat, DXGI_FORMAT_UNKNOWN);
     m_InitializationPSO.SetVertexShader(g_pInitializationVS, sizeof(g_pInitializationVS));
     m_InitializationPSO.SetPixelShader(g_pInitializationPS, sizeof(g_pInitializationPS));
     m_InitializationPSO.Finalize();
 
-    ColorFormat = m_GradientMap.GetFormat();
+    ColorFormat[0] = m_GradientMap.GetFormat();
     m_GradientPSO = m_InitializationPSO;
     m_GradientPSO.SetPixelShader(g_pGradientPS, sizeof(g_pGradientPS));
-    m_GradientPSO.SetRenderTargetFormats(1, &ColorFormat, DXGI_FORMAT_UNKNOWN);
+    m_GradientPSO.SetRenderTargetFormats(1, ColorFormat, DXGI_FORMAT_UNKNOWN);
     m_GradientPSO.Finalize();
 }
 
@@ -443,6 +448,7 @@ void TessellatedTerrain::CreateTextures()
 {
     m_HeightMap.Create(L"TerrainTessellation Heightmap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R32_FLOAT);
     m_GradientMap.Create(L"TerrainTessellation GradientMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R16G16_FLOAT);
+    m_ZoneMap.Create(L"TerrainTessellation ZoneMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
 }
 
 void TessellatedTerrain::CreateNoiseTextures()
@@ -450,6 +456,49 @@ void TessellatedTerrain::CreateNoiseTextures()
     m_pNoiseTexture = TextureManager::LoadFromFile("GaussianNoise256", false);
     m_pDetailNoiseTexture = TextureManager::LoadFromFile("fBm5Octaves", false);
     m_pDetailNoiseGradTexture = TextureManager::LoadFromFile("fBm5OctavesGrad", false);
+
+    const UINT32 NoiseTextureSize = 256;
+    const UINT32 TexelCount = NoiseTextureSize * NoiseTextureSize;
+    UINT32* pTexels = new UINT32[TexelCount];
+    for (UINT32 i = 0; i < TexelCount; ++i)
+    {
+        UINT32 Value = rand() & 0xFF;
+        Value = (Value << 8) | (rand() & 0xFF);
+        Value = (Value << 8) | (rand() & 0xFF);
+        Value = (Value << 8) | (rand() & 0xFF);
+        pTexels[i] = Value;
+    }
+
+    D3D12_HEAP_PROPERTIES HeapProps;
+    HeapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+    HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    HeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    HeapProps.CreationNodeMask = 1;
+    HeapProps.VisibleNodeMask = 1;
+
+    D3D12_RESOURCE_DESC ResourceDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, NoiseTextureSize, NoiseTextureSize, 1, 1);
+    ID3D12Resource* pColorNoiseTexture = nullptr;
+    Graphics::g_Device->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &ResourceDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, __uuidof(ID3D12Resource), (void**)&pColorNoiseTexture);
+    m_ColorNoiseTexture = GpuResource(pColorNoiseTexture, D3D12_RESOURCE_STATE_COPY_DEST);
+    pColorNoiseTexture->Release();
+    m_ColorNoiseTexture->SetName(L"Color Noise Texture");
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+    SRVDesc.Format = ResourceDesc.Format;
+    SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    SRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    SRVDesc.Texture2D.MipLevels = 1;
+    SRVDesc.Texture2D.MostDetailedMip = 0;
+    m_hColorNoiseSRV = Graphics::AllocateDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    Graphics::g_Device->CreateShaderResourceView(m_ColorNoiseTexture.GetResource(), &SRVDesc, m_hColorNoiseSRV);
+
+    D3D12_SUBRESOURCE_DATA InitData = {};
+    InitData.pData = pTexels;
+    InitData.RowPitch = NoiseTextureSize * sizeof(UINT32);
+    InitData.SlicePitch = InitData.RowPitch * NoiseTextureSize;
+    CommandContext::InitializeTexture(m_ColorNoiseTexture, 1, &InitData);
+
+    delete[] pTexels;
 }
 
 void TessellatedTerrain::CreatePhysicsTextures()
@@ -464,6 +513,7 @@ void TessellatedTerrain::CreatePhysicsTextures()
     m_PhysicsFootprint.RowPitch = ((PhysicsTextureSize * sizeof(FLOAT)) + AlignmentMask) & ~AlignmentMask;
 
     m_PhysicsHeightMap.Create(L"TerrainTessellation Physics Heightmap", m_PhysicsFootprint.Width, m_PhysicsFootprint.Height, 1, m_PhysicsFootprint.Format);
+    m_PhysicsZoneMap.Create(L"TerrainTessellation Physics ZoneMap", m_PhysicsFootprint.Width, m_PhysicsFootprint.Height, 1, m_ZoneMap.GetFormat());
 
     for (UINT32 i = 0; i < ARRAYSIZE(m_DebugPhysicsHeightMaps); ++i)
     {
@@ -515,6 +565,7 @@ void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const Tessel
         Graphics::g_CommandManager.GetQueue().WaitForIdle();
         m_HeightMap.Destroy();
         m_GradientMap.Destroy();
+        m_ZoneMap.Destroy();
 
         CreateTextures();
     }
@@ -528,7 +579,7 @@ void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const Tessel
         CameraPosWorld = XMFLOAT4A(0, 0, 0, 0);
     }
 
-    RenderTerrainHeightmap(pContext, &m_HeightMap, &m_GradientMap, CameraPosWorld, 1.0f);
+    RenderTerrainHeightmap(pContext, &m_HeightMap, &m_ZoneMap, &m_GradientMap, CameraPosWorld, 1.0f);
 }
 
 void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
@@ -549,10 +600,11 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
     pContext->SetDynamicConstantBufferView(TerrainRootParam_CBCommon, sizeof(m_CBCommon), &m_CBCommon);
     pContext->SetDynamicDescriptors(TerrainRootParam_DTShadowSSAO, 0, 3, pDesc->pExtraTextures);
 
-    D3D12_CPU_DESCRIPTOR_HANDLE hNoiseTextures[3] = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE hNoiseTextures[4] = {};
     hNoiseTextures[0] = m_pDetailNoiseTexture->GetSRV();
     hNoiseTextures[1] = m_pDetailNoiseGradTexture->GetSRV();
     hNoiseTextures[2] = m_pNoiseTexture->GetSRV();
+    hNoiseTextures[3] = m_hColorNoiseSRV;
     pContext->SetDynamicDescriptors(TerrainRootParam_DTNoisemap, 0, ARRAYSIZE(hNoiseTextures), hNoiseTextures);
 
     // Something's wrong in the shader and the tri size is out by a factor of 2.  Why?!?
@@ -610,10 +662,12 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
     }
 }
 
-void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, ColorBuffer* pHeightmap, ColorBuffer* pGradientMap, XMFLOAT4 CameraPosWorld, FLOAT UVScale)
+void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, ColorBuffer* pHeightmap, ColorBuffer* pZonemap, ColorBuffer* pGradientMap, XMFLOAT4 CameraPosWorld, FLOAT UVScale)
 {
+    assert(pHeightmap != nullptr && pZonemap != nullptr);
     const UINT32 Dimension = pHeightmap->GetWidth();
     assert(Dimension == pHeightmap->GetHeight());
+    assert(Dimension == pZonemap->GetHeight() && Dimension == pZonemap->GetWidth());
     if (pGradientMap != nullptr)
     {
         assert(Dimension == pGradientMap->GetWidth() && Dimension == pGradientMap->GetHeight());
@@ -642,10 +696,11 @@ void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, Color
 
     pContext->SetDynamicConstantBufferView(TerrainRootParam_CBCommon, sizeof(m_CBCommon), &m_CBCommon);
 
-    D3D12_CPU_DESCRIPTOR_HANDLE hNoiseTextures[3] = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE hNoiseTextures[4] = {};
     hNoiseTextures[0] = m_pDetailNoiseTexture->GetSRV();
     hNoiseTextures[1] = m_pDetailNoiseGradTexture->GetSRV();
     hNoiseTextures[2] = m_pNoiseTexture->GetSRV();
+    hNoiseTextures[3] = m_hColorNoiseSRV;
     pContext->SetDynamicDescriptors(TerrainRootParam_DTNoisemap, 0, ARRAYSIZE(hNoiseTextures), hNoiseTextures);
 
     const D3D12_VIEWPORT vp = { 0,0, (FLOAT)Dimension, (FLOAT)Dimension, 0.0f, 1.0f };
@@ -653,9 +708,10 @@ void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, Color
 
     m_CBDeform.DeformMin = XMFLOAT4(-1, -1, 0, 0);
     m_CBDeform.DeformMax = XMFLOAT4(1, 1, UVScale, 0);
+    m_CBDeform.DeformConstants = XMFLOAT4(g_DeformScale, g_DeformOffset, 0, 0);
 
-    D3D12_CPU_DESCRIPTOR_HANDLE hRTV = pHeightmap->GetRTV();
-    pContext->SetRenderTargets(1, &hRTV);
+    D3D12_CPU_DESCRIPTOR_HANDLE hRTVs[2] = { pHeightmap->GetRTV(), pZonemap->GetRTV() };
+    pContext->SetRenderTargets(2, hRTVs);
     pContext->SetViewport(vp);
     pContext->SetScissor(rect);
 
@@ -672,8 +728,8 @@ void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, Color
     {
         pContext->TransitionResource(*pGradientMap, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
-        hRTV = pGradientMap->GetRTV();
-        pContext->SetRenderTargets(1, &hRTV);
+        hRTVs[0] = pGradientMap->GetRTV();
+        pContext->SetRenderTargets(1, hRTVs);
         pContext->SetViewport(vp);
         pContext->SetScissor(rect);
         pContext->SetPipelineState(m_GradientPSO);
@@ -839,6 +895,8 @@ void TessellatedTerrain::UIRender(TextContext& Text)
     {
         Text.DrawTexturedRect(m_HeightMap.GetSRV(), Xpos, Ypos, Width, Width, true);
         Xpos += (Width + Spacing);
+        Text.DrawTexturedRect(m_ZoneMap.GetSRV(), Xpos, Ypos, Width, Width, false);
+        Xpos += (Width + Spacing);
 
         for (UINT32 i = 0; i < 4; ++i)
         {
@@ -875,7 +933,7 @@ UINT32 TessellatedTerrain::PhysicsRender(GraphicsContext* pContext, const XMVECT
 
     XMFLOAT4 CameraPos;
     XMStoreFloat4(&CameraPos, EyePos);
-    RenderTerrainHeightmap(pContext, &m_PhysicsHeightMap, nullptr, CameraPos, UVScale);
+    RenderTerrainHeightmap(pContext, &m_PhysicsHeightMap, &m_PhysicsZoneMap, nullptr, CameraPos, UVScale);
 
     ColorBuffer& DebugBuffer = m_DebugPhysicsHeightMaps[m_CurrentDebugHeightmapIndex];
     m_CurrentDebugHeightmapIndex = (m_CurrentDebugHeightmapIndex + 1) % ARRAYSIZE(m_DebugPhysicsHeightMaps);

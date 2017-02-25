@@ -20,6 +20,7 @@ float2 fade(float2 t)
 }
 
 Texture2D g_NoiseTexture : register(t6);
+Texture2D g_ColorNoiseTexture : register(t7);
 
 #define FIXED_FN_INTERPOLATION 0
 #if FIXED_FN_INTERPOLATION
@@ -33,7 +34,7 @@ float inoise(float2 p)
 
 #else
 
-// interpolate 2D texture
+// interpolate 2D single channel noise texture
 float inoise(float2 p)
 {
 	float2 i = floor(p*256);
@@ -52,6 +53,24 @@ float inoise(float2 p)
 	return 2.0 * interpolated - 1.0;
 }
 #endif // FIXED_FN_INTERPOLATION
+
+// interpolate 2D 4 channel noise texture
+float4 inoise4(float2 p)
+{
+    float2 i = floor(p * 256);
+    float2 f = 256 * p - i;
+    f = fade(f);
+    i /= 256;
+
+    const float mipLevel = 0;
+    float4 nx = g_ColorNoiseTexture.SampleLevel(SamplerRepeatPoint, i, mipLevel);
+    float4 ny = g_ColorNoiseTexture.SampleLevel(SamplerRepeatPoint, i, mipLevel, int2(1, 0));
+    float4 nz = g_ColorNoiseTexture.SampleLevel(SamplerRepeatPoint, i, mipLevel, int2(0, 1));
+    float4 nw = g_ColorNoiseTexture.SampleLevel(SamplerRepeatPoint, i, mipLevel, int2(1, 1));
+    const float4 interpolated = lerp(lerp(nx, ny, f.x),
+        lerp(nz, nw, f.x), f.y);	// [0,1]
+    return 2.0 * interpolated - 1.0;
+}
 
 // calculate gradient of noise (expensive!)
 float2 inoiseGradient(float2 p, float d)
@@ -73,6 +92,19 @@ float fBm(float2 p, int octaves, float lacunarity = 2.0, float gain = 0.5)
 		amp *= gain;
 	}
 	return sum;
+}
+
+// fractal sum
+float4 fBm4(float2 p, int octaves, float lacunarity = 2.0, float gain = 0.5)
+{
+    float freq = 1.0, amp = 1.0;
+    float4 sum = 0;
+    for (int i = 0; i<octaves; i++) {
+        sum += inoise4(p*freq)*amp;
+        freq *= lacunarity;
+        amp *= gain;
+    }
+    return sum;
 }
 
 float turbulence(float2 p, int octaves, float lacunarity = 2.0, float gain = 0.5)

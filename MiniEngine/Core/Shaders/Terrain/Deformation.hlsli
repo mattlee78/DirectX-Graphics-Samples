@@ -20,6 +20,7 @@ cbuffer cbDeform : register(b0)
 {
     float3 g_DeformMin : packoffset(c0);
     float3 g_DeformMax : packoffset(c1);  // Z component is a UV scaling factor applied to the initialization pass
+    float4 g_DeformConstants : packoffset(c2);
 };
 
 // Null in that there is no associated VB set by the API.
@@ -108,15 +109,20 @@ float4 debugDualRamps(float2 uv)
     return float4(max(frac(uv.x), frac(uv.y)).xxx, 1);
 }
 
-float4 InitializationPS( DeformVertex input ) : SV_Target
+void InitializationPS( DeformVertex input, out float4 Heightmap : SV_Target0, out float4 Zonemap : SV_Target1 )
 {
-	const float2 uv = g_TextureWorldOffset.xz + WORLD_UV_REPEATS * input.texCoord;
-	//return float4(debugXRamps(uv),  1);
-	//return float4(debugFlat(uv),  1);
-	//return float4(debugSineHills(uv * 2) * 0.25f,  1);
-	//return float4(debugCubes(uv), 1);
-    //return debugDualRamps(uv * 16);
-    return hybridTerrain(uv, g_FractalOctaves);
+	const float2 uv = g_TextureWorldOffset.xz + input.texCoord;
+    float4 result;
+	//result = float4(debugXRamps(uv),  1);
+	//result = float4(debugFlat(uv),  1);
+	//result = float4(debugSineHills(uv * 2) * 0.25f,  1);
+	//result = float4(debugCubes(uv), 1);
+    //result = debugDualRamps(uv * 16);
+    result = hybridTerrain(uv, g_FractalOctaves);
+    result.xyz = ((result.x * g_DeformConstants.x) + g_DeformConstants.y).xxx;
+
+    Heightmap = result;
+    Zonemap = fBm4(uv * 0.01, 3, 2.0, 0.5);
 }
 
 Texture2D g_InputTexture : register(t0);
