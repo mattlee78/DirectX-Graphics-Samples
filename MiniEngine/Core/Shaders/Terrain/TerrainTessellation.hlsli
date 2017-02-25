@@ -116,7 +116,7 @@ float2 DetailNoiseSampleCoords(float2 uv)
 	// Texture coords have to be offset by the eye's 2D world position.
 	const float2 texOffset = float2(g_TextureWorldOffset.x, -g_TextureWorldOffset.z);
 
-	const float2 detailUV = (texOffset + WORLD_UV_REPEATS * uv) * g_DetailUVScale.x;		// TBD: is WORLD_UV_REPEATS spurious here?
+	const float2 detailUV = (texOffset + uv) * g_DetailUVScale.x;
 	return detailUV;
 }
 
@@ -613,7 +613,7 @@ float3 SampleDetailNormal(float2 worldXZ)
 	// The MIP-mapping doesn't seem to work very well.  Maybe I need to think more carefully about
 	// anti-aliasing the normal function?
 	float2 grad = SampleDetailGradOctaves(uv);
-	return normalize(float3(-vScale * grad.x, g_CoarseSampleSpacing.x * WORLD_UV_REPEATS_RECIP * g_DetailUVScale.y, -vScale * grad.y));
+	return normalize(float3(-vScale * grad.x, g_CoarseSampleSpacing.x * g_DetailUVScale.y, -vScale * grad.y));
 }
 
 float DebugCracksPattern(MeshVertex input)

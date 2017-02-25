@@ -115,10 +115,12 @@ private:
 
     ColorBuffer m_HeightMap;
     ColorBuffer m_GradientMap;
+    ColorBuffer m_ZoneMap;
 
     D3D12_SUBRESOURCE_FOOTPRINT m_PhysicsFootprint;
     UINT32 m_FootprintSizeBytes;
     ColorBuffer m_PhysicsHeightMap;
+    ColorBuffer m_PhysicsZoneMap;
     GpuResource m_ReadbackResource;
     BYTE* m_pReadbackData;
     UINT32 m_PhysicsHeightmapCount;
@@ -141,6 +143,8 @@ private:
     const ManagedTexture* m_pNoiseTexture;
     const ManagedTexture* m_pDetailNoiseTexture;
     const ManagedTexture* m_pDetailNoiseGradTexture;
+    GpuResource m_ColorNoiseTexture;
+    D3D12_CPU_DESCRIPTOR_HANDLE m_hColorNoiseSRV;
 
     __declspec(align(16))
     struct CBTerrain
@@ -183,8 +187,9 @@ private:
     {
         XMFLOAT4 DeformMin;
         XMFLOAT4 DeformMax;
+        XMFLOAT4 DeformConstants;
     } m_CBDeform;
-    C_ASSERT(sizeof(CBDeform) == 2 * sizeof(XMFLOAT4));
+    C_ASSERT(sizeof(CBDeform) == 3 * sizeof(XMFLOAT4));
 
     __declspec(align(16))
     struct CBWireframe
@@ -222,7 +227,7 @@ private:
     void CreateDeformPSO();
     void CreateTileRings();
 
-    void RenderTerrainHeightmap(GraphicsContext* pContext, ColorBuffer* pHeightmap, ColorBuffer* pGradientMap, XMFLOAT4 CameraPosWorld, FLOAT UVScale);
+    void RenderTerrainHeightmap(GraphicsContext* pContext, ColorBuffer* pHeightmap, ColorBuffer* pZonemap, ColorBuffer* pGradientMap, XMFLOAT4 CameraPosWorld, FLOAT UVScale);
     void RenderTerrain(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
     void SetMatrices(const TessellatedTerrainRenderDesc* pDesc);
     UINT32 FindAvailablePhysicsHeightmap();
