@@ -449,6 +449,7 @@ void TessellatedTerrain::CreateTextures()
     m_HeightMap.Create(L"TerrainTessellation Heightmap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R32_FLOAT);
     m_GradientMap.Create(L"TerrainTessellation GradientMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R16G16_FLOAT);
     m_ZoneMap.Create(L"TerrainTessellation ZoneMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
+    m_MaterialMap.Create(L"TerrainTessellation MaterialMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
 }
 
 void TessellatedTerrain::CreateNoiseTextures()
@@ -566,6 +567,7 @@ void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const Tessel
         m_HeightMap.Destroy();
         m_GradientMap.Destroy();
         m_ZoneMap.Destroy();
+        m_MaterialMap.Destroy();
 
         CreateTextures();
     }

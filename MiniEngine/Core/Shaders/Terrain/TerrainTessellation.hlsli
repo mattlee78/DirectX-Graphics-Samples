@@ -65,7 +65,7 @@ struct VS_CONTROL_POINT_OUTPUT
 struct MeshVertex
 {
     float4 vPosition        : SV_Position;
-    float2 vWorldXZ         : TEXCOORD1;
+    float3 vWorldXYZ        : TEXCOORD1;
     float3 vNormal          : NORMAL;
 	float3 debugColour      : COLOR;
     float3 vShadowPos       : TEXCOORD2;
@@ -201,7 +201,7 @@ MeshVertex VTFDisplacementVS(AppVertex input)
 	displacedPos.y += z;
 
     output.vPosition = mul( float4( displacedPos, 1.0f ), g_WorldViewProj );
-	output.vWorldXZ = displacedPos.xz;
+	output.vWorldXYZ = displacedPos;
     output.vNormal = normalize(normal);
 	output.debugColour = float3(1, 0.1, 0);
 	output.vNormal = float3(1,1,1);
@@ -568,7 +568,7 @@ MeshVertex TerrainDisplaceDS( HS_CONSTANT_DATA_OUTPUT input,
 	const float3 worldPos = TessellatedWorldPos(input, UV, terrainQuad);
     Output.vPosition = mul(float4(worldPos.xyz,1), g_WorldViewProj);
 	Output.debugColour = lerpDebugColours(input.debugColour, UV);
-	Output.vWorldXZ = worldPos.xz;
+	Output.vWorldXYZ = worldPos;
 	Output.vNormal = float3(1,1,1);
 
     Output.vShadowPos = mul(float4(worldPos.xyz, 1), g_ModelToShadow).xyz;
@@ -625,26 +625,71 @@ float DebugCracksPattern(MeshVertex input)
 		return 0;
 }
 
+float3 TerrainMaterialBlend(float3 normal, float ypos, float2 texUV, out float3 SpecularColor, out float SpecularMask)
+{
+    SpecularColor = float3(0, 0, 0);
+    SpecularMask = 0;
+    
+    const float3 TempGrass = float3(0, 0.75, 0);
+    const float3 TempDirt = float3(0.5, 0.25, 0);
+    const float3 TempRock = float3(0.25, 0.25, 0.25);
+    const float3 TempSnow = float3(1, 1, 1);
+    const float3 TempSand = float3(1, 0.95, 0);
+
+    float3 Diffuse;
+    if (normal.y < 0.7f)
+    {
+        Diffuse = TempRock;
+    }
+    else if (normal.y < 0.8f)
+    {
+        // dirt or rock
+        if (ypos < 1)
+        {
+            Diffuse = TempDirt;
+        }
+        else
+        {
+            Diffuse = TempRock;
+        }
+    }
+    else
+    {
+        // grass or snow
+        if (ypos < 1.25)
+        {
+            Diffuse = TempGrass;
+        }
+        else
+        {
+            Diffuse = TempSnow;
+        }
+    }
+
+    return Diffuse;
+}
+
 float4 SmoothShadePS(MeshVertex input) : SV_Target
 {
 	//return DebugCracksPattern(input);
+    float2 vWorldXZ = input.vWorldXYZ.xz;
 
 	// Not sure about the arbitrary 2x.  It looks right visually.  Maybe there's a constant somewhere in
 	// the texture sizes that I overlooked?!?
 	const float ARBITRARY_FUDGE = 2;
-	const float2 grad = g_CoarseGradientMap.Sample(SamplerRepeatLinear, worldXZtoHeightUV(input.vWorldXZ)).rg;
+	const float2 grad = g_CoarseGradientMap.Sample(SamplerRepeatLinear, worldXZtoHeightUV(vWorldXZ)).rg;
 	const float vScale = ARBITRARY_FUDGE * g_fDisplacementHeight * g_CoarseSampleSpacing.y * g_CoarseSampleSpacing.z;
 	const float3 coarseNormal = normalize(float3(-vScale * grad.x, g_CoarseSampleSpacing.x, -vScale * grad.y));
-	const float3 detailNormal = SampleDetailNormal(input.vWorldXZ);
+	const float3 detailNormal = SampleDetailNormal(vWorldXZ);
 	//const float3 normal = normalize(coarseNormal + detailNormal);
     const float3 normal = coarseNormal;
 
 	// Texture coords have to be offset by the eye's 2D world position.  Why the 2x???
-	const float2 texUV = input.vWorldXZ + 2 * float2(g_TextureWorldOffset.x, -g_TextureWorldOffset.z);
+    const float2 texUV = vWorldXZ + float2(g_TextureWorldOffset.x, -g_TextureWorldOffset.z) * g_tileWorldSize.y;
 
-    float3 TempDiffuse = float3(1, 1, 1);
-    float3 TempSpecular = float3(0, 0, 0);
-    float TempSpecularMask = 0;
+    float3 TempSpecular;
+    float TempSpecularMask;
+    float3 TempDiffuse = TerrainMaterialBlend(normal, input.vWorldXYZ.y, texUV, TempSpecular, TempSpecularMask);
 
     float3 viewDir = normalize(input.vViewDir);
     float3 shadowCoord = input.vShadowPos;
@@ -657,87 +702,3 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
     }
     return float4(LitResult, 1);
 }
-
-#if 0
-// Miscellaneous states
-BlendState EnableColorWrites
-{
-    RenderTargetWriteMask[0] = 0xf;
-};
-
-DepthStencilState EnableDepthWrites
-{
-    DepthEnable = true;
-    DepthWriteMask = 1;
-};
-
-RasterizerState MultisamplingCullFront
-{
-    MultisampleEnable = true;
-    CullMode = Front;
-};
-
-RasterizerState MultisamplingCullBack
-{
-    MultisampleEnable = true;
-    CullMode = Back;
-};
-
-RasterizerState NoMultisampling
-{
-    MultisampleEnable = false;
-    CullMode = None;
-};
-
-technique11 TesselationTechnique
-{
-    pass HwTessellated
-    {
-        SetBlendState( EnableColorWrites, float4( 0, 0, 0, 0 ), 0xffffffff );
-        SetDepthStencilState( EnableDepthWrites, 0 );
-        SetRasterizerState( MultisamplingCullFront );
-
-        SetVertexShader(CompileShader(vs_5_0, HwTessellationPassThruVS()));
-        SetHullShader(CompileShader(hs_5_0, TerrainScreenspaceLODHS()));
-        SetDomainShader(CompileShader(ds_5_0, TerrainDisplaceDS()));
-        SetGeometryShader(NULL);
-        SetPixelShader(CompileShader(ps_5_0, SmoothShadePS()));
-    }
-    pass HwTessellatedWireframe
-    {
-        SetBlendState( EnableColorWrites, float4( 0, 0, 0, 0 ), 0xffffffff );
-        SetDepthStencilState( EnableDepthWrites, 0 );
-        SetRasterizerState( MultisamplingCullFront );
-
-        SetVertexShader(CompileShader(vs_5_0, HwTessellationPassThruVS()));
-        SetHullShader(CompileShader(hs_5_0, TerrainScreenspaceLODHS()));
-        SetDomainShader(CompileShader(ds_5_0, TerrainDisplaceDS()));
-        SetGeometryShader(CompileShader(gs_5_0, GSSolidWire()));		// See Wireframe.fx
-        SetPixelShader(CompileShader(ps_5_0, PSSolidWire()));
-    }
-    pass ShadedTriStrip
-    {
-        SetBlendState( EnableColorWrites, float4( 0, 0, 0, 0 ), 0xffffffff );
-        SetDepthStencilState( EnableDepthWrites, 0 );
-        SetRasterizerState( MultisamplingCullBack );
-
-        SetVertexShader( CompileShader( vs_4_0, VTFDisplacementVS() ) );
-        SetHullShader(NULL);
-        SetDomainShader(NULL);
-        SetGeometryShader(NULL);
-        SetPixelShader( CompileShader( ps_4_0, SmoothShadePS() ) );
-    }
-    pass Wireframe
-    {
-        SetBlendState( EnableColorWrites, float4( 0, 0, 0, 0 ), 0xffffffff );
-        SetDepthStencilState( EnableDepthWrites, 0 );
-        SetRasterizerState( MultisamplingCullBack );
-
-        SetVertexShader( CompileShader( vs_4_0, VTFDisplacementVS() ) );
-        SetHullShader(NULL);
-        SetDomainShader(NULL);
-        SetGeometryShader( CompileShader( gs_4_0, GSSolidWire() ));		// See Wireframe.fx
-        SetPixelShader( CompileShader( ps_4_0, PSSolidWire() ) );
-    }
-}
-#endif

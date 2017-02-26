@@ -116,6 +116,7 @@ private:
     ColorBuffer m_HeightMap;
     ColorBuffer m_GradientMap;
     ColorBuffer m_ZoneMap;
+    ColorBuffer m_MaterialMap;
 
     D3D12_SUBRESOURCE_FOOTPRINT m_PhysicsFootprint;
     UINT32 m_FootprintSizeBytes;

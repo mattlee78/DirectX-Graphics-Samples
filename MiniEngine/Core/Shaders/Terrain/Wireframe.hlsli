@@ -15,7 +15,7 @@
 struct WireVertex
 {
     float4 clipPos : SV_POSITION;
-    float2 vWorldXZ        : TEXCOORD1;
+    float3 vWorldXYZ        : TEXCOORD1;
     noperspective float4 edgeA: TEXCOORD2;
     float3 vNormal : NORMAL;
 	float3 debugColour : COLOR;
@@ -89,7 +89,7 @@ void GSSolidWire(triangle MeshVertex input[3], inout TriangleStream<WireVertex> 
 	
 	output.clipPos  =( input[0].vPosition );
     output.vNormal  =( input[0].vNormal );
-    output.vWorldXZ        = input[0].vWorldXZ;
+    output.vWorldXYZ        = input[0].vWorldXYZ;
 	output.debugColour = input[0].debugColour;
     output.edgeA[0] = 0;
     output.edgeA[1] = heights[0];
@@ -98,7 +98,7 @@ void GSSolidWire(triangle MeshVertex input[3], inout TriangleStream<WireVertex> 
 
     output.clipPos  = ( input[1].vPosition );
     output.vNormal  =( input[1].vNormal );
-    output.vWorldXZ        = input[1].vWorldXZ;
+    output.vWorldXYZ        = input[1].vWorldXYZ;
 	output.debugColour = input[1].debugColour;
     output.edgeA[0] = 0;
     output.edgeA[1] = 0;
@@ -107,7 +107,7 @@ void GSSolidWire(triangle MeshVertex input[3], inout TriangleStream<WireVertex> 
 
     output.clipPos  = ( input[2].vPosition );
     output.vNormal  =( input[2].vNormal );
-    output.vWorldXZ        = input[2].vWorldXZ;
+    output.vWorldXYZ        = input[2].vWorldXYZ;
 	output.debugColour = input[1].debugColour;
     output.edgeA[0] = heights[2];
     output.edgeA[1] = 0;
@@ -122,7 +122,7 @@ float4 PSSolidWire(WireVertex input) : SV_Target
 {
 	MeshVertex mv = (MeshVertex)0;
 	mv.vNormal  = input.vNormal;
-	mv.vWorldXZ = input.vWorldXZ;
+	mv.vWorldXYZ = input.vWorldXYZ;
     mv.vViewDir = float3(1, 0, 0);
 	
 	// Invoke the non-wire PS to reuse its shading calculation, whatever that is.
