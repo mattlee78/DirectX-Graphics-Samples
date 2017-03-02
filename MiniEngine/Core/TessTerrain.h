@@ -106,7 +106,7 @@ private:
 
     TileRing* m_pTileRings[MAX_RINGS];
     float m_OuterRingWorldSize = 0.0f;
-    float SNAP_GRID_SIZE = 0.0f;
+    float m_SnapGridSize = 0.0f;
 
     bool m_Culling = true;
 
@@ -146,6 +146,26 @@ private:
     const ManagedTexture* m_pDetailNoiseGradTexture;
     GpuResource m_ColorNoiseTexture;
     D3D12_CPU_DESCRIPTOR_HANDLE m_hColorNoiseSRV;
+
+    struct TerrainTexture
+    {
+        const ManagedTexture* pDiffuseMap;
+        const ManagedTexture* pHeightMap;
+        const ManagedTexture* pNormalMap;
+    };
+    
+    enum TerrainTextureLayers
+    {
+        TTL_Rock = 0,
+        TTL_Dirt = 1,
+        TTL_Grass = 2,
+        TTL_Snow = 3,
+        TTL_Sand = 4,
+        TTL_Count
+    };
+
+    TerrainTexture m_TerrainTextures[TTL_Count];
+    D3D12_CPU_DESCRIPTOR_HANDLE m_hTerrainTextures[TTL_Count * 4];
 
     __declspec(align(16))
     struct CBTerrain
@@ -227,9 +247,19 @@ private:
     void CreateTessellationPSO();
     void CreateDeformPSO();
     void CreateTileRings();
+    void LoadTerrainTextures();
+    void LoadTerrainTexture(const CHAR* strNamePrefix, TerrainTextureLayers TTL);
 
-    void RenderTerrainHeightmap(GraphicsContext* pContext, ColorBuffer* pHeightmap, ColorBuffer* pZonemap, ColorBuffer* pGradientMap, XMFLOAT4 CameraPosWorld, FLOAT UVScale);
+    void RenderTerrainHeightmap(
+        GraphicsContext* pContext, 
+        ColorBuffer* pHeightmap, 
+        ColorBuffer* pZonemap, 
+        ColorBuffer* pGradientMap, 
+        ColorBuffer* pMaterialMap,
+        XMFLOAT4 CameraPosWorld,
+        FLOAT UVScale);
     void RenderTerrain(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
     void SetMatrices(const TessellatedTerrainRenderDesc* pDesc);
     UINT32 FindAvailablePhysicsHeightmap();
+    void SetTerrainTextures(GraphicsContext* pContext);
 };

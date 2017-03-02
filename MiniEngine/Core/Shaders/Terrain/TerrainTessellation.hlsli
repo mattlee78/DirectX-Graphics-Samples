@@ -26,6 +26,7 @@
 
 Texture2D g_CoarseHeightMap : register(t0);
 Texture2D g_CoarseGradientMap : register(t1);
+Texture2D g_CoarseMaterialMap : register(t2);
 Texture2D g_DetailNoiseTexture : register(t4);
 Texture2D g_DetailNoiseGradTexture : register(t5);
 
@@ -45,7 +46,7 @@ cbuffer cbTerrain : register(b3)
 
     bool g_DebugShowPatches : packoffset(c20);
     bool g_DebugShowTiles : packoffset(c21);
-    float g_fDisplacementHeight : packoffset(c22);
+    float g_fDisplacementHeightUNUSED : packoffset(c22);
     float2 g_screenSize : packoffset(c23);				// Render target size for screen-space calculations.
     int g_tessellatedTriWidth : packoffset(c24);
     float2 g_tileWorldSize : packoffset(c25);
@@ -192,9 +193,9 @@ MeshVertex VTFDisplacementVS(AppVertex input)
 	int2 intUV;
 	ReconstructPosition(input, displacedPos, intUV);
     
-    float z  = g_fDisplacementHeight * SampleHeightForVS(g_CoarseHeightMap, SamplerClampLinear, displacedPos.xz, int2(1,1));
-    float z2 = g_fDisplacementHeight * SampleHeightForVS(g_CoarseHeightMap, SamplerClampLinear, displacedPos.xz, int2(2,1));
-    float z3 = g_fDisplacementHeight * SampleHeightForVS(g_CoarseHeightMap, SamplerClampLinear, displacedPos.xz, int2(1,2));
+    float z  = SampleHeightForVS(g_CoarseHeightMap, SamplerClampLinear, displacedPos.xz, int2(1,1));
+    float z2 = SampleHeightForVS(g_CoarseHeightMap, SamplerClampLinear, displacedPos.xz, int2(2,1));
+    float z3 = SampleHeightForVS(g_CoarseHeightMap, SamplerClampLinear, displacedPos.xz, int2(1,2));
     
     float3 normal = float3(z2 - z, 1.0 / CONTROL_VTX_PER_TILE_EDGE, z3 - z);
     
@@ -540,7 +541,7 @@ float3 TessellatedWorldPos(HS_CONSTANT_DATA_OUTPUT input,
 	const int mipLevel   = 0;
 
 	float height = SampleHeightForVS(g_CoarseHeightMap, SamplerClampLinear, worldPos.xz);
-    worldPos.y += g_fDisplacementHeight * height;
+    worldPos.y += height;
 
 	return worldPos;
 }
@@ -590,9 +591,6 @@ MeshVertex TerrainDisplaceDS( HS_CONSTANT_DATA_OUTPUT input,
 //--------------------------------------------------------------------------------------
 // Smooth shading pixel shader section
 //--------------------------------------------------------------------------------------
-Texture2D g_TerrainColourTexture1 : register(t2);
-Texture2D g_TerrainColourTexture2 : register(t3);
-
 float HighContrast(float i)
 {
 	//return 1.3 * (i-0.1);
@@ -625,50 +623,6 @@ float DebugCracksPattern(MeshVertex input)
 		return 0;
 }
 
-float3 TerrainMaterialBlend(float3 normal, float ypos, float2 texUV, out float3 SpecularColor, out float SpecularMask)
-{
-    SpecularColor = float3(0, 0, 0);
-    SpecularMask = 0;
-    
-    const float3 TempGrass = float3(0, 0.75, 0);
-    const float3 TempDirt = float3(0.5, 0.25, 0);
-    const float3 TempRock = float3(0.25, 0.25, 0.25);
-    const float3 TempSnow = float3(1, 1, 1);
-    const float3 TempSand = float3(1, 0.95, 0);
-
-    float3 Diffuse;
-    if (normal.y < 0.7f)
-    {
-        Diffuse = TempRock;
-    }
-    else if (normal.y < 0.8f)
-    {
-        // dirt or rock
-        if (ypos < 1)
-        {
-            Diffuse = TempDirt;
-        }
-        else
-        {
-            Diffuse = TempRock;
-        }
-    }
-    else
-    {
-        // grass or snow
-        if (ypos < 1.25)
-        {
-            Diffuse = TempGrass;
-        }
-        else
-        {
-            Diffuse = TempSnow;
-        }
-    }
-
-    return Diffuse;
-}
-
 float4 SmoothShadePS(MeshVertex input) : SV_Target
 {
 	//return DebugCracksPattern(input);
@@ -676,20 +630,22 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
 
 	// Not sure about the arbitrary 2x.  It looks right visually.  Maybe there's a constant somewhere in
 	// the texture sizes that I overlooked?!?
+    const float2 heightUV = worldXZtoHeightUV(vWorldXZ);
 	const float ARBITRARY_FUDGE = 2;
-	const float2 grad = g_CoarseGradientMap.Sample(SamplerRepeatLinear, worldXZtoHeightUV(vWorldXZ)).rg;
-	const float vScale = ARBITRARY_FUDGE * g_fDisplacementHeight * g_CoarseSampleSpacing.y * g_CoarseSampleSpacing.z;
+	const float2 grad = g_CoarseGradientMap.Sample(SamplerRepeatLinear, heightUV).rg;
+	const float vScale = ARBITRARY_FUDGE * g_CoarseSampleSpacing.y * g_CoarseSampleSpacing.z;
 	const float3 coarseNormal = normalize(float3(-vScale * grad.x, g_CoarseSampleSpacing.x, -vScale * grad.y));
-	const float3 detailNormal = SampleDetailNormal(vWorldXZ);
+	//const float3 detailNormal = SampleDetailNormal(vWorldXZ);
 	//const float3 normal = normalize(coarseNormal + detailNormal);
     const float3 normal = coarseNormal;
 
 	// Texture coords have to be offset by the eye's 2D world position.  Why the 2x???
     const float2 texUV = vWorldXZ + float2(g_TextureWorldOffset.x, -g_TextureWorldOffset.z) * g_tileWorldSize.y;
 
+    const float4 MatMapSample = g_CoarseMaterialMap.Sample(SamplerRepeatLinear, heightUV);
     float3 TempSpecular;
     float TempSpecularMask;
-    float3 TempDiffuse = TerrainMaterialBlend(normal, input.vWorldXYZ.y, texUV, TempSpecular, TempSpecularMask);
+    float3 TempDiffuse = TerrainMaterialBlend(MatMapSample.x, MatMapSample.y * 2, texUV, TempSpecular, TempSpecularMask);
 
     float3 viewDir = normalize(input.vViewDir);
     float3 shadowCoord = input.vShadowPos;

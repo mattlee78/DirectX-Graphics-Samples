@@ -127,67 +127,20 @@ void InitializationPS( DeformVertex input, out float4 Heightmap : SV_Target0, ou
 
 Texture2D g_InputTexture : register(t0);
 
-float4 GradientPS( DeformVertex input ) : SV_Target
+void GradientPS( DeformVertex input, out float4 GradientMap : SV_Target0, out float4 MaterialMap : SV_Target1 )
 {
 	input.texCoord.y = 1 - input.texCoord.y;
 	float x0 = g_InputTexture.Sample(SamplerClampLinear, input.texCoord, int2( 1,0)).x;
 	float x1 = g_InputTexture.Sample(SamplerClampLinear, input.texCoord, int2(-1,0)).x;
 	float y0 = g_InputTexture.Sample(SamplerClampLinear, input.texCoord, int2(0, 1)).x;
 	float y1 = g_InputTexture.Sample(SamplerClampLinear, input.texCoord, int2(0,-1)).x;
-	return float4(x0-x1, y0-y1, 0,0);
+	GradientMap = float4(x0-x1, y0-y1, 0, 0);
+
+    float MatchedScale = 2 * g_CoarseSampleSpacing.y * -g_CoarseSampleSpacing.z;
+    float2 scaledgradient = GradientMap.xy * MatchedScale;
+    float3 normal = normalize(float3(scaledgradient.x, 16, scaledgradient.y));
+    float smoothedheight = 0.25 * (x0 + x1 + y0 + y1) * g_CoarseSampleSpacing.z;
+
+    MaterialMap = float4(normal.y * normal.y, smoothedheight * 0.5f, 0, 1);
 }
 
-#if 0
-BlendState NoBlending
-{
-    RenderTargetWriteMask[0] = 0xf;
-    BlendEnable[0] = false;
-};
-
-DepthStencilState DisableDepthWrites
-{
-    DepthEnable = false;
-    DepthWriteMask = ZERO;
-    DepthFunc = Less;
-
-    StencilEnable = false;
-    StencilReadMask = 0xFF;
-    StencilWriteMask = 0x00;
-};
-
-RasterizerState NoMultisampling
-{
-    MultisampleEnable = false;
-    CullMode = None;
-};
-
-technique10 InitializationTechnique
-{
-    pass Init
-    {
-		// Same as deformation, but with an alternate PS and without blending.
-        SetBlendState( NoBlending, float4( 0, 0, 0, 0 ), 0xffffffff );
-        SetDepthStencilState( DisableDepthWrites, 0 );
-        SetRasterizerState( NoMultisampling );
-
-        SetVertexShader( CompileShader( vs_4_0, InitializationVS()));
-        SetGeometryShader(NULL);
-        SetPixelShader( CompileShader( ps_4_0, InitializationPS()));
-    }
-}
-
-technique10 GradientTechnique
-{
-    pass Grad
-    {
-		// Same as deformation, but with an alternate PS and without blending.
-        SetBlendState( NoBlending, float4( 0, 0, 0, 0 ), 0xffffffff );
-        SetDepthStencilState( DisableDepthWrites, 0 );
-        SetRasterizerState( NoMultisampling );
-
-        SetVertexShader( CompileShader( vs_4_0, InitializationVS()));
-        SetGeometryShader(NULL);
-        SetPixelShader( CompileShader( ps_4_0, GradientPS()));
-    }
-}
-#endif
