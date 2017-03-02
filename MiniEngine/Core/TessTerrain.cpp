@@ -192,6 +192,10 @@ TessellatedTerrain::TessellatedTerrain()
 
 void TessellatedTerrain::Initialize()
 {
+    LoadTerrainTextures();
+
+    CreateTileRings();
+
     CreateTextures();
     CreateNoiseTextures();
     CreatePhysicsTextures();
@@ -199,8 +203,6 @@ void TessellatedTerrain::Initialize()
     CreateRootSignature();
     CreateTessellationPSO();
     CreateDeformPSO();
-
-    CreateTileRings();
 
     CreateTileTriangleIB();
     CreateTileQuadListIB();
@@ -226,6 +228,7 @@ void TessellatedTerrain::Terminate()
     m_HeightMap.Destroy();
     m_GradientMap.Destroy();
     m_ZoneMap.Destroy();
+    m_MaterialMap.Destroy();
     m_TileTriStripIB.Destroy();
     m_TileQuadListIB.Destroy();
     m_ColorNoiseTexture.Destroy();
@@ -248,6 +251,46 @@ FLOAT TessellatedTerrain::GetWorldScale() const
 FLOAT TessellatedTerrain::GetVerticalScale() const
 {
     return g_VerticalScale;
+}
+
+void TessellatedTerrain::LoadTerrainTextures()
+{
+    ZeroMemory(m_hTerrainTextures, sizeof(m_hTerrainTextures));
+    ZeroMemory(m_TerrainTextures, sizeof(m_TerrainTextures));
+
+    LoadTerrainTexture("TerrainRock", TTL_Rock);
+    LoadTerrainTexture("TerrainDirt", TTL_Dirt);
+    LoadTerrainTexture("TerrainGrass_Far", TTL_Grass);
+    LoadTerrainTexture("TerrainSnow", TTL_Snow);
+}
+
+void TessellatedTerrain::LoadTerrainTexture(const CHAR* strNamePrefix, TerrainTextureLayers TTL)
+{
+    assert(TTL < ARRAYSIZE(m_TerrainTextures));
+    TerrainTexture& Tex = m_TerrainTextures[TTL];
+    D3D12_CPU_DESCRIPTOR_HANDLE* pSRVs = m_hTerrainTextures + (UINT32)TTL * 4;
+
+    CHAR strFileName[MAX_PATH];
+
+    sprintf_s(strFileName, "Terrain\\%s_a", strNamePrefix);
+    Tex.pDiffuseMap = TextureManager::LoadFromFile(strFileName, false);
+    if (Tex.pDiffuseMap != nullptr)
+    {
+        pSRVs[0] = Tex.pDiffuseMap->GetSRV();
+    }
+    sprintf_s(strFileName, "Terrain\\%s_n", strNamePrefix);
+    Tex.pNormalMap = TextureManager::LoadFromFile(strFileName, false);
+    if (Tex.pNormalMap != nullptr)
+    {
+        pSRVs[1] = Tex.pNormalMap->GetSRV();
+    }
+    sprintf_s(strFileName, "Terrain\\%s_r", strNamePrefix);
+    Tex.pHeightMap = TextureManager::LoadFromFile(strFileName, false);
+    if (Tex.pHeightMap != nullptr)
+    {
+        pSRVs[2] = Tex.pHeightMap->GetSRV();
+        pSRVs[3] = pSRVs[2];
+    }
 }
 
 void TessellatedTerrain::CreateTileTriangleIB()
@@ -315,11 +358,12 @@ enum TerrainRootParams
     TerrainRootParam_DTHeightmap,
     TerrainRootParam_DTNoisemap,
     TerrainRootParam_DTShadowSSAO,
+    TerrainRootParam_DTTerrainTex,
 };
 
 void TessellatedTerrain::CreateRootSignature()
 {
-    m_RootSig.Reset(7, 6);
+    m_RootSig.Reset(8, 6);
     m_RootSig.InitStaticSampler(0, Graphics::SamplerLinearClampDesc, D3D12_SHADER_VISIBILITY_ALL);
     m_RootSig.InitStaticSampler(1, Graphics::SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_ALL);
     SamplerDesc PointWrapDesc;
@@ -339,6 +383,7 @@ void TessellatedTerrain::CreateRootSignature()
     m_RootSig[4].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 4, D3D12_SHADER_VISIBILITY_ALL);
     m_RootSig[5].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 4, D3D12_SHADER_VISIBILITY_ALL);
     m_RootSig[6].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 64, 3, D3D12_SHADER_VISIBILITY_PIXEL);
+    m_RootSig[7].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 16, 16, D3D12_SHADER_VISIBILITY_PIXEL);
     m_RootSig.Finalize(L"TessellatedTerrain RootSig", D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 }
 
@@ -438,9 +483,10 @@ void TessellatedTerrain::CreateDeformPSO()
     m_InitializationPSO.Finalize();
 
     ColorFormat[0] = m_GradientMap.GetFormat();
+    ColorFormat[1] = m_MaterialMap.GetFormat();
     m_GradientPSO = m_InitializationPSO;
     m_GradientPSO.SetPixelShader(g_pGradientPS, sizeof(g_pGradientPS));
-    m_GradientPSO.SetRenderTargetFormats(1, ColorFormat, DXGI_FORMAT_UNKNOWN);
+    m_GradientPSO.SetRenderTargetFormats(2, ColorFormat, DXGI_FORMAT_UNKNOWN);
     m_GradientPSO.Finalize();
 }
 
@@ -450,6 +496,7 @@ void TessellatedTerrain::CreateTextures()
     m_GradientMap.Create(L"TerrainTessellation GradientMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R16G16_FLOAT);
     m_ZoneMap.Create(L"TerrainTessellation ZoneMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
     m_MaterialMap.Create(L"TerrainTessellation MaterialMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
+    m_SnapGridSize = (g_WorldScale * m_OuterRingWorldSize) / g_HeightmapDimension;
 }
 
 void TessellatedTerrain::CreateNoiseTextures()
@@ -581,7 +628,7 @@ void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const Tessel
         CameraPosWorld = XMFLOAT4A(0, 0, 0, 0);
     }
 
-    RenderTerrainHeightmap(pContext, &m_HeightMap, &m_ZoneMap, &m_GradientMap, CameraPosWorld, 1.0f);
+    RenderTerrainHeightmap(pContext, &m_HeightMap, &m_ZoneMap, &m_GradientMap, &m_MaterialMap, CameraPosWorld, 1.0f);
 }
 
 void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
@@ -664,7 +711,14 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
     }
 }
 
-void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, ColorBuffer* pHeightmap, ColorBuffer* pZonemap, ColorBuffer* pGradientMap, XMFLOAT4 CameraPosWorld, FLOAT UVScale)
+void TessellatedTerrain::RenderTerrainHeightmap(
+    GraphicsContext* pContext,
+    ColorBuffer* pHeightmap,
+    ColorBuffer* pZonemap,
+    ColorBuffer* pGradientMap,
+    ColorBuffer* pMaterialMap,
+    XMFLOAT4 CameraPosWorld,
+    FLOAT UVScale)
 {
     assert(pHeightmap != nullptr && pZonemap != nullptr);
     const UINT32 Dimension = pHeightmap->GetWidth();
@@ -672,7 +726,9 @@ void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, Color
     assert(Dimension == pZonemap->GetHeight() && Dimension == pZonemap->GetWidth());
     if (pGradientMap != nullptr)
     {
+        assert(pMaterialMap != nullptr);
         assert(Dimension == pGradientMap->GetWidth() && Dimension == pGradientMap->GetHeight());
+        assert(Dimension == pMaterialMap->GetWidth() && Dimension == pMaterialMap->GetHeight());
     }
 
     pContext->SetRootSignature(m_RootSig);
@@ -687,13 +743,13 @@ void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, Color
 
     XMFLOAT4 eye = CameraPosWorld;
     eye.y = 0;
-    if (SNAP_GRID_SIZE > 0)
+    if (m_SnapGridSize > 0)
     {
-        eye.x = floorf(eye.x / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
-        eye.z = floorf(eye.z / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+        eye.x = floorf(eye.x / m_SnapGridSize) * m_SnapGridSize;
+        eye.z = floorf(eye.z / m_SnapGridSize) * m_SnapGridSize;
     }
-    eye.x /= (g_WorldScale * 32);
-    eye.z /= -(g_WorldScale * 32);
+    eye.x /= (g_WorldScale * m_OuterRingWorldSize);
+    eye.z /= -(g_WorldScale * m_OuterRingWorldSize);
     m_CBCommon.TextureWorldOffset = eye;
 
     pContext->SetDynamicConstantBufferView(TerrainRootParam_CBCommon, sizeof(m_CBCommon), &m_CBCommon);
@@ -729,9 +785,11 @@ void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, Color
     if (pGradientMap != nullptr)
     {
         pContext->TransitionResource(*pGradientMap, D3D12_RESOURCE_STATE_RENDER_TARGET);
+        pContext->TransitionResource(*pMaterialMap, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
         hRTVs[0] = pGradientMap->GetRTV();
-        pContext->SetRenderTargets(1, hRTVs);
+        hRTVs[1] = pMaterialMap->GetRTV();
+        pContext->SetRenderTargets(2, hRTVs);
         pContext->SetViewport(vp);
         pContext->SetScissor(rect);
         pContext->SetPipelineState(m_GradientPSO);
@@ -747,6 +805,7 @@ void TessellatedTerrain::RenderTerrainHeightmap(GraphicsContext* pContext, Color
         pContext->SetRenderTargets(0, nullptr);
 
         pContext->TransitionResource(*pGradientMap, D3D12_RESOURCE_STATE_GENERIC_READ);
+        pContext->TransitionResource(*pMaterialMap, D3D12_RESOURCE_STATE_GENERIC_READ);
     }
 }
 
@@ -798,7 +857,10 @@ void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const Tessella
     D3D12_CPU_DESCRIPTOR_HANDLE hSRVs[4] = {};
     hSRVs[0] = m_HeightMap.GetSRV();
     hSRVs[1] = m_GradientMap.GetSRV();
-    pContext->SetDynamicDescriptors(TerrainRootParam_DTHeightmap, 0, 2, hSRVs);
+    hSRVs[2] = m_MaterialMap.GetSRV();
+    pContext->SetDynamicDescriptors(TerrainRootParam_DTHeightmap, 0, 3, hSRVs);
+
+    SetTerrainTextures(pContext);
 
     for (int i = 0; i < m_nRings; ++i)
     {
@@ -832,15 +894,15 @@ void TessellatedTerrain::SetMatrices(const TessellatedTerrainRenderDesc* pDesc)
     // plane instead.
     const XMFLOAT4 eye = pDesc->CameraPosWorld;
     float snappedX = eye.x, snappedZ = eye.z;
-    if (SNAP_GRID_SIZE > 0)
+    if (m_SnapGridSize > 0)
     {
-        snappedX = floorf(snappedX / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
-        snappedZ = floorf(snappedZ / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+        snappedX = floorf(snappedX / m_SnapGridSize) * m_SnapGridSize;
+        snappedZ = floorf(snappedZ / m_SnapGridSize) * m_SnapGridSize;
     }
     const float dx = eye.x - snappedX;
     const float dz = eye.z - snappedZ;
-    snappedX = eye.x - 2 * dx;				// Why the 2x?  I'm confused.  But it works.
-    snappedZ = eye.z - 2 * dz;
+    snappedX = eye.x - dx;				
+    snappedZ = eye.z - dz;
     mTrans = XMMatrixTranslation(snappedX, 0, snappedZ);
     if (g_PlaceAtOrigin)
     {
@@ -882,6 +944,11 @@ void TessellatedTerrain::SetMatrices(const TessellatedTerrainRenderDesc* pDesc)
     XMStoreFloat4(&m_CBTerrain.ViewDir, mCameraWorld.r[2]);
 }
 
+void TessellatedTerrain::SetTerrainTextures(GraphicsContext* pContext)
+{
+    pContext->SetDynamicDescriptors(TerrainRootParam_DTTerrainTex, 0, 16, m_hTerrainTextures);
+}
+
 void TessellatedTerrain::UIRender(TextContext& Text)
 {
     if (!g_TerrainEnabled)
@@ -907,10 +974,14 @@ void TessellatedTerrain::UIRender(TextContext& Text)
             INT OffsetY = (i / 2) * (m_PhysicsFootprint.Height + 4);
             Text.DrawTexturedRect(HM.GetSRV(), Xpos + OffsetX, Ypos + OffsetY, m_PhysicsFootprint.Width, m_PhysicsFootprint.Height, true);
         }
+        Xpos += (m_PhysicsFootprint.Width + Spacing) * 2;
     }
+
     if (g_DrawGradientmap)
     {
         Text.DrawTexturedRect(m_GradientMap.GetSRV(), Xpos, Ypos, Width, Width, false);
+        Xpos += (Width + Spacing);
+        Text.DrawTexturedRect(m_MaterialMap.GetSRV(), Xpos, Ypos, Width, Width, false);
         Xpos += (Width + Spacing);
     }
 
@@ -935,7 +1006,7 @@ UINT32 TessellatedTerrain::PhysicsRender(GraphicsContext* pContext, const XMVECT
 
     XMFLOAT4 CameraPos;
     XMStoreFloat4(&CameraPos, EyePos);
-    RenderTerrainHeightmap(pContext, &m_PhysicsHeightMap, &m_PhysicsZoneMap, nullptr, CameraPos, UVScale);
+    RenderTerrainHeightmap(pContext, &m_PhysicsHeightMap, &m_PhysicsZoneMap, nullptr, nullptr, CameraPos, UVScale);
 
     ColorBuffer& DebugBuffer = m_DebugPhysicsHeightMaps[m_CurrentDebugHeightmapIndex];
     m_CurrentDebugHeightmapIndex = (m_CurrentDebugHeightmapIndex + 1) % ARRAYSIZE(m_DebugPhysicsHeightMaps);
