@@ -645,16 +645,23 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
     const float4 MatMapSample = g_CoarseMaterialMap.Sample(SamplerRepeatLinear, heightUV);
     float3 TempSpecular;
     float TempSpecularMask;
-    float3 TempDiffuse = TerrainMaterialBlend(MatMapSample.x, MatMapSample.y * 2, texUV, TempSpecular, TempSpecularMask);
+    float3 NormalSample;
+    float3 TempDiffuse = TerrainMaterialBlend(MatMapSample.x, MatMapSample.y * 2, texUV, TempSpecular, TempSpecularMask, NormalSample);
+
+    float3 Tangent = normalize(cross(normal, float3(1, 0, 0)));
+    float3 Bitangent = normalize(cross(Tangent, normal));
+
+    float3 NewNormal = NormalSample.x * Tangent + NormalSample.y * Bitangent + NormalSample.z * normal;
 
     float3 viewDir = normalize(input.vViewDir);
     float3 shadowCoord = input.vShadowPos;
     float3 shadowCoordOuter = input.vShadowPosOuter;
 
-    float3 LitResult = DefaultLightAndShadowModelNormal(TempDiffuse, TempSpecular, TempSpecularMask, normal, uint2(input.vPosition.xy), viewDir, shadowCoord, shadowCoordOuter);
+    float3 LitResult = DefaultLightAndShadowModelNormal(TempDiffuse, TempSpecular, TempSpecularMask, NewNormal, uint2(input.vPosition.xy), viewDir, shadowCoord, shadowCoordOuter);
     if (g_DebugShowPatches)
     {
         LitResult *= input.vNormal.x;
     }
+    //LitResult = NormalSample * 0.5 + 0.5;
     return float4(LitResult, 1);
 }
