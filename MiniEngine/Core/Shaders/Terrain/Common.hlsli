@@ -103,6 +103,13 @@ float3 SmoothLerpColor(float3 ColorA, float3 ColorB, float Value, float Center, 
     return lerp(ColorA, ColorB, LerpParam);
 }
 
+float3 SampleNormal(Texture2D TexN, float2 texUV)
+{
+    float2 nxy = TexN.Sample(SamplerRepeatLinear, texUV).xy * 2 - 1;
+    float zsq = 1.0 - dot(nxy, nxy);
+    return float3(nxy.xy, sqrt(zsq));
+}
+
 float3 SmoothLerpTex(Texture2D TexA, Texture2D TexB, float2 texUV, float Value, float Center, float Distance)
 {
     if (Value < Center)
@@ -131,7 +138,7 @@ float3 SmoothLerpTexColor(Texture2D TexA, float3 ColorB, float2 texUV, float Val
     return lerp(TexA.Sample(SamplerRepeatLinear, texUV).xyz, ColorB, LerpParam);
 }
 
-float3 TerrainMaterialBlend(float normalYSquared, float ypos, float2 texUV, out float3 SpecularColor, out float SpecularMask)
+float3 TerrainMaterialBlend(float normalYSquared, float ypos, float2 texUV, out float3 SpecularColor, out float SpecularMask, out float3 NormalSample)
 {
     SpecularColor = float3(0, 0, 0);
     SpecularMask = 0;
@@ -167,6 +174,7 @@ float3 TerrainMaterialBlend(float normalYSquared, float ypos, float2 texUV, out 
     if (normalYSquared < RockSlope)
     {
         Diffuse = g_TerrainRockDiffuse.Sample(SamplerRepeatLinear, RockTexUV).xyz;
+        NormalSample = SampleNormal(g_TerrainRockNormal, RockTexUV);
     }
     else if (normalYSquared < (RockSlope + RockSlopeBlend))
     {
@@ -175,15 +183,18 @@ float3 TerrainMaterialBlend(float normalYSquared, float ypos, float2 texUV, out 
         if (LerpFraction > RockHeight)
         {
             Diffuse = g_TerrainDirtDiffuse.Sample(SamplerRepeatLinear, ModTexUV).xyz;
+            NormalSample = SampleNormal(g_TerrainDirtNormal, ModTexUV);
         }
         else
         {
             Diffuse = g_TerrainRockDiffuse.Sample(SamplerRepeatLinear, RockTexUV).xyz;
+            NormalSample = SampleNormal(g_TerrainRockNormal, RockTexUV);
         }
     }
     else if (normalYSquared < DirtSlope)
     {
         Diffuse = g_TerrainDirtDiffuse.Sample(SamplerRepeatLinear, ModTexUV).xyz;
+        NormalSample = SampleNormal(g_TerrainDirtNormal, ModTexUV);
     }
     else if (normalYSquared < (DirtSlope + DirtSlopeBlend))
     {
@@ -192,15 +203,18 @@ float3 TerrainMaterialBlend(float normalYSquared, float ypos, float2 texUV, out 
         if (GrassHeight > LerpFraction)
         {
             Diffuse = SmoothLerpTex(g_TerrainGrassDiffuse, g_TerrainSnowDiffuse, ModTexUV, ypos, SnowAltitude, AltitudeBlend);
+            NormalSample = SampleNormal(g_TerrainGrassNormal, ModTexUV);
         }
         else
         {
             Diffuse = g_TerrainDirtDiffuse.Sample(SamplerRepeatLinear, ModTexUV).xyz;
+            NormalSample = SampleNormal(g_TerrainDirtNormal, ModTexUV);
         }
     }
     else
     {
         Diffuse = SmoothLerpTex(g_TerrainGrassDiffuse, g_TerrainSnowDiffuse, ModTexUV, ypos, SnowAltitude, AltitudeBlend);
+        NormalSample = SampleNormal(g_TerrainGrassNormal, ModTexUV);
     }
 
     return Diffuse;
