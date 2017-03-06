@@ -2,24 +2,35 @@
 //
 
 #include "stdafx.h"
+#include "TessTerrain.h"
 
 class PrintfDebugListener : public INetDebugListener
 {
 public:
     void OutputString(BOOL Label, const CHAR* strLine) override final
     {
-        puts(strLine);
+        printf(strLine);
     }
 };
 
 PrintfDebugListener g_DebugListener;
 GameNetServer g_Server;
+TessellatedTerrain m_TessTerrain;
 
 void InitializeEngine()
 {
     StringID::Initialize();
+    Graphics::Initialize();
     SystemTime::Initialize();
     DataFile::SetDataFileRootPath("Data");
+    m_TessTerrain.Initialize();
+}
+
+void TerminateEngine()
+{
+    m_TessTerrain.Terminate();
+    Graphics::Terminate();
+    Graphics::Shutdown();
 }
 
 int main()
@@ -37,10 +48,19 @@ int main()
         Sleep(0);
     }
 
+    g_Server.GetWorld()->InitializeTerrain(&m_TessTerrain);
+
     while (g_Server.IsStarted())
     {
-        g_Server.SingleThreadedTick();
+        if (g_Server.SingleThreadedTick())
+        {
+            GraphicsContext& gfxContext = GraphicsContext::Begin(L"Server Render");
+            g_Server.GetWorld()->GetTerrainPhysicsTracker()->ServerRender(&gfxContext);
+            gfxContext.Finish();
+        }
     }
+
+    TerminateEngine();
 
     return 0;
 }
