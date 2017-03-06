@@ -68,6 +68,7 @@ HRESULT NetServerBase::Start( UINT FramesPerSecond, USHORT PortNum, bool Threade
     {
         m_hThread = nullptr;
         InitializeServer();
+        DbgPrint("Server initialized and listening on port %u.\n", (UINT32)PortNum);
         QueryPerformanceCounter(&m_StartTime);
         m_NextFrameTime = m_StartTime.QuadPart + m_FrameTicks;
         m_LastFrameTime = m_StartTime.QuadPart;
