@@ -268,6 +268,15 @@
     <ClInclude Include="TessTerrain.h">
       <Filter>Source Files\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="Model.h">
+      <Filter>Source Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelInstance.h">
+      <Filter>Source Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelTemplate.h">
+      <Filter>Source Files\Graphics</Filter>
+    </ClInclude>
     <ClInclude Include="DynamicUploadBuffer.h">
       <Filter>Source Files\Graphics</Filter>
     </ClInclude>
@@ -463,6 +472,24 @@
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="TessTerrain.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Model.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelBMESH.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelGenerated.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelH3D.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelInstance.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelTemplate.cpp">
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Color.cpp">

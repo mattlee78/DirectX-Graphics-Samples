@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "ModelTemplate.h"
 #include "Model.h"
 #include "BulletPhysics.h"

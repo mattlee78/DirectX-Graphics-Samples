@@ -180,9 +180,6 @@
     <ProjectReference Include="..\GameLogic\GameLogic.vcxproj">
       <Project>{3d15482f-81e0-4e0a-b990-ccf53235c420}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\Model\Model_VS14.vcxproj">
-      <Project>{5d3aeefb-8789-48e5-9bd9-09c667052d09}</Project>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

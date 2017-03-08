@@ -22,9 +22,6 @@
     <ProjectReference Include="..\Core\Core_VS14.vcxproj">
       <Project>{86a58508-0d6a-4786-a32f-01a301fdc6f3}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\Model\Model_VS14.vcxproj">
-      <Project>{5d3aeefb-8789-48e5-9bd9-09c667052d09}</Project>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="LevelDesc.cpp" />
