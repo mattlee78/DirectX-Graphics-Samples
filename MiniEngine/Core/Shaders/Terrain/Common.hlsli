@@ -23,7 +23,7 @@ cbuffer cbCommon : register(b1)
 {
     int3   g_FractalOctaves : packoffset(c0);		// ridge, fBm, uv twist
     float3 g_TextureWorldOffset : packoffset(c1);	// Offset of fractal terrain in texture space.
-    float3 g_CoarseSampleSpacing : packoffset(c2);	// x = World space distance between samples in the coarse height map. y = world scale z = vertical scale
+    float3 g_CoarseSampleSpacing : packoffset(c2);	// x = World space distance between samples in the coarse height map. y = world scale
 };
 
 struct Adjacency
@@ -162,13 +162,6 @@ float3 TerrainMaterialBlend(float normalYSquared, float ypos, float2 texUV, out 
     const float SnowAltitude = 1.25;
     const float RockAltitude = 1.0;
     const float AltitudeBlend = 0.001;
-
-    /*
-    float3 GrassOrSnow = SmoothLerpTex(g_TerrainGrassDiffuse, g_TerrainSnowDiffuse, ModTexUV, ypos, SnowAltitude, AltitudeBlend);
-    float3 DirtOrRock = SmoothLerpTex(g_TerrainDirtDiffuse, g_TerrainRockDiffuse, ModTexUV, ypos, RockAltitude, AltitudeBlend);
-    float3 FlatOrSlope = SmoothLerpColor(DirtOrRock, GrassOrSnow, normalYSquared, DirtSlope, DirtSlopeBlend);
-    float3 SlopeOrRock = SmoothLerpTexColor(g_TerrainRockDiffuse, FlatOrSlope, RockTexUV, normalYSquared, RockSlope, RockSlopeBlend);
-    */
 
     [branch]
     if (normalYSquared < RockSlope)

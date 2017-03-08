@@ -730,7 +730,7 @@ void TerrainPhysicsTracker::CompleteTerrainBlock(TerrainBlock* pTB)
 
     const FLOAT PhysicsHeightScale = (FLOAT)(m_HeightmapFootprint.Width - 1) / m_TerrainBlockWorldScale;
 
-    const FLOAT ValueScale = m_pTerrain->GetWorldScale() * m_pTerrain->GetVerticalScale() * PhysicsHeightScale;
+    const FLOAT ValueScale = m_pTerrain->GetWorldScale() * PhysicsHeightScale;
     for (UINT32 y = 0; y < m_HeightmapFootprint.Height; ++y)
     {
         for (UINT32 x = 0; x < m_HeightmapFootprint.Width; ++x)

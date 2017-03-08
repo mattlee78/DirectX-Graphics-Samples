@@ -952,6 +952,15 @@
     <FxCompile Include="Shaders\Terrain\SmoothShadeDistantPS.hlsl">
       <Filter>Shaders\TerrainTessellation</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\Terrain\InstancePrepassCS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\InstanceRenderVS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\InstanceRenderPS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Math\Functions.inl">
@@ -1052,6 +1061,9 @@
     </None>
     <None Include="Shaders\LightAndShadow.hlsli">
       <Filter>Shaders\Misc</Filter>
+    </None>
+    <None Include="Shaders\Terrain\InstanceRendering.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
     </None>
   </ItemGroup>
 </Project>

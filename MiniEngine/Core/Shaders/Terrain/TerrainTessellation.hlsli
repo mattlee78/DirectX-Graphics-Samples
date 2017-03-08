@@ -177,7 +177,7 @@ float SampleHeightForVS(Texture2D coarseTex, SamplerState coarseSampler, float2 
     //float detail = SampleLevelDetailNoise(uv, coarse);  // detail
     float detail = 0;
 
-	return g_CoarseSampleSpacing.z * (coarse + detail);		
+	return (coarse + detail);		
 }
 
 float SampleHeightForVS(Texture2D tex, SamplerState sam, float2 worldXZ)
@@ -606,7 +606,7 @@ float3 SampleDetailNormal(float2 worldXZ)
 	const float2 uv = worldXZtoHeightUV(worldXZ);
 	float coarse = g_CoarseHeightMap.Sample(SamplerClampLinear, uv).r;
 
-	const float vScale = saturate(coarse) * g_CoarseSampleSpacing.y * g_CoarseSampleSpacing.z;
+	const float vScale = saturate(coarse) * g_CoarseSampleSpacing.y;
 
 	// The MIP-mapping doesn't seem to work very well.  Maybe I need to think more carefully about
 	// anti-aliasing the normal function?
@@ -633,7 +633,7 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
     const float2 heightUV = worldXZtoHeightUV(vWorldXZ);
 	const float ARBITRARY_FUDGE = 2;
 	const float2 grad = g_CoarseGradientMap.Sample(SamplerRepeatLinear, heightUV).rg;
-	const float vScale = ARBITRARY_FUDGE * g_CoarseSampleSpacing.y * g_CoarseSampleSpacing.z;
+	const float vScale = ARBITRARY_FUDGE * g_CoarseSampleSpacing.y;
 	const float3 coarseNormal = normalize(float3(-vScale * grad.x, g_CoarseSampleSpacing.x, -vScale * grad.y));
 	//const float3 detailNormal = SampleDetailNormal(vWorldXZ);
 	//const float3 normal = normalize(coarseNormal + detailNormal);
@@ -651,7 +651,7 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
     float3 Tangent = normalize(cross(normal, float3(1, 0, 0)));
     float3 Bitangent = normalize(cross(Tangent, normal));
 
-    float3 NewNormal = NormalSample.x * Tangent + NormalSample.y * Bitangent + NormalSample.z * normal;
+    float3 NewNormal = normalize(NormalSample.x * -Tangent + NormalSample.y * Bitangent + NormalSample.z * normal);
 
     float3 viewDir = normalize(input.vViewDir);
     float3 shadowCoord = input.vShadowPos;
