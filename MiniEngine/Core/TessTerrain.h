@@ -21,6 +21,13 @@
 #pragma once
 
 #include <d3d12.h>
+
+#include <DirectXMath.h>
+#include <DirectXPackedVector.h>
+#include <DirectXCollision.h>
+using namespace DirectX;
+using namespace DirectX::PackedVector;
+
 #include "GpuBuffer.h"
 #include "CommandContext.h"
 #include "ColorBuffer.h"
@@ -168,6 +175,62 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE m_hTerrainTextures[TTL_Count * 4];
 
     __declspec(align(16))
+    struct CBInstancedDecorationLayer
+    {
+        XMFLOAT4 ModelSpaceSizeOffset;
+        XMFLOAT4 LODFadeRadiusSquared;
+    };
+
+    struct InstanceSourcePlacementVertex
+    {
+        XMFLOAT2 PositionXZ;
+        FLOAT RandomValue;
+    };
+
+    struct InstancePlacementVertex
+    {
+        XMFLOAT4 PositionXYZScale;
+        XMFLOAT4 OrientationQuaternion;
+        XMFLOAT4 UVRect;
+    };
+
+    struct InstanceMeshVertex
+    {
+        XMHALF4 PositionXYZ;
+        XMXDECN4 Normal;
+        XMXDECN4 Tangent;
+        XMXDECN4 Binormal;
+        XMHALF2 TexCoord;
+    };
+
+    struct InstancedDecorationLayer
+    {
+        UINT32 InstanceCount;
+
+        ByteAddressBuffer InstancePlacementBuffer;
+        D3D12_VERTEX_BUFFER_VIEW PlacementVBView;
+
+        D3D12_VERTEX_BUFFER_VIEW MeshVBView;
+        D3D12_INDEX_BUFFER_VIEW MeshIBView;
+        UINT32 MeshIndexCount;
+
+        const ManagedTexture* m_pTextures[3];
+        D3D12_CPU_DESCRIPTOR_HANDLE hSRVs[3];
+
+        FLOAT VisibleRadius;
+        FLOAT FadeRadius;
+    };
+
+    InstancedDecorationLayer m_InstanceLayers[8];
+    GpuResource m_InstanceMeshData;
+    BYTE* m_pInstanceMeshData;
+    UINT32 m_MaxInstanceCount;
+    ByteAddressBuffer m_SourcePlacementBuffer;
+    ComputePSO m_InstancePlacementPSO;
+    GraphicsPSO m_InstanceRenderPSO;
+    GraphicsPSO m_InstanceDepthRenderPSO;
+
+    __declspec(align(16))
     struct CBTerrain
     {
         XMFLOAT4 DetailNoiseScale;
@@ -228,7 +291,6 @@ public:
     void Terminate();
 
     FLOAT GetWorldScale() const;
-    FLOAT GetVerticalScale() const;
 
     void OffscreenRender(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
     void Render(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
@@ -250,6 +312,10 @@ private:
     void LoadTerrainTextures();
     void LoadTerrainTexture(const CHAR* strNamePrefix, TerrainTextureLayers TTL);
 
+    void CreateInstancePSOs();
+    void CreateInstanceLayers();
+    void TerminateInstanceLayers();
+
     void RenderTerrainHeightmap(
         GraphicsContext* pContext, 
         ColorBuffer* pHeightmap, 
@@ -262,4 +328,7 @@ private:
     void SetMatrices(const TessellatedTerrainRenderDesc* pDesc);
     UINT32 FindAvailablePhysicsHeightmap();
     void SetTerrainTextures(GraphicsContext* pContext);
+
+    void RenderInstanceLayers(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
+    void RenderInstanceLayer(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc, InstancedDecorationLayer& Layer);
 };

@@ -16,6 +16,7 @@
 #include "TessTerrain.h"
 #include "BufferManager.h"
 #include "LineRender.h"
+#include "Math\Random.h"
 
 #include "CompiledShaders\InitializationVS.h"
 #include "CompiledShaders\InitializationPS.h"
@@ -28,6 +29,10 @@
 #include "CompiledShaders\VTFDisplacementVS.h"
 #include "CompiledShaders\GSSolidWire.h"
 #include "CompiledShaders\PSSolidWire.h"
+
+#include "CompiledShaders\InstancePrepassCS.h"
+#include "CompiledShaders\InstanceRenderVS.h"
+#include "CompiledShaders\InstanceRenderPS.h"
 
 BoolVar g_TerrainEnabled("Terrain/Enabled", true);
 BoolVar g_HwTessellation("Terrain/HW Tessellation", true);
@@ -48,9 +53,8 @@ IntVar g_fBmOctaves("Terrain/fBm Octaves", 3, 1, MAX_OCTAVES);
 IntVar g_TexTwistOctaves("Terrain/Tex Twist Octaves", 1, 1, MAX_OCTAVES);
 IntVar g_DetailNoiseScale("Terrain/Detail Noise Scale", 0, 0, 200);
 NumVar g_WorldScale("Terrain/World Scale", 512, 50, 2000, 50);
-NumVar g_VerticalScale("Terrain/Vertical Scale", 1.5f, 0.05f, 25.0f, 0.05f);
 ExpVar g_HeightmapDimension("Terrain/Heightmap Dimension", 1024, 5, 12, 1);
-NumVar g_DeformScale("Terrain/Generated Scale", 1.0f, 0.01f, 100.0f, 0.01f);
+NumVar g_DeformScale("Terrain/Generated Scale", 1.5f, 0.01f, 100.0f, 0.01f);
 NumVar g_DeformOffset("Terrain/Generated Offset", 0.0f, -500.0f, 500.0f, 0.01f);
 
 BoolVar g_DebugGrid("Terrain/Debug Grid Enable", false);
@@ -203,9 +207,12 @@ void TessellatedTerrain::Initialize()
     CreateRootSignature();
     CreateTessellationPSO();
     CreateDeformPSO();
+    CreateInstancePSOs();
 
     CreateTileTriangleIB();
     CreateTileQuadListIB();
+
+    CreateInstanceLayers();
 
     ZeroMemory(&m_CBCommon, sizeof(m_CBCommon));
     ZeroMemory(&m_CBTerrain, sizeof(m_CBTerrain));
@@ -241,16 +248,13 @@ void TessellatedTerrain::Terminate()
     {
         m_DebugPhysicsHeightMaps[i].Destroy();
     }
+
+    TerminateInstanceLayers();
 }
 
 FLOAT TessellatedTerrain::GetWorldScale() const
 {
     return g_WorldScale;
-}
-
-FLOAT TessellatedTerrain::GetVerticalScale() const
-{
-    return g_VerticalScale;
 }
 
 void TessellatedTerrain::LoadTerrainTextures()
@@ -359,11 +363,12 @@ enum TerrainRootParams
     TerrainRootParam_DTNoisemap,
     TerrainRootParam_DTShadowSSAO,
     TerrainRootParam_DTTerrainTex,
+    TerrainRootParam_DTUnorderedAccess,
 };
 
 void TessellatedTerrain::CreateRootSignature()
 {
-    m_RootSig.Reset(8, 6);
+    m_RootSig.Reset(9, 6);
     m_RootSig.InitStaticSampler(0, Graphics::SamplerLinearClampDesc, D3D12_SHADER_VISIBILITY_ALL);
     m_RootSig.InitStaticSampler(1, Graphics::SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_ALL);
     SamplerDesc PointWrapDesc;
@@ -384,6 +389,7 @@ void TessellatedTerrain::CreateRootSignature()
     m_RootSig[5].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 4, D3D12_SHADER_VISIBILITY_ALL);
     m_RootSig[6].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 64, 3, D3D12_SHADER_VISIBILITY_PIXEL);
     m_RootSig[7].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 16, 16, D3D12_SHADER_VISIBILITY_PIXEL);
+    m_RootSig[8].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
     m_RootSig.Finalize(L"TessellatedTerrain RootSig", D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 }
 
@@ -600,6 +606,97 @@ void TessellatedTerrain::CreateTileRings()
     m_OuterRingWorldSize = (FLOAT)pLastRing->outerWidth() * pLastRing->tileSize();
 }
 
+void TessellatedTerrain::CreateInstancePSOs()
+{
+    DXGI_FORMAT ColorFormat = Graphics::g_SceneColorBuffer.GetFormat();
+    DXGI_FORMAT DepthFormat = Graphics::g_SceneDepthBuffer.GetFormat();
+
+    static const D3D12_INPUT_ELEMENT_DESC InstanceElementDesc[] =
+    {
+        // Per vertex stream 0: InstanceMeshVertex
+        { "POSITION", 1, DXGI_FORMAT_R16G16B16A16_FLOAT, 0,  0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 2, DXGI_FORMAT_R10G10B10A2_UNORM,  0,  8, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 3, DXGI_FORMAT_R10G10B10A2_UNORM,  0, 16, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 4, DXGI_FORMAT_R10G10B10A2_UNORM,  0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 5, DXGI_FORMAT_R16G16_FLOAT,       0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+
+        // Per instance stream 1: InstancePlacementVertex
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1,  0, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 16, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 0 },
+        { "TEXCOORD", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 32, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 0 },
+    };
+
+    D3D12_BLEND_DESC BlendCoverage = Graphics::BlendTraditional;
+    BlendCoverage.AlphaToCoverageEnable = TRUE;
+
+    m_InstanceRenderPSO.SetRootSignature(m_RootSig);
+    m_InstanceRenderPSO.SetRasterizerState(Graphics::RasterizerDefault);
+    m_InstanceRenderPSO.SetBlendState(BlendCoverage);
+    m_InstanceRenderPSO.SetDepthStencilState(Graphics::DepthStateTestEqual);
+    m_InstanceRenderPSO.SetInputLayout(ARRAYSIZE(InstanceElementDesc), InstanceElementDesc);
+    m_InstanceRenderPSO.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+    m_InstanceRenderPSO.SetRenderTargetFormats(1, &ColorFormat, DepthFormat);
+    m_InstanceRenderPSO.SetVertexShader(g_pInstanceRenderVS, sizeof(g_pInstanceRenderVS));
+    m_InstanceRenderPSO.SetPixelShader(g_pInstanceRenderPS, sizeof(g_pInstanceRenderPS));
+    m_InstanceRenderPSO.Finalize();
+
+    m_InstanceDepthRenderPSO = m_InstanceRenderPSO;
+    m_InstanceDepthRenderPSO.SetDepthStencilState(Graphics::DepthStateReadWrite);
+    m_InstanceDepthRenderPSO.SetRenderTargetFormats(0, nullptr, DepthFormat);
+    m_InstanceDepthRenderPSO.Finalize();
+
+    m_InstancePlacementPSO.SetRootSignature(m_RootSig);
+    m_InstancePlacementPSO.SetComputeShader(g_pInstancePrepassCS, sizeof(g_pInstancePrepassCS));
+    m_InstancePlacementPSO.Finalize();
+}
+
+void TessellatedTerrain::CreateInstanceLayers()
+{
+    //ZeroMemory(m_InstanceLayers, sizeof(m_InstanceLayers));
+    m_MaxInstanceCount = 1024;
+
+    const UINT32 Seed = 0x123456;
+    Math::RandomNumberGenerator rng;
+    rng.SetSeed(Seed);
+
+    {
+        InstanceSourcePlacementVertex* pSourceData = new InstanceSourcePlacementVertex[m_MaxInstanceCount];
+        for (UINT32 i = 0; i < m_MaxInstanceCount; ++i)
+        {
+            InstanceSourcePlacementVertex& v = pSourceData[i];
+            XMVECTOR RandomXZ = XMVectorSet(rng.NextFloat(0, 1), rng.NextFloat(0, 1), 0, 0);
+            XMStoreFloat2(&v.PositionXZ, RandomXZ);
+            v.RandomValue = rng.NextFloat();
+        }
+        m_SourcePlacementBuffer.Create(L"Source Instance Placement Buffer", m_MaxInstanceCount, sizeof(InstanceSourcePlacementVertex), pSourceData);
+        delete[] pSourceData;
+    }
+
+    {
+        InstancedDecorationLayer& Layer = m_InstanceLayers[0];
+        Layer.InstanceCount = m_MaxInstanceCount;
+        Layer.InstancePlacementBuffer.Create(L"Instance Placement Buffer", Layer.InstanceCount, sizeof(InstancePlacementVertex), nullptr);
+        Layer.PlacementVBView = Layer.InstancePlacementBuffer.VertexBufferView();
+        Layer.VisibleRadius = 40;
+        Layer.FadeRadius = 38;
+    }
+}
+
+void TessellatedTerrain::TerminateInstanceLayers()
+{
+    m_SourcePlacementBuffer.Destroy();
+
+    for (UINT32 i = 0; i < ARRAYSIZE(m_InstanceLayers); ++i)
+    {
+        InstancedDecorationLayer& Layer = m_InstanceLayers[i];
+        if (Layer.InstanceCount > 0)
+        {
+            Layer.InstancePlacementBuffer.Destroy();
+            Layer.InstanceCount = 0;
+        }
+    }
+}
+
 void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
 {
     if (!g_TerrainEnabled)
@@ -693,6 +790,10 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
     m_CBTerrain.DetailUVScale.x = DETAIL_UV_SCALE;
     m_CBTerrain.DetailUVScale.y = 1.0f / DETAIL_UV_SCALE;
 
+    SetMatrices(pDesc);
+
+    //RenderInstanceLayers(pContext, pDesc);
+
     RenderTerrain(pContext, pDesc);
 
     if (g_DebugGrid)
@@ -709,6 +810,61 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
             }
         }
     }
+}
+
+void TessellatedTerrain::RenderInstanceLayers(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
+{
+    if (pDesc->ZPrePass)
+    {
+        ComputeContext& cContext = pContext->GetComputeContext();
+        cContext.SetRootSignature(m_RootSig);
+    }
+
+    for (UINT32 i = 0; i < ARRAYSIZE(m_InstanceLayers); ++i)
+    {
+        InstancedDecorationLayer& L = m_InstanceLayers[i];
+        if (L.InstanceCount > 0)
+        {
+            RenderInstanceLayer(pContext, pDesc, L);
+        }
+    }
+}
+
+void TessellatedTerrain::RenderInstanceLayer(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc, InstancedDecorationLayer& Layer)
+{
+    if (pDesc->ZPrePass)
+    {
+        ComputeContext& cContext = pContext->GetComputeContext();
+
+        cContext.TransitionResource(Layer.InstancePlacementBuffer, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+        cContext.SetPipelineState(m_InstancePlacementPSO);
+        cContext.SetDynamicDescriptor(TerrainRootParam_DTUnorderedAccess, 0, Layer.InstancePlacementBuffer.GetUAV());
+        cContext.SetDynamicDescriptor(TerrainRootParam_DTNoisemap, 0, m_SourcePlacementBuffer.GetSRV());
+        cContext.Dispatch1D(Layer.InstanceCount);
+
+        cContext.TransitionResource(Layer.InstancePlacementBuffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+
+        pContext->SetPipelineState(m_InstanceDepthRenderPSO);
+    }
+    else
+    {
+        pContext->SetPipelineState(m_InstanceRenderPSO);
+    }
+
+    CBInstancedDecorationLayer CBIDL = {};
+    CBIDL.LODFadeRadiusSquared.x = Layer.VisibleRadius * Layer.VisibleRadius;
+    CBIDL.LODFadeRadiusSquared.y = Layer.FadeRadius * Layer.FadeRadius;
+    CBIDL.ModelSpaceSizeOffset.x = Layer.VisibleRadius * 2;
+    CBIDL.ModelSpaceSizeOffset.y = Layer.VisibleRadius;
+    pContext->SetDynamicConstantBufferView(TerrainRootParam_CBWireframe, sizeof(CBIDL), &CBIDL);
+
+    D3D12_VERTEX_BUFFER_VIEW VBViews[2] = { Layer.MeshVBView, Layer.PlacementVBView };
+    pContext->SetVertexBuffers(0, 2, VBViews);
+    pContext->SetIndexBuffer(Layer.MeshIBView);
+    pContext->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    pContext->DrawIndexedInstanced(Layer.MeshIndexCount, Layer.InstanceCount, 0, 0, 0);
 }
 
 void TessellatedTerrain::RenderTerrainHeightmap(
@@ -739,7 +895,7 @@ void TessellatedTerrain::RenderTerrainHeightmap(
 
     m_CBCommon.CoarseSampleSpacing.x = g_WorldScale * m_pTileRings[m_nRings - 1]->outerWidth() / (FLOAT)Dimension;
     m_CBCommon.CoarseSampleSpacing.y = g_WorldScale;
-    m_CBCommon.CoarseSampleSpacing.z = g_VerticalScale;
+    m_CBCommon.CoarseSampleSpacing.z = 1.0f;
 
     XMFLOAT4 eye = CameraPosWorld;
     eye.y = 0;
@@ -811,8 +967,6 @@ void TessellatedTerrain::RenderTerrainHeightmap(
 
 void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
 {
-    SetMatrices(pDesc);
-
     bool LODShaderEnabled = false;
     if (g_HwTessellation)
     {
