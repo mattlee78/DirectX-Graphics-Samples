@@ -16,8 +16,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Core", "..\Core\Core_VS14.v
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ZLib", "..\3rdParty\zlib-win64\ZLib_VS14.vcxproj", "{AE5221D1-87E2-4428-8EF9-F25909C43291}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Model", "..\Model\Model_VS14.vcxproj", "{5D3AEEFB-8789-48E5-9BD9-09C667052D09}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BulletDynamics", "..\3rdParty\Bullet\build3\vs2015\BulletDynamics.vcxproj", "{9CC1D2EC-6CCB-8A41-AC81-19FD3296B52E}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BulletCollision", "..\3rdParty\Bullet\build3\vs2015\BulletCollision.vcxproj", "{20FC7AF7-A8BD-6446-BF3C-367470950CC8}"
@@ -90,21 +88,6 @@ Global
 		{AE5221D1-87E2-4428-8EF9-F25909C43291}.Release|x64.ActiveCfg = Release|x64
 		{AE5221D1-87E2-4428-8EF9-F25909C43291}.Release|x64.Build.0 = Release|x64
 		{AE5221D1-87E2-4428-8EF9-F25909C43291}.Release|x86.ActiveCfg = Release|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Debug|Windows.ActiveCfg = Debug|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Debug|Windows.Build.0 = Debug|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Debug|x64.ActiveCfg = Debug|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Debug|x64.Build.0 = Debug|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Debug|x86.ActiveCfg = Debug|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Profile|Windows.ActiveCfg = Profile|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Profile|Windows.Build.0 = Profile|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Profile|x64.ActiveCfg = Profile|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Profile|x64.Build.0 = Profile|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Profile|x86.ActiveCfg = Profile|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Release|Windows.ActiveCfg = Release|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Release|Windows.Build.0 = Release|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Release|x64.ActiveCfg = Release|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Release|x64.Build.0 = Release|x64
-		{5D3AEEFB-8789-48E5-9BD9-09C667052D09}.Release|x86.ActiveCfg = Release|x64
 		{9CC1D2EC-6CCB-8A41-AC81-19FD3296B52E}.Debug|Windows.ActiveCfg = Debug|x64
 		{9CC1D2EC-6CCB-8A41-AC81-19FD3296B52E}.Debug|Windows.Build.0 = Debug|x64
 		{9CC1D2EC-6CCB-8A41-AC81-19FD3296B52E}.Debug|x64.ActiveCfg = Debug|x64

@@ -91,6 +91,9 @@
     <ClInclude Include="DepthOfField.h" />
     <ClInclude Include="DynamicDescriptorHeap.h" />
     <ClInclude Include="DescriptorHeap.h" />
+    <ClInclude Include="Model.h" />
+    <ClInclude Include="ModelInstance.h" />
+    <ClInclude Include="ModelTemplate.h" />
     <ClInclude Include="TessTerrain.h" />
     <ClInclude Include="TiledResources.h" />
     <ClInclude Include="GpuBuffer.h" />
@@ -179,6 +182,12 @@
     <ClCompile Include="DepthOfField.cpp" />
     <ClCompile Include="DynamicDescriptorHeap.cpp" />
     <ClCompile Include="DescriptorHeap.cpp" />
+    <ClCompile Include="Model.cpp" />
+    <ClCompile Include="ModelBMESH.cpp" />
+    <ClCompile Include="ModelGenerated.cpp" />
+    <ClCompile Include="ModelH3D.cpp" />
+    <ClCompile Include="ModelInstance.cpp" />
+    <ClCompile Include="ModelTemplate.cpp" />
     <ClCompile Include="TessTerrain.cpp" />
     <ClCompile Include="TiledResources.cpp" />
     <ClCompile Include="EngineProfiling.cpp" />
