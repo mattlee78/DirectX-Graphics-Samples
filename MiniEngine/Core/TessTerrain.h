@@ -35,6 +35,10 @@ using namespace DirectX::PackedVector;
 struct InstanceData;
 struct Adjacency;
 struct CBLightShadowWorldConstants;
+namespace Graphics
+{
+    class Model;
+}
 
 // Int dimensions specified to the ctor are in numbers of tiles.  It's symmetrical in
 // each direction.  (Don't read much into the exact numbers of #s in this diagram.)
@@ -70,6 +74,7 @@ public:
 	int   outerWidth() const { return m_outerWidth; }
 	int   nTiles()     const { return m_nTiles; }
 	float tileSize()   const { return m_tileSize; }
+    float GetRadius()  const { return m_tileSize * (FLOAT)m_outerWidth; }
 
 private:
 	void CreateInstanceDataVB();
@@ -207,25 +212,18 @@ private:
     {
         UINT32 InstanceCount;
 
-        ByteAddressBuffer InstancePlacementBuffer;
+        StructuredBuffer InstancePlacementBuffer;
         D3D12_VERTEX_BUFFER_VIEW PlacementVBView;
 
-        D3D12_VERTEX_BUFFER_VIEW MeshVBView;
-        D3D12_INDEX_BUFFER_VIEW MeshIBView;
-        UINT32 MeshIndexCount;
-
-        const ManagedTexture* m_pTextures[3];
-        D3D12_CPU_DESCRIPTOR_HANDLE hSRVs[3];
+        Graphics::Model* pModel;
 
         FLOAT VisibleRadius;
         FLOAT FadeRadius;
     };
 
     InstancedDecorationLayer m_InstanceLayers[8];
-    GpuResource m_InstanceMeshData;
-    BYTE* m_pInstanceMeshData;
     UINT32 m_MaxInstanceCount;
-    ByteAddressBuffer m_SourcePlacementBuffer;
+    StructuredBuffer m_SourcePlacementBuffer;
     ComputePSO m_InstancePlacementPSO;
     GraphicsPSO m_InstanceRenderPSO;
     GraphicsPSO m_InstanceDepthRenderPSO;
@@ -326,6 +324,7 @@ private:
         FLOAT UVScale);
     void RenderTerrain(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
     void SetMatrices(const TessellatedTerrainRenderDesc* pDesc);
+    void SetTextureWorldOffset(const XMFLOAT4& CameraPosWorld);
     UINT32 FindAvailablePhysicsHeightmap();
     void SetTerrainTextures(GraphicsContext* pContext);
 
