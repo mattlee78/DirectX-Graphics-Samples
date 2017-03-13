@@ -20,10 +20,10 @@ struct InstancePlacementVertex
 struct InstanceMeshVertex
 {
     float3 PositionXYZ : POSITION1;
-    float3 Normal      : TEXCOORD2;
-    float3 Tangent     : TEXCOORD3;
-    float3 Binormal    : TEXCOORD4;
-    float2 TexCoord    : TEXCOORD5;
+    float2 TexCoord    : TEXCOORD2;
+    float3 Normal      : NORMAL;
+    float3 Tangent     : TANGENT;
+    float3 Binormal    : BINORMAL;
 };
 
 struct InstanceMeshOutputVertex

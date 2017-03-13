@@ -17,6 +17,7 @@
 #include "BufferManager.h"
 #include "LineRender.h"
 #include "Math\Random.h"
+#include "Model.h"
 
 #include "CompiledShaders\InitializationVS.h"
 #include "CompiledShaders\InitializationPS.h"
@@ -37,6 +38,7 @@
 BoolVar g_TerrainEnabled("Terrain/Enabled", true);
 BoolVar g_HwTessellation("Terrain/HW Tessellation", true);
 IntVar g_TessellatedTriWidth("Terrain/Tessellated Triangle Width", 20, 1, 100);
+BoolVar g_TerrainInstancesEnabled("Terrain/Instances Enabled", false);
 
 BoolVar g_TerrainWireframe("Terrain/Wireframe", false);
 NumVar g_WireframeAlpha("Terrain/Wireframe Alpha", 0.5f, 0, 5, 0.1f);
@@ -603,7 +605,7 @@ void TessellatedTerrain::CreateTileRings()
     }
 
     TileRing* pLastRing = m_pTileRings[m_nRings - 1];
-    m_OuterRingWorldSize = (FLOAT)pLastRing->outerWidth() * pLastRing->tileSize();
+    m_OuterRingWorldSize = pLastRing->GetRadius();
 }
 
 void TessellatedTerrain::CreateInstancePSOs()
@@ -614,16 +616,16 @@ void TessellatedTerrain::CreateInstancePSOs()
     static const D3D12_INPUT_ELEMENT_DESC InstanceElementDesc[] =
     {
         // Per vertex stream 0: InstanceMeshVertex
-        { "POSITION", 1, DXGI_FORMAT_R16G16B16A16_FLOAT, 0,  0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 2, DXGI_FORMAT_R10G10B10A2_UNORM,  0,  8, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 3, DXGI_FORMAT_R10G10B10A2_UNORM,  0, 16, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 4, DXGI_FORMAT_R10G10B10A2_UNORM,  0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 5, DXGI_FORMAT_R16G16_FLOAT,       0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "POSITION", 1, DXGI_FORMAT_R32G32B32_FLOAT,  0, 0                           , D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,  0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 2, DXGI_FORMAT_R32G32_FLOAT,     0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT,  0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "BINORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT,  0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 
         // Per instance stream 1: InstancePlacementVertex
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1,  0, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 16, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 0 },
-        { "TEXCOORD", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 32, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 0 },
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 0                           , D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
+        { "TEXCOORD", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
     };
 
     D3D12_BLEND_DESC BlendCoverage = Graphics::BlendTraditional;
@@ -652,8 +654,7 @@ void TessellatedTerrain::CreateInstancePSOs()
 
 void TessellatedTerrain::CreateInstanceLayers()
 {
-    //ZeroMemory(m_InstanceLayers, sizeof(m_InstanceLayers));
-    m_MaxInstanceCount = 1024;
+    m_MaxInstanceCount = 16384;
 
     const UINT32 Seed = 0x123456;
     Math::RandomNumberGenerator rng;
@@ -672,13 +673,23 @@ void TessellatedTerrain::CreateInstanceLayers()
         delete[] pSourceData;
     }
 
+    for (UINT32 i = 0; i < ARRAYSIZE(m_InstanceLayers); ++i)
+    {
+        m_InstanceLayers[i].InstanceCount = 0;
+        m_InstanceLayers[i].pModel = nullptr;
+    }
+
     {
         InstancedDecorationLayer& Layer = m_InstanceLayers[0];
         Layer.InstanceCount = m_MaxInstanceCount;
         Layer.InstancePlacementBuffer.Create(L"Instance Placement Buffer", Layer.InstanceCount, sizeof(InstancePlacementVertex), nullptr);
         Layer.PlacementVBView = Layer.InstancePlacementBuffer.VertexBufferView();
-        Layer.VisibleRadius = 40;
-        Layer.FadeRadius = 38;
+        const UINT32 RingIndex = 2;
+        const FLOAT ScaleFactor = 2.0f;
+        Layer.VisibleRadius = m_pTileRings[RingIndex]->GetRadius() * ScaleFactor;
+        Layer.FadeRadius = Layer.VisibleRadius * 0.9f;
+        Layer.pModel = new Graphics::Model();
+        Layer.pModel->Load("Models\\GrassDecoration1.bmesh");
     }
 }
 
@@ -693,6 +704,11 @@ void TessellatedTerrain::TerminateInstanceLayers()
         {
             Layer.InstancePlacementBuffer.Destroy();
             Layer.InstanceCount = 0;
+        }
+        if (Layer.pModel != nullptr)
+        {
+            delete Layer.pModel;
+            Layer.pModel = nullptr;
         }
     }
 }
@@ -792,7 +808,7 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
 
     SetMatrices(pDesc);
 
-    //RenderInstanceLayers(pContext, pDesc);
+    RenderInstanceLayers(pContext, pDesc);
 
     RenderTerrain(pContext, pDesc);
 
@@ -814,10 +830,21 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
 
 void TessellatedTerrain::RenderInstanceLayers(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
 {
+    if (!g_TerrainInstancesEnabled)
+    {
+        return;
+    }
+
     if (pDesc->ZPrePass)
     {
         ComputeContext& cContext = pContext->GetComputeContext();
         cContext.SetRootSignature(m_RootSig);
+
+        D3D12_CPU_DESCRIPTOR_HANDLE hSRVs[4] = {};
+        hSRVs[0] = m_HeightMap.GetSRV();
+        hSRVs[1] = m_GradientMap.GetSRV();
+        hSRVs[2] = m_MaterialMap.GetSRV();
+        cContext.SetDynamicDescriptors(TerrainRootParam_DTHeightmap, 0, 3, hSRVs);
     }
 
     for (UINT32 i = 0; i < ARRAYSIZE(m_InstanceLayers); ++i)
@@ -832,6 +859,15 @@ void TessellatedTerrain::RenderInstanceLayers(GraphicsContext* pContext, const T
 
 void TessellatedTerrain::RenderInstanceLayer(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc, InstancedDecorationLayer& Layer)
 {
+    CBInstancedDecorationLayer CBIDL = {};
+    CBIDL.LODFadeRadiusSquared.x = Layer.VisibleRadius * Layer.VisibleRadius;
+    CBIDL.LODFadeRadiusSquared.y = Layer.FadeRadius * Layer.FadeRadius;
+    CBIDL.ModelSpaceSizeOffset.x = Layer.VisibleRadius;
+    CBIDL.ModelSpaceSizeOffset.y = Layer.VisibleRadius * 0.5f;
+    CBIDL.ModelSpaceSizeOffset.z = m_OuterRingWorldSize / Layer.VisibleRadius;
+
+    m_CBTerrain.tileWorldSize.x = m_OuterRingWorldSize;
+
     if (pDesc->ZPrePass)
     {
         ComputeContext& cContext = pContext->GetComputeContext();
@@ -839,9 +875,12 @@ void TessellatedTerrain::RenderInstanceLayer(GraphicsContext* pContext, const Te
         cContext.TransitionResource(Layer.InstancePlacementBuffer, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
         cContext.SetPipelineState(m_InstancePlacementPSO);
+        cContext.SetDynamicConstantBufferView(TerrainRootParam_CBWireframe, sizeof(CBIDL), &CBIDL);
+        cContext.SetDynamicConstantBufferView(TerrainRootParam_CBTerrain, sizeof(m_CBTerrain), &m_CBTerrain);
+        cContext.SetDynamicConstantBufferView(TerrainRootParam_CBCommon, sizeof(m_CBCommon), &m_CBCommon);
         cContext.SetDynamicDescriptor(TerrainRootParam_DTUnorderedAccess, 0, Layer.InstancePlacementBuffer.GetUAV());
         cContext.SetDynamicDescriptor(TerrainRootParam_DTNoisemap, 0, m_SourcePlacementBuffer.GetSRV());
-        cContext.Dispatch1D(Layer.InstanceCount);
+        cContext.Dispatch2D(8, Layer.InstanceCount >> 3);
 
         cContext.TransitionResource(Layer.InstancePlacementBuffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 
@@ -852,19 +891,29 @@ void TessellatedTerrain::RenderInstanceLayer(GraphicsContext* pContext, const Te
         pContext->SetPipelineState(m_InstanceRenderPSO);
     }
 
-    CBInstancedDecorationLayer CBIDL = {};
-    CBIDL.LODFadeRadiusSquared.x = Layer.VisibleRadius * Layer.VisibleRadius;
-    CBIDL.LODFadeRadiusSquared.y = Layer.FadeRadius * Layer.FadeRadius;
-    CBIDL.ModelSpaceSizeOffset.x = Layer.VisibleRadius * 2;
-    CBIDL.ModelSpaceSizeOffset.y = Layer.VisibleRadius;
     pContext->SetDynamicConstantBufferView(TerrainRootParam_CBWireframe, sizeof(CBIDL), &CBIDL);
+    pContext->SetDynamicConstantBufferView(TerrainRootParam_CBTerrain, sizeof(m_CBTerrain), &m_CBTerrain);
 
-    D3D12_VERTEX_BUFFER_VIEW VBViews[2] = { Layer.MeshVBView, Layer.PlacementVBView };
+    D3D12_VERTEX_BUFFER_VIEW VBViews[2] = { Layer.pModel->m_VertexBuffer.VertexBufferView(), Layer.PlacementVBView };
     pContext->SetVertexBuffers(0, 2, VBViews);
-    pContext->SetIndexBuffer(Layer.MeshIBView);
+    pContext->SetIndexBuffer(Layer.pModel->m_IndexBuffer.IndexBufferView());
     pContext->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    pContext->DrawIndexedInstanced(Layer.MeshIndexCount, Layer.InstanceCount, 0, 0, 0);
+    pContext->DrawIndexedInstanced(Layer.pModel->m_pMesh[0].indexCount, Layer.InstanceCount, 0, 0, 0);
+}
+
+void TessellatedTerrain::SetTextureWorldOffset(const XMFLOAT4& CameraPosWorld)
+{
+    XMFLOAT4 eye = CameraPosWorld;
+    eye.y = 0;
+    if (m_SnapGridSize > 0)
+    {
+        eye.x = floorf(eye.x / m_SnapGridSize) * m_SnapGridSize;
+        eye.z = floorf(eye.z / m_SnapGridSize) * m_SnapGridSize;
+    }
+    eye.x /= (g_WorldScale * m_OuterRingWorldSize);
+    eye.z /= -(g_WorldScale * m_OuterRingWorldSize);
+    m_CBCommon.TextureWorldOffset = eye;
 }
 
 void TessellatedTerrain::RenderTerrainHeightmap(
@@ -897,17 +946,7 @@ void TessellatedTerrain::RenderTerrainHeightmap(
     m_CBCommon.CoarseSampleSpacing.y = g_WorldScale;
     m_CBCommon.CoarseSampleSpacing.z = 1.0f;
 
-    XMFLOAT4 eye = CameraPosWorld;
-    eye.y = 0;
-    if (m_SnapGridSize > 0)
-    {
-        eye.x = floorf(eye.x / m_SnapGridSize) * m_SnapGridSize;
-        eye.z = floorf(eye.z / m_SnapGridSize) * m_SnapGridSize;
-    }
-    eye.x /= (g_WorldScale * m_OuterRingWorldSize);
-    eye.z /= -(g_WorldScale * m_OuterRingWorldSize);
-    m_CBCommon.TextureWorldOffset = eye;
-
+    SetTextureWorldOffset(CameraPosWorld);
     pContext->SetDynamicConstantBufferView(TerrainRootParam_CBCommon, sizeof(m_CBCommon), &m_CBCommon);
 
     D3D12_CPU_DESCRIPTOR_HANDLE hNoiseTextures[4] = {};
@@ -1016,6 +1055,8 @@ void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const Tessella
 
     SetTerrainTextures(pContext);
 
+    m_CBTerrain.tileWorldSize.y = m_OuterRingWorldSize;
+
     for (int i = 0; i < m_nRings; ++i)
     {
         if (LODShaderEnabled && i > 0)
@@ -1027,7 +1068,6 @@ void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const Tessella
         pRing->SetRenderingState(pContext);
 
         m_CBTerrain.tileWorldSize.x = pRing->tileSize();
-        m_CBTerrain.tileWorldSize.y = m_OuterRingWorldSize;
 
         pContext->SetDynamicConstantBufferView(TerrainRootParam_CBTerrain, sizeof(m_CBTerrain), &m_CBTerrain);
 
