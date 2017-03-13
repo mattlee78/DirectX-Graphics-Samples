@@ -944,7 +944,7 @@ void TessellatedTerrain::RenderTerrainHeightmap(
 
     m_CBCommon.CoarseSampleSpacing.x = g_WorldScale * m_pTileRings[m_nRings - 1]->outerWidth() / (FLOAT)Dimension;
     m_CBCommon.CoarseSampleSpacing.y = g_WorldScale;
-    m_CBCommon.CoarseSampleSpacing.z = 1.0f;
+    m_CBCommon.CoarseSampleSpacing.z = (2.0f * g_WorldScale * (FLOAT)Dimension) / 1024.0f;
 
     SetTextureWorldOffset(CameraPosWorld);
     pContext->SetDynamicConstantBufferView(TerrainRootParam_CBCommon, sizeof(m_CBCommon), &m_CBCommon);
