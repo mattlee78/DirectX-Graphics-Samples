@@ -78,13 +78,13 @@ void Model::CompleteCommon(const WCHAR* strName, const CHAR* strDiffuseTexName)
     const ManagedTexture* MatTextures[6] = {};
     MatTextures[0] = TextureManager::LoadFromFile(strDiffuseTexName, true);
     MatTextures[1] = TextureManager::LoadFromFile("default_specular", true);
-    MatTextures[3] = TextureManager::LoadFromFile("default_normal", false);
+    MatTextures[2] = TextureManager::LoadFromFile("default_normal", false);
 
     m_SRVs = new D3D12_CPU_DESCRIPTOR_HANDLE[6];
     m_SRVs[0] = MatTextures[0]->GetSRV();
     m_SRVs[1] = MatTextures[1]->GetSRV();
-    m_SRVs[2] = MatTextures[0]->GetSRV();
-    m_SRVs[3] = MatTextures[3]->GetSRV();
+    m_SRVs[2] = MatTextures[2]->GetSRV();
+    m_SRVs[3] = MatTextures[0]->GetSRV();
     m_SRVs[4] = MatTextures[0]->GetSRV();
     m_SRVs[5] = MatTextures[0]->GetSRV();
 }

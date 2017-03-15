@@ -189,17 +189,17 @@ void Model::LoadTextures(void)
 				MatTextures[1] = TextureManager::LoadFromFile("default_specular", true);
 		}
 
-		// Load emissive
-		//MatTextures[2] = TextureManager::LoadFromFile(pMaterial.texEmissivePath, true);
-
 		// Load normal
-		MatTextures[3] = TextureManager::LoadFromFile(pMaterial.texNormalPath, false);
-		if (!MatTextures[3]->IsValid())
+		MatTextures[2] = TextureManager::LoadFromFile(pMaterial.texNormalPath, false);
+		if (!MatTextures[2]->IsValid())
 		{
-			MatTextures[3] = TextureManager::LoadFromFile(std::string(pMaterial.texDiffusePath) + "_normal", false);
-			if (!MatTextures[3]->IsValid())
-				MatTextures[3] = TextureManager::LoadFromFile("default_normal", false);
+			MatTextures[2] = TextureManager::LoadFromFile(std::string(pMaterial.texDiffusePath) + "_normal", false);
+			if (!MatTextures[2]->IsValid())
+				MatTextures[2] = TextureManager::LoadFromFile("default_normal", false);
 		}
+
+        // Load emissive
+        //MatTextures[3] = TextureManager::LoadFromFile(pMaterial.texEmissivePath, true);
 
 		// Load lightmap
 		//MatTextures[4] = TextureManager::LoadFromFile(pMaterial.texLightmapPath, true);
@@ -209,8 +209,8 @@ void Model::LoadTextures(void)
 
 		m_SRVs[materialIdx * 6 + 0] = MatTextures[0]->GetSRV();
 		m_SRVs[materialIdx * 6 + 1] = MatTextures[1]->GetSRV();
-		m_SRVs[materialIdx * 6 + 2] = MatTextures[0]->GetSRV();
-		m_SRVs[materialIdx * 6 + 3] = MatTextures[3]->GetSRV();
+		m_SRVs[materialIdx * 6 + 2] = MatTextures[2]->GetSRV();
+		m_SRVs[materialIdx * 6 + 3] = MatTextures[0]->GetSRV();
 		m_SRVs[materialIdx * 6 + 4] = MatTextures[0]->GetSRV();
 		m_SRVs[materialIdx * 6 + 5] = MatTextures[0]->GetSRV();
 	}

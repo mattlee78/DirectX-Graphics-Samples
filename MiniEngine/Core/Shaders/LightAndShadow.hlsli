@@ -1,8 +1,8 @@
 
 Texture2D<float3> texDiffuse : register(t0);
 Texture2D<float3> texSpecular : register(t1);
-//Texture2D<float4> texEmissive : register(t2);
-Texture2D<float3> texNormal : register(t3);
+Texture2D<float3> texNormal : register(t2);
+//Texture2D<float4> texEmissive : register(t3);
 //Texture2D<float4> texLightmap : register(t4);
 //Texture2D<float4> texReflection : register(t5);
 Texture2D<float> texSSAO : register(t64);

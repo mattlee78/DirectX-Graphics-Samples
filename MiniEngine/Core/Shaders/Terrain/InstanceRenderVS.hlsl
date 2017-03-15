@@ -6,12 +6,10 @@ void InstanceRenderVS(InstancePlacementVertex Placement, InstanceMeshVertex Mesh
     float3 ScaledPosition = Mesh.PositionXYZ * Placement.PositionXYZScale.w;
     float3 RotatedPosition = QuaternionTransformVector(Placement.OrientationQuaternion, ScaledPosition);
     float3 LocalPosition = RotatedPosition + Placement.PositionXYZScale.xyz;
-    //LocalPosition = (ScaledPosition + Placement.PositionXYZScale.xyz) * 0.01;
 
     OutMesh.Position = mul(float4(LocalPosition, 1), g_WorldViewProj);
     OutMesh.Normal = QuaternionTransformVector(Placement.OrientationQuaternion, Mesh.Normal);
     OutMesh.Tangent = QuaternionTransformVector(Placement.OrientationQuaternion, Mesh.Tangent);
     OutMesh.Binormal = QuaternionTransformVector(Placement.OrientationQuaternion, Mesh.Binormal);
-    //OutMesh.TexCoord = (Mesh.TexCoord * Placement.UVRect.zw) + Placement.UVRect.xy;
-    OutMesh.TexCoord = Placement.UVRect.xy;
+    OutMesh.TexCoord = (Mesh.TexCoord * Placement.UVRect.zw) + Placement.UVRect.xy;
 }

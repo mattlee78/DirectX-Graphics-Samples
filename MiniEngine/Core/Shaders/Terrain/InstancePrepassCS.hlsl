@@ -24,16 +24,25 @@ void InstancePrepassCS( uint3 DTid : SV_DispatchThreadID )
     float2 GradientMapSample = g_CoarseGradientMap.SampleLevel(SamplerClampLinear, InPosUV, 0).xy;
     float4 MaterialMapSample = g_CoarseMaterialMap.SampleLevel(SamplerClampLinear, InPosUV, 0);
 
-    float InstanceScale = 0.01 * InRand;
+    float MatchedScale = g_CoarseSampleSpacing.z;
+    float2 scaledgradient = GradientMapSample * MatchedScale * 0.5;
+    float3 TerrainNormal = normalize(float3(scaledgradient.x, 16, scaledgradient.y));
 
-    //HeightMapSample *= 10;
+    const float4 GradientQuaternion = QuaternionBetweenVectors(TerrainNormal, float3(0, 1, 0));
+    const float4 RotationQuaternion = QuaternionRotationNormal(float3(0, 1, 0), 6.28 * InRand);
+    const float4 OutQuaternion = QuaternionMultiply(RotationQuaternion, GradientQuaternion);
+
+    float InstanceScale = 0.003 * InRand + 0.001;
+    if (MaterialMapSample.x < 0.65)
+    {
+        InstanceScale = 0;
+    }
 
     InstancePlacementVertex Out;
 
     Out.PositionXYZScale = float4(InPosXZ.x, HeightMapSample, InPosXZ.y, InstanceScale);
-    Out.OrientationQuaternion = float4(0, 0, 0, 1);
-    Out.UVRect = float4(0, 0, 1, 1);
-    Out.UVRect.xy = InPosUV;
+    Out.OrientationQuaternion = OutQuaternion;
+    Out.UVRect = float4(0, 0.5, 0.25, 0.5);
 
     OutputVertices[index] = Out;
 }
