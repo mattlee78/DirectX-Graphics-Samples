@@ -226,7 +226,6 @@ private:
     StructuredBuffer m_SourcePlacementBuffer;
     ComputePSO m_InstancePlacementPSO;
     GraphicsPSO m_InstanceRenderPSO;
-    GraphicsPSO m_InstanceDepthRenderPSO;
 
     __declspec(align(16))
     struct CBTerrain

@@ -628,12 +628,9 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
 	//return DebugCracksPattern(input);
     float2 vWorldXZ = input.vWorldXYZ.xz;
 
-	// Not sure about the arbitrary 2x.  It looks right visually.  Maybe there's a constant somewhere in
-	// the texture sizes that I overlooked?!?
     const float2 heightUV = worldXZtoHeightUV(vWorldXZ);
-	const float ARBITRARY_FUDGE = 2;
 	const float2 grad = g_CoarseGradientMap.Sample(SamplerRepeatLinear, heightUV).rg;
-	const float vScale = ARBITRARY_FUDGE * g_CoarseSampleSpacing.y;
+	const float vScale = g_CoarseSampleSpacing.y;
 	const float3 coarseNormal = normalize(float3(-vScale * grad.x, g_CoarseSampleSpacing.x, -vScale * grad.y));
 	//const float3 detailNormal = SampleDetailNormal(vWorldXZ);
 	//const float3 normal = normalize(coarseNormal + detailNormal);
