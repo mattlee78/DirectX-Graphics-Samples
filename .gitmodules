@@ -1,12 +1,12 @@
 [submodule "MiniEngine/3rdParty/json"]
 	path = MiniEngine/3rdParty/json
 	url = https://github.com/mattlee78/json.git
-[submodule "MiniEngine/3rdParty/bullet"]
-	path = MiniEngine/3rdParty/bullet
-	url = https://github.com/mattlee78/bullet3.git
 [submodule "MiniEngine/3rdParty/ContentExporter"]
 	path = MiniEngine/3rdParty/ContentExporter
 	url = https://github.com/mattlee78/contentexporter.git
 [submodule "MiniEngine/3rdParty/lua"]
 	path = MiniEngine/3rdParty/lua
 	url = https://github.com/mattlee78/lua.git
+[submodule "MiniEngine/3rdParty/Bullet"]
+	path = MiniEngine/3rdParty/Bullet
+	url = https://github.com/mattlee78/bullet3.git

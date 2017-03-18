@@ -58,32 +58,29 @@
     <Link>
       <AdditionalOptions>/nodefaultlib:MSVCRT %(AdditionalOptions)</AdditionalOptions>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
-      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;ws2_32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>..\Core;..\Model;..\GameLogic</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Core;..\Model</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
     <Link />
     <ClCompile>
-      <AdditionalIncludeDirectories>..\Core;..\Model;..\GameLogic</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Core;..\Model</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
-      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;ws2_32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link />
     <ClCompile>
-      <AdditionalIncludeDirectories>..\Core;..\Model;..\GameLogic</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Core;..\Model</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
-      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;ws2_32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -96,23 +93,8 @@
       <Project>{86A58508-0D6A-4786-A32F-01A301FDC6F3}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
-    <ProjectReference Include="..\3rdParty\Bullet\build3\vs2015\BulletCollision.vcxproj">
-      <Project>{20fc7af7-a8bd-6446-bf3c-367470950cc8}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\3rdParty\Bullet\build3\vs2015\BulletDynamics.vcxproj">
-      <Project>{9cc1d2ec-6ccb-8a41-ac81-19fd3296b52e}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\3rdParty\Bullet\build3\vs2015\LinearMath.vcxproj">
-      <Project>{2a3727d9-9a74-a042-9d05-f57047ce1891}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\3rdParty\lua\lua.vcxproj">
-      <Project>{04ef6618-fa38-4e56-a1b5-6aabfe397e48}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\3rdParty\zlib-win64\ZLib_VS14.vcxproj">
       <Project>{ae5221d1-87e2-4428-8ef9-f25909c43291}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\GameLogic\GameLogic.vcxproj">
-      <Project>{3d15482f-81e0-4e0a-b990-ccf53235c420}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
@@ -199,9 +181,6 @@
     <FxCompile Include="Shaders\FillLightGridCS_8.hlsl" />
     <FxCompile Include="Shaders\ModelViewerPS.hlsl">
       <ShaderType>Pixel</ShaderType>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\Core\Shaders</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\Core\Shaders</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">..\Core\Shaders</AdditionalIncludeDirectories>
     </FxCompile>
     <FxCompile Include="Shaders\ModelViewerVS.hlsl">
       <ShaderType>Vertex</ShaderType>
