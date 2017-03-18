@@ -921,6 +921,7 @@ void ModelViewer::RenderUI(class GraphicsContext& Context)
 
 void ModelViewer::CreateParticleEffects()
 {
+    /*
 	ParticleEffectProperties Effect = ParticleEffectProperties();
 	Effect.MinStartColor = Effect.MaxStartColor = Effect.MinEndColor = Effect.MaxEndColor = Color(1.0f, 1.0f, 1.0f, 0.0f);
 	Effect.TexturePath = L"sparkTex.dds";
@@ -971,4 +972,5 @@ void ModelViewer::CreateParticleEffects()
 	Fire.Spread.x = 1.0f;
 	Fire.Spread.y = 60.0f;
 	ParticleEffects::InstantiateEffect( &Fire );
+    */
 }

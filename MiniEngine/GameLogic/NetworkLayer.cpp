@@ -606,11 +606,6 @@ void InputRemotingObject::ServerTick(GameNetServer* pServer, FLOAT DeltaTime, DO
     }
 }
 
-VOID GameNetServer::ClientConnected(ConnectedClient* pClient)
-{
-
-}
-
 void InputRemotingObject::NetworkObjectDeleted(INetworkObject* pNO)
 {
     if (m_pTargetModelInstance == pNO)
