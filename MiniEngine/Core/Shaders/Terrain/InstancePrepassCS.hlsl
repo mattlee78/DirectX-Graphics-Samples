@@ -14,9 +14,9 @@ void InstancePrepassCS( uint3 DTid : SV_DispatchThreadID )
 
     // Scroll InPosXZ according to camera offset
     float2 OffsetXZ = g_TextureWorldOffset.xz * float2(-g_ModelSpaceSizeOffset.z, g_ModelSpaceSizeOffset.z);
-    InPosXZ = frac(InPosXZ + OffsetXZ);
+    InPosXZ = frac(InPosXZ + OffsetXZ + g_ModelSpaceTranslation.xy);
 
-    InPosXZ = (InPosXZ * g_ModelSpaceSizeOffset.x - g_ModelSpaceSizeOffset.y);
+    InPosXZ = (InPosXZ * g_ModelSpaceSizeOffset.x - g_ModelSpaceSizeOffset.y) + g_ModelSpaceTranslation.xy;
 
     float2 InPosUV = worldXZtoHeightUV(InPosXZ);
 

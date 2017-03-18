@@ -1,0 +1,11 @@
+{
+    "ModelFileName" : "models/ramp1.bmesh",
+    "RenderOffset" : [ 0.0, 0.0, 0.0 ],
+    "RigidBody" : {
+        "Mass" : 0.0,
+        "Shape" : {
+           "MeshName" : "models/ramp1collision.bmesh",
+           "Type" : "ConvexMesh"
+        }
+    }
+}

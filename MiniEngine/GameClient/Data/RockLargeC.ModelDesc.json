@@ -1,0 +1,11 @@
+{
+    "ModelFileName" : "models/RockLarge_C_LOD0.bmesh",
+    "RenderOffset" : [ 0.0, 0.0, 0.0 ],
+    "RigidBody" : {
+        "Mass" : 0.0,
+        "Shape" : {
+           "MeshName" : "models/RockLarge_C_Collision.bmesh",
+           "Type" : "ConvexMesh"
+        }
+    }
+}

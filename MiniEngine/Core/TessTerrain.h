@@ -184,6 +184,7 @@ private:
     {
         XMFLOAT4 ModelSpaceSizeOffset;
         XMFLOAT4 LODFadeRadiusSquared;
+        XMFLOAT4 ModelSpaceTranslation;
     };
 
     struct InstanceSourcePlacementVertex

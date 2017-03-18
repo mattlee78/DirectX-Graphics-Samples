@@ -38,8 +38,10 @@
 BoolVar g_TerrainEnabled("Terrain/Enabled", true);
 BoolVar g_HwTessellation("Terrain/HW Tessellation", true);
 IntVar g_TessellatedTriWidth("Terrain/Tessellated Triangle Width", 20, 1, 100);
-BoolVar g_TerrainInstancesEnabled("Terrain/Instances/Enabled", true);
+BoolVar g_TerrainInstancesEnabled("Terrain/Instances/Enabled", false);
 BoolVar g_TerrainInstanceUpdates("Terrain/Instances/CS Update Enabled", true);
+NumVar g_InstanceModelTranslationX("Terrain/Instances/Translation X", 0.3f, -16, 16, 0.1f);
+NumVar g_InstanceModelTranslationZ("Terrain/Instances/Translation Z", 1, -16, 16, 0.1f);
 
 BoolVar g_TerrainWireframe("Terrain/Wireframe", false);
 NumVar g_WireframeAlpha("Terrain/Wireframe Alpha", 0.5f, 0, 5, 0.1f);
@@ -677,11 +679,23 @@ void TessellatedTerrain::CreateInstanceLayers()
 
     {
         InstancedDecorationLayer& Layer = m_InstanceLayers[0];
-        Layer.InstanceCount = m_MaxInstanceCount;
+        Layer.InstanceCount = 4096;
         Layer.InstancePlacementBuffer.Create(L"Instance Placement Buffer", Layer.InstanceCount, sizeof(InstancePlacementVertex), nullptr);
         Layer.PlacementVBView = Layer.InstancePlacementBuffer.VertexBufferView();
         const UINT32 RingIndex = 0;
-        const FLOAT ScaleFactor = 0.3f;
+        const FLOAT ScaleFactor = 0.1f;
+        Layer.VisibleRadius = m_pTileRings[RingIndex]->GetRadius() * ScaleFactor;
+        Layer.FadeRadius = Layer.VisibleRadius * 0.9f;
+        Layer.pModel = new Graphics::Model();
+        Layer.pModel->Load("Models\\GrassDecoration2.bmesh");
+    }
+    {
+        InstancedDecorationLayer& Layer = m_InstanceLayers[1];
+        Layer.InstanceCount = 16384;
+        Layer.InstancePlacementBuffer.Create(L"Instance Placement Buffer", Layer.InstanceCount, sizeof(InstancePlacementVertex), nullptr);
+        Layer.PlacementVBView = Layer.InstancePlacementBuffer.VertexBufferView();
+        const UINT32 RingIndex = 0;
+        const FLOAT ScaleFactor = 0.5f;
         Layer.VisibleRadius = m_pTileRings[RingIndex]->GetRadius() * ScaleFactor;
         Layer.FadeRadius = Layer.VisibleRadius * 0.9f;
         Layer.pModel = new Graphics::Model();
@@ -858,6 +872,8 @@ void TessellatedTerrain::RenderInstanceLayer(GraphicsContext* pContext, const Te
     CBIDL.ModelSpaceSizeOffset.x = Layer.VisibleRadius;
     CBIDL.ModelSpaceSizeOffset.y = Layer.VisibleRadius * 0.5f;
     CBIDL.ModelSpaceSizeOffset.z = m_OuterRingWorldSize / Layer.VisibleRadius;
+
+    CBIDL.ModelSpaceTranslation = XMFLOAT4(g_InstanceModelTranslationX, g_InstanceModelTranslationZ, 0, 0);
 
     m_CBTerrain.tileWorldSize.x = m_OuterRingWorldSize;
 
