@@ -347,6 +347,7 @@ inline void GraphicsContext::SetPipelineState( const GraphicsPSO& PSO )
 
 	m_CommandList->SetPipelineState(PipelineState);
 	m_CurGraphicsPipelineState = PipelineState;
+    m_CurComputePipelineState = nullptr;
 }
 
 inline void ComputeContext::SetPipelineState( const ComputePSO& PSO )
@@ -357,6 +358,7 @@ inline void ComputeContext::SetPipelineState( const ComputePSO& PSO )
 
 	m_CommandList->SetPipelineState(PipelineState);
 	m_CurComputePipelineState = PipelineState;
+    m_CurGraphicsPipelineState = nullptr;
 }
 
 inline void GraphicsContext::SetViewportAndScissor( UINT x, UINT y, UINT w, UINT h )
