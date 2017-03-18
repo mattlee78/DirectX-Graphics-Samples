@@ -1101,6 +1101,30 @@
     <None Include="Shaders\LightAndShadow.hlsli">
       <Filter>Shaders\Misc</Filter>
     </None>
+    <None Include="Shaders\GridTerrain.hlsli">
+      <Filter>Shaders\Terrain</Filter>
+    </None>
+    <None Include="Shaders\TerrainSpriteRS.hlsli">
+      <Filter>Shaders\Terrain</Filter>
+    </None>
+    <None Include="Shaders\Terrain\Common.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </None>
+    <None Include="Shaders\Terrain\Deformation.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </None>
+    <None Include="Shaders\Terrain\INoise.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </None>
+    <None Include="Shaders\Terrain\TerrainTessellation.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </None>
+    <None Include="Shaders\Terrain\Wireframe.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </None>
+    <None Include="Shaders\LightAndShadow.hlsli">
+      <Filter>Shaders\Misc</Filter>
+    </None>
     <None Include="Shaders\Terrain\InstanceRendering.hlsli">
       <Filter>Shaders\TerrainTessellation</Filter>
     </None>
