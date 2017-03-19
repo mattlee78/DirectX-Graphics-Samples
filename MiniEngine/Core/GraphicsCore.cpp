@@ -221,6 +221,7 @@ namespace Graphics
 
 	CommandSignature DispatchIndirectCommandSignature(1);
 	CommandSignature DrawIndirectCommandSignature(1);
+    CommandSignature DrawIndexedIndirectCommandSignature(1);
 
 	RootSignature s_PresentRS;
 	GraphicsPSO s_BlendUIPSO;
@@ -622,6 +623,9 @@ void Graphics::Initialize(void)
 	DrawIndirectCommandSignature[0].Draw();
 	DrawIndirectCommandSignature.Finalize();
 
+    DrawIndexedIndirectCommandSignature[0].DrawIndexed();
+    DrawIndexedIndirectCommandSignature.Finalize();
+
 	s_PresentRS.Reset(4, 2);
 	s_PresentRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 2);
 	s_PresentRS[1].InitAsConstants(0, 6, D3D12_SHADER_VISIBILITY_PIXEL);
@@ -711,6 +715,7 @@ void Graphics::Shutdown( void )
 
 	DispatchIndirectCommandSignature.Destroy();
 	DrawIndirectCommandSignature.Destroy();
+    DrawIndexedIndirectCommandSignature.Destroy();
 	DescriptorAllocator::DestroyAll();
 
 	DestroyRenderingBuffers();

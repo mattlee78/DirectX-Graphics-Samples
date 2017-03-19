@@ -185,15 +185,12 @@ Global
 		{04EF6618-FA38-4E56-A1B5-6AABFE397E48}.Release|x86.Build.0 = Release|Win32
 		{1813BD6E-E2AF-4A3C-8C54-4E72119DA993}.Debug|Windows.ActiveCfg = Debug|x64
 		{1813BD6E-E2AF-4A3C-8C54-4E72119DA993}.Debug|x64.ActiveCfg = Debug|x64
-		{1813BD6E-E2AF-4A3C-8C54-4E72119DA993}.Debug|x64.Build.0 = Debug|x64
 		{1813BD6E-E2AF-4A3C-8C54-4E72119DA993}.Debug|x86.ActiveCfg = Debug|x64
 		{1813BD6E-E2AF-4A3C-8C54-4E72119DA993}.Profile|Windows.ActiveCfg = Profile|x64
 		{1813BD6E-E2AF-4A3C-8C54-4E72119DA993}.Profile|x64.ActiveCfg = Profile|x64
-		{1813BD6E-E2AF-4A3C-8C54-4E72119DA993}.Profile|x64.Build.0 = Profile|x64
 		{1813BD6E-E2AF-4A3C-8C54-4E72119DA993}.Profile|x86.ActiveCfg = Profile|x64
 		{1813BD6E-E2AF-4A3C-8C54-4E72119DA993}.Release|Windows.ActiveCfg = Release|x64
 		{1813BD6E-E2AF-4A3C-8C54-4E72119DA993}.Release|x64.ActiveCfg = Release|x64
-		{1813BD6E-E2AF-4A3C-8C54-4E72119DA993}.Release|x64.Build.0 = Release|x64
 		{1813BD6E-E2AF-4A3C-8C54-4E72119DA993}.Release|x86.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution

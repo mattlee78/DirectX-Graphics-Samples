@@ -931,9 +931,6 @@
     <FxCompile Include="Shaders\LineRenderVS.hlsl">
       <Filter>Shaders\Misc</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\ColorPackingTestPS.hlsl">
-      <Filter>Shaders\Misc</Filter>
-    </FxCompile>
     <FxCompile Include="Shaders\GridTerrainPS.hlsl">
       <Filter>Shaders\Terrain</Filter>
     </FxCompile>

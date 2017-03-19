@@ -107,6 +107,13 @@ struct TessellatedTerrainRenderDesc
     D3D12_CPU_DESCRIPTOR_HANDLE* pExtraTextures;
 };
 
+struct InstancePlacementVertex
+{
+    XMFLOAT4 PositionXYZScale;
+    XMFLOAT4 OrientationQuaternion;
+    XMFLOAT4 UVRect;
+};
+
 class TessellatedTerrain
 {
 private:
@@ -183,7 +190,7 @@ private:
     struct CBInstancedDecorationLayer
     {
         XMFLOAT4 ModelSpaceSizeOffset;
-        XMFLOAT4 LODFadeRadiusSquared;
+        XMFLOAT4 LODFadeRadius;
         XMFLOAT4 ModelSpaceTranslation;
     };
 
@@ -191,13 +198,6 @@ private:
     {
         XMFLOAT2 PositionXZ;
         FLOAT RandomValue;
-    };
-
-    struct InstancePlacementVertex
-    {
-        XMFLOAT4 PositionXYZScale;
-        XMFLOAT4 OrientationQuaternion;
-        XMFLOAT4 UVRect;
     };
 
     struct InstanceMeshVertex
@@ -212,6 +212,8 @@ private:
     struct InstancedDecorationLayer
     {
         UINT32 InstanceCount;
+        UINT32 InstanceArgumentIndex;
+        UINT32 InstanceArgumentCount;
 
         StructuredBuffer InstancePlacementBuffer;
         D3D12_VERTEX_BUFFER_VIEW PlacementVBView;
@@ -227,6 +229,9 @@ private:
     StructuredBuffer m_SourcePlacementBuffer;
     ComputePSO m_InstancePlacementPSO;
     GraphicsPSO m_InstanceRenderPSO;
+
+    ByteAddressBuffer m_DrawInstancedArgumentBuffer;
+    UINT32 m_DrawInstancedArgumentCount;
 
     __declspec(align(16))
     struct CBTerrain
@@ -329,5 +334,6 @@ private:
     void SetTerrainTextures(GraphicsContext* pContext);
 
     void RenderInstanceLayers(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
+    void UpdateInstanceLayer(ComputeContext* pContext, const TessellatedTerrainRenderDesc* pDesc, InstancedDecorationLayer& Layer);
     void RenderInstanceLayer(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc, InstancedDecorationLayer& Layer);
 };

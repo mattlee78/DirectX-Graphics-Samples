@@ -101,6 +101,7 @@ namespace Graphics
 
 	extern CommandSignature DispatchIndirectCommandSignature;
 	extern CommandSignature DrawIndirectCommandSignature;
+    extern CommandSignature DrawIndexedIndirectCommandSignature;
 
 	extern DescriptorAllocator g_DescriptorAllocator[];
 	inline D3D12_CPU_DESCRIPTOR_HANDLE AllocateDescriptor( D3D12_DESCRIPTOR_HEAP_TYPE Type, UINT Count = 1 )
