@@ -312,7 +312,7 @@ void GameClient::Startup( void )
         m_NetServer.GetWorld()->InitializeTerrain(&m_TessTerrain);
     }
 
-    if (m_NetServer.IsStarted())
+    if (m_NetServer.IsStarted() && false)
     {
         DecomposedTransform DT;
         //m_NetServer.SpawnObject(nullptr, "Models/sponza.h3d", nullptr, DT, XMFLOAT3(0, 0, 0));
