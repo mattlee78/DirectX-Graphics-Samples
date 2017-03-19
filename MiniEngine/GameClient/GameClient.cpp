@@ -59,11 +59,11 @@ public:
     }
 };
 
-class ModelViewer : public GameCore::IGameApp, public IClientNotifications
+class GameClient : public GameCore::IGameApp, public IClientNotifications
 {
 public:
 
-	ModelViewer()
+	GameClient()
 		: m_pCameraController(nullptr),
           m_pInputRemoting(nullptr)
 	{
@@ -131,7 +131,7 @@ private:
     Vector3 DebugVector;
 };
 
-CREATE_APPLICATION( ModelViewer )
+CREATE_APPLICATION( GameClient )
 
 ExpVar m_SunLightIntensity("Application/Sun Light Intensity", 4.0f, 0.0f, 16.0f, 0.1f);
 ExpVar m_AmbientIntensity("Application/Ambient Intensity", 0.1f, -16.0f, 16.0f, 0.1f);
@@ -184,7 +184,7 @@ DecomposedTransform CreateCylinderTransform(UINT32 Index, XMFLOAT3 CenterPos)
     return DecomposedTransform::CreateFromComponents(XMFLOAT3(Xpos, Ypos, Zpos), Orientation);
 }
 
-void ModelViewer::Startup( void )
+void GameClient::Startup( void )
 {
     m_StartServer = true;
     strcpy_s(m_strConnectToServerName, "localhost");
@@ -204,7 +204,7 @@ void ModelViewer::Startup( void )
 	m_RootSig[3].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 6, D3D12_SHADER_VISIBILITY_PIXEL);
 	m_RootSig[4].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 64, 3, D3D12_SHADER_VISIBILITY_PIXEL);
 	m_RootSig[5].InitAsConstants(1, 1, D3D12_SHADER_VISIBILITY_VERTEX);
-	m_RootSig.Finalize(L"ModelViewer", D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	m_RootSig.Finalize(L"GameClient", D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	DXGI_FORMAT ColorFormat = g_SceneColorBuffer.GetFormat();
 	DXGI_FORMAT DepthFormat = g_SceneDepthBuffer.GetFormat();
@@ -387,7 +387,7 @@ void ModelViewer::Startup( void )
     }
 }
 
-bool ModelViewer::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument)
+bool GameClient::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument)
 {
     bool InvalidArgument = false;
     bool Result = true;
@@ -436,7 +436,7 @@ bool ModelViewer::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument
     return Result;
 }
 
-void ModelViewer::ProcessCommandLine()
+void GameClient::ProcessCommandLine()
 {
     CHAR strCmdLine[512];
     strcpy_s(strCmdLine, GetCommandLineA());
@@ -485,7 +485,7 @@ void ModelViewer::ProcessCommandLine()
     }
 }
 
-void ModelViewer::Cleanup( void )
+void GameClient::Cleanup( void )
 {
     if (m_NetClient.IsConnected(nullptr))
     {
@@ -509,7 +509,7 @@ void ModelViewer::Cleanup( void )
     m_pFollowCameraController = nullptr;
 }
 
-void ModelViewer::RemoteObjectCreated(ModelInstance* pModelInstance, UINT ParentObjectID)
+void GameClient::RemoteObjectCreated(ModelInstance* pModelInstance, UINT ParentObjectID)
 {
     if (ParentObjectID == m_NetClient.GetClientBaseObjectID())
     {
@@ -522,7 +522,7 @@ void ModelViewer::RemoteObjectCreated(ModelInstance* pModelInstance, UINT Parent
     }
 }
 
-void ModelViewer::RemoteObjectDeleted(ModelInstance* pModelInstance)
+void GameClient::RemoteObjectDeleted(ModelInstance* pModelInstance)
 {
     auto iter = m_ControllableModelInstances.find(pModelInstance);
     if (iter != m_ControllableModelInstances.end())
@@ -545,7 +545,7 @@ namespace Graphics
 	extern EnumVar DebugZoom;
 }
 
-void ModelViewer::Update( float deltaT )
+void GameClient::Update( float deltaT )
 {
 	ScopedTimer _prof(L"Update State");
 
@@ -738,12 +738,12 @@ void ModelViewer::Update( float deltaT )
     }
 }
 
-bool ModelViewer::IsDone()
+bool GameClient::IsDone()
 {
     return false;
 }
 
-void ModelViewer::RenderObjects(GraphicsContext& gfxContext, const BaseCamera& Camera, PsoLayoutCache* pPsoCache, RenderPass PassType)
+void GameClient::RenderObjects(GraphicsContext& gfxContext, const BaseCamera& Camera, PsoLayoutCache* pPsoCache, RenderPass PassType)
 {
     ModelRenderContext MRC;
     MRC.pContext = &gfxContext;
@@ -761,7 +761,7 @@ void ModelViewer::RenderObjects(GraphicsContext& gfxContext, const BaseCamera& C
     m_pClientWorld->Render(MRC);
 }
 
-void ModelViewer::RenderScene( void )
+void GameClient::RenderScene( void )
 {
     const Vector3 CameraPos = m_Camera.GetPosition();
     
@@ -895,7 +895,7 @@ void ModelViewer::RenderScene( void )
 	gfxContext.Finish();
 }
 
-void ModelViewer::RenderUI(class GraphicsContext& Context)
+void GameClient::RenderUI(class GraphicsContext& Context)
 {
     TextContext Text(Context);
     Text.Begin();
@@ -919,7 +919,7 @@ void ModelViewer::RenderUI(class GraphicsContext& Context)
     Text.End();
 }
 
-void ModelViewer::CreateParticleEffects()
+void GameClient::CreateParticleEffects()
 {
     /*
 	ParticleEffectProperties Effect = ParticleEffectProperties();
