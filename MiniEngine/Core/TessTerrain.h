@@ -112,6 +112,7 @@ struct InstancePlacementVertex
     XMFLOAT4 PositionXYZScale;
     XMFLOAT4 OrientationQuaternion;
     XMFLOAT4 UVRect;
+    XMFLOAT4 Params;
 };
 
 class TessellatedTerrain
@@ -192,12 +193,28 @@ private:
         XMFLOAT4 ModelSpaceSizeOffset;
         XMFLOAT4 LODFadeRadius;
         XMFLOAT4 ModelSpaceTranslation;
+        XMFLOAT4 WindXZVT;
+        XMFLOAT4 Appearance;
     };
 
     struct InstanceSourcePlacementVertex
     {
         XMFLOAT2 PositionXZ;
         FLOAT RandomValue;
+
+        bool operator< (const InstanceSourcePlacementVertex& RHS) const
+        {
+            const UINT32 CellCountInt = 32;
+            const FLOAT CellCount = (FLOAT)CellCountInt;
+            UINT32 MyCellX = (UINT32)(PositionXZ.x * CellCount);
+            UINT32 MyCellY = (UINT32)(PositionXZ.y * CellCount);
+            UINT32 MyCell = MyCellY * CellCountInt + MyCellX;
+            UINT32 RHSCellX = (UINT32)(RHS.PositionXZ.x * CellCount);
+            UINT32 RHSCellY = (UINT32)(RHS.PositionXZ.y * CellCount);
+            UINT32 RHSCell = RHSCellY * CellCountInt + RHSCellX;
+
+            return MyCell < RHSCell;
+        }
     };
 
     struct InstanceMeshVertex
@@ -222,6 +239,9 @@ private:
 
         FLOAT VisibleRadius;
         FLOAT FadeRadius;
+
+        FLOAT MinSize;
+        FLOAT MaxSize;
     };
 
     InstancedDecorationLayer m_InstanceLayers[8];

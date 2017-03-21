@@ -627,8 +627,9 @@ void TessellatedTerrain::CreateInstancePSOs()
 
         // Per instance stream 1: InstancePlacementVertex
         { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 0                           , D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
-        { "TEXCOORD", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
+        { "PARAM",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
+        { "PARAM",    1, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
+        { "PARAM",    2, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
     };
 
     D3D12_BLEND_DESC BlendCoverage = Graphics::BlendDisable;
@@ -659,16 +660,18 @@ void TessellatedTerrain::CreateInstanceLayers()
     rng.SetSeed(Seed);
 
     {
-        InstanceSourcePlacementVertex* pSourceData = new InstanceSourcePlacementVertex[m_MaxInstanceCount];
+        std::vector<InstanceSourcePlacementVertex> SourceData;
+        SourceData.reserve(m_MaxInstanceCount);
+        InstanceSourcePlacementVertex v;
         for (UINT32 i = 0; i < m_MaxInstanceCount; ++i)
         {
-            InstanceSourcePlacementVertex& v = pSourceData[i];
             XMVECTOR RandomXZ = XMVectorSet(rng.NextFloat(0, 1), rng.NextFloat(0, 1), 0, 0);
             XMStoreFloat2(&v.PositionXZ, RandomXZ);
             v.RandomValue = rng.NextFloat();
+            SourceData.push_back(v);
         }
-        m_SourcePlacementBuffer.Create(L"Source Instance Placement Buffer", m_MaxInstanceCount, sizeof(InstanceSourcePlacementVertex), pSourceData);
-        delete[] pSourceData;
+        std::sort(SourceData.begin(), SourceData.end());
+        m_SourcePlacementBuffer.Create(L"Source Instance Placement Buffer", m_MaxInstanceCount, sizeof(InstanceSourcePlacementVertex), &SourceData.front());
     }
 
     m_DrawInstancedArgumentCount = 4096 / sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
@@ -686,12 +689,14 @@ void TessellatedTerrain::CreateInstanceLayers()
         Layer.InstancePlacementBuffer.Create(L"Instance Placement Buffer", Layer.InstanceCount, sizeof(InstancePlacementVertex), nullptr);
         Layer.PlacementVBView = Layer.InstancePlacementBuffer.VertexBufferView();
         const UINT32 RingIndex = 0;
-        const FLOAT ScaleFactor = 0.75f;
+        const FLOAT ScaleFactor = 0.5f;
         Layer.VisibleRadius = m_pTileRings[RingIndex]->GetRadius() * ScaleFactor;
         Layer.FadeRadius = Layer.VisibleRadius * 0.8f;
         Layer.pModel = new Graphics::Model();
         Layer.pModel->Load("Models\\GrassDecoration2.bmesh");
         Layer.InstanceArgumentCount = 1;
+        Layer.MinSize = 0.5f;
+        Layer.MaxSize = 1.5f;
     }
 
     if (0)
@@ -721,6 +726,7 @@ void TessellatedTerrain::CreateInstanceLayers()
 void TessellatedTerrain::TerminateInstanceLayers()
 {
     m_SourcePlacementBuffer.Destroy();
+    m_DrawInstancedArgumentBuffer.Destroy();
 
     for (UINT32 i = 0; i < ARRAYSIZE(m_InstanceLayers); ++i)
     {
@@ -926,6 +932,12 @@ void TessellatedTerrain::UpdateInstanceLayer(ComputeContext* pContext, const Tes
     CBIDL.ModelSpaceSizeOffset.x = Layer.VisibleRadius;
     CBIDL.ModelSpaceSizeOffset.y = Layer.VisibleRadius * 0.5f;
     CBIDL.ModelSpaceSizeOffset.z = m_OuterRingWorldSize / Layer.VisibleRadius;
+    CBIDL.WindXZVT.x = 0.7071f;
+    CBIDL.WindXZVT.y = 0.7071f;
+    CBIDL.WindXZVT.z = 0.3f;
+    CBIDL.WindXZVT.w = (FLOAT)Graphics::GetAbsoluteTime();
+    CBIDL.Appearance.x = Layer.MinSize / g_WorldScale;
+    CBIDL.Appearance.y = (Layer.MaxSize - Layer.MinSize) / g_WorldScale;
 
     CBIDL.ModelSpaceTranslation = XMFLOAT4(g_InstanceModelTranslationX, g_InstanceModelTranslationZ, 0, 0);
 

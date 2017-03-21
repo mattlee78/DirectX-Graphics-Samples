@@ -12,11 +12,13 @@ void InstancePrepassCS( uint3 DTid : SV_DispatchThreadID )
     float2 InPosXZ = InputVertices[index].PositionXZ;
     const float InRand = InputVertices[index].RandomValue;
 
-    float InstanceScale = 0.002 * InRand + 0.002;
+    float InstanceScale = (g_InstanceAppearance.y * InRand) + g_InstanceAppearance.x;
 
     // Scroll InPosXZ according to camera offset
     float2 OffsetXZ = g_TextureWorldOffset.xz * float2(-g_ModelSpaceSizeOffset.z, g_ModelSpaceSizeOffset.z);
     InPosXZ = frac(InPosXZ + OffsetXZ);
+
+    float2 CenterXZ = InPosXZ * 2 - 1;
 
     InPosXZ = (InPosXZ * g_ModelSpaceSizeOffset.x - g_ModelSpaceSizeOffset.y);
 
@@ -36,10 +38,28 @@ void InstancePrepassCS( uint3 DTid : SV_DispatchThreadID )
         Visible = inFrustum(WorldPos, g_EyePos / g_CoarseSampleSpacing.y, g_ViewDir, InstanceScale * 2);
     }
 
+    float LODScale = 1.0f;
+    float LODFraction = pow(DistanceFromCamera / g_LODFadeRadius.x, 1.0f);
+    float TopLODFraction = LODFraction * 1.25f;
+    if (InRand < LODFraction)
+    {
+        Visible = false;
+    }
+    else
+    {
+        float Lerp = saturate((InRand - LODFraction) / (TopLODFraction - LODFraction));
+        LODScale = Lerp;
+    }
+
     if (Visible)
     {
         float LODFade = 1.0f - saturate((DistanceFromCamera - g_LODFadeRadius.y) * g_LODFadeRadius.z);
-        float LODScale = g_LODFadeRadius.w * DistanceFromCamera + 1.0f;
+        LODScale *= (g_LODFadeRadius.w * DistanceFromCamera + 1.0f);
+        const float FinalScale = InstanceScale * LODFade * LODScale;
+
+        float WindDot = dot(CenterXZ, g_WindXZVT.xy);
+        WindDot += InRand * 2.0f;
+        float Breeze = sin((WindDot + g_WindXZVT.w) * 3) * g_WindXZVT.z * FinalScale;
 
         float2 GradientMapSample = g_CoarseGradientMap.SampleLevel(SamplerClampLinear, InPosUV, 0).xy;
         float4 MaterialMapSample = g_CoarseMaterialMap.SampleLevel(SamplerClampLinear, InPosUV, 0);
@@ -56,9 +76,10 @@ void InstancePrepassCS( uint3 DTid : SV_DispatchThreadID )
         {
             InstancePlacementVertex Out;
 
-            Out.PositionXYZScale = float4(WorldPos, InstanceScale * LODFade * LODScale);
+            Out.PositionXYZScale = float4(WorldPos, FinalScale);
             Out.OrientationQuaternion = OutQuaternion;
             Out.UVRect = float4(0, 0.5, 0.25, 0.5);
+            Out.Params = float4(Breeze * g_WindXZVT.xy, 0, 0);
 
             OutputVertices[OutputVertices.IncrementCounter()] = Out;
         }

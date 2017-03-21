@@ -50,6 +50,9 @@ namespace Graphics
 	// between calls to present each frame.
 	float GetFrameTime(void);
 
+    // Amount of time since execution start:
+    double GetAbsoluteTime();
+
 	// The total number of frames per second
 	float GetFrameRate(void);
 

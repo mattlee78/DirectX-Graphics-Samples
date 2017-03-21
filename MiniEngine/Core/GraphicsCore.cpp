@@ -82,6 +82,7 @@ namespace
 	float s_FrameTime = 0.0f;
 	uint64_t s_FrameIndex = 0;
 	int64_t s_FrameStartTick = 0;
+    int64_t s_StartAppTick = 0;
 
 	BoolVar s_EnableVSync("Timing/VSync", true);
 	BoolVar s_LimitTo30Hz("Timing/Limit To 30Hz", false);
@@ -320,6 +321,8 @@ static HRESULT EnableExperimentalShaderModels() {
 // Initialize the DirectX resources required to run.
 void Graphics::Initialize(void)
 {
+    s_StartAppTick = SystemTime::GetCurrentTick();
+
 	ASSERT(s_SwapChain1 == nullptr, "Graphics has already been initialized");
 
 	Microsoft::WRL::ComPtr<ID3D12Device> pDevice;
@@ -927,6 +930,11 @@ uint64_t Graphics::GetFrameCount(void)
 float Graphics::GetFrameTime(void)
 {
 	return s_FrameTime;
+}
+
+double Graphics::GetAbsoluteTime()
+{
+    return SystemTime::TicksToSeconds(s_FrameStartTick - s_StartAppTick);
 }
 
 float Graphics::GetFrameRate(void)

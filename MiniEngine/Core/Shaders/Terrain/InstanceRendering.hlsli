@@ -3,6 +3,8 @@ cbuffer CBInstancedDecorationLayer : register(b2)
     float4 g_ModelSpaceSizeOffset;
     float4 g_LODFadeRadius;
     float4 g_ModelSpaceTranslation;
+    float4 g_WindXZVT;
+    float4 g_InstanceAppearance;
 };
 
 struct InstanceSourcePlacementVertex
@@ -14,8 +16,9 @@ struct InstanceSourcePlacementVertex
 struct InstancePlacementVertex
 {
     float4 PositionXYZScale         : POSITION0;
-    float4 OrientationQuaternion    : TEXCOORD0;
-    float4 UVRect                   : TEXCOORD1;
+    float4 OrientationQuaternion    : PARAM0;
+    float4 UVRect                   : PARAM1;
+    float4 Params                   : PARAM2;
 };
 
 struct InstanceMeshVertex
