@@ -195,12 +195,13 @@ private:
         XMFLOAT4 ModelSpaceTranslation;
         XMFLOAT4 WindXZVT;
         XMFLOAT4 Appearance;
+        XMFLOAT4 UVRectTable[16];
     };
 
     struct InstanceSourcePlacementVertex
     {
         XMFLOAT2 PositionXZ;
-        FLOAT RandomValue;
+        XMFLOAT2 RandomValue;
 
         bool operator< (const InstanceSourcePlacementVertex& RHS) const
         {
@@ -242,6 +243,8 @@ private:
 
         FLOAT MinSize;
         FLOAT MaxSize;
+
+        XMFLOAT4 UVRectTable[16];
     };
 
     InstancedDecorationLayer m_InstanceLayers[8];

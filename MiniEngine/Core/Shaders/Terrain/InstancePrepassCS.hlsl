@@ -10,7 +10,8 @@ void InstancePrepassCS( uint3 DTid : SV_DispatchThreadID )
     const uint index = DTid.y * 8 + DTid.x;
 
     float2 InPosXZ = InputVertices[index].PositionXZ;
-    const float InRand = InputVertices[index].RandomValue;
+    const float InRand = InputVertices[index].RandomValue.x;
+    const float InRand2 = InputVertices[index].RandomValue.y;
 
     float InstanceScale = (g_InstanceAppearance.y * InRand) + g_InstanceAppearance.x;
 
@@ -78,7 +79,7 @@ void InstancePrepassCS( uint3 DTid : SV_DispatchThreadID )
 
             Out.PositionXYZScale = float4(WorldPos, FinalScale);
             Out.OrientationQuaternion = OutQuaternion;
-            Out.UVRect = float4(0, 0.5, 0.25, 0.5);
+            Out.UVRect = g_UVRects[(uint)(InRand2 * 16)];
             Out.Params = float4(Breeze * g_WindXZVT.xy, 0, 0);
 
             OutputVertices[OutputVertices.IncrementCounter()] = Out;

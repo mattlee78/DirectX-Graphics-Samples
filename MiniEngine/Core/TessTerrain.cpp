@@ -665,9 +665,10 @@ void TessellatedTerrain::CreateInstanceLayers()
         InstanceSourcePlacementVertex v;
         for (UINT32 i = 0; i < m_MaxInstanceCount; ++i)
         {
-            XMVECTOR RandomXZ = XMVectorSet(rng.NextFloat(0, 1), rng.NextFloat(0, 1), 0, 0);
-            XMStoreFloat2(&v.PositionXZ, RandomXZ);
-            v.RandomValue = rng.NextFloat();
+            v.PositionXZ.x = rng.NextFloat();
+            v.PositionXZ.y = rng.NextFloat();
+            v.RandomValue.x = rng.NextFloat();
+            v.RandomValue.y = rng.NextFloat();
             SourceData.push_back(v);
         }
         std::sort(SourceData.begin(), SourceData.end());
@@ -697,6 +698,23 @@ void TessellatedTerrain::CreateInstanceLayers()
         Layer.InstanceArgumentCount = 1;
         Layer.MinSize = 0.5f;
         Layer.MaxSize = 1.5f;
+
+        Layer.UVRectTable[ 0] = XMFLOAT4(0.0f, 0.5f, 0.25f, 0.5f);
+        Layer.UVRectTable[ 1] = XMFLOAT4(0.0f, 0.5f, 0.25f, 0.5f);
+        Layer.UVRectTable[ 2] = XMFLOAT4(0.0f, 0.5f, 0.25f, 0.5f);
+        Layer.UVRectTable[ 3] = XMFLOAT4(0.0f, 0.5f, 0.25f, 0.5f);
+        Layer.UVRectTable[ 4] = XMFLOAT4(0.0f, 0.0f, 0.25f, 0.5f);
+        Layer.UVRectTable[ 5] = XMFLOAT4(0.0f, 0.0f, 0.25f, 0.5f);
+        Layer.UVRectTable[ 6] = XMFLOAT4(0.0f, 0.0f, 0.25f, 0.5f);
+        Layer.UVRectTable[ 7] = XMFLOAT4(0.0f, 0.0f, 0.25f, 0.5f);
+        Layer.UVRectTable[ 8] = XMFLOAT4(0.25f, 0.0f, 0.25f, 0.5f);
+        Layer.UVRectTable[ 9] = XMFLOAT4(0.25f, 0.0f, 0.25f, 0.5f);
+        Layer.UVRectTable[10] = XMFLOAT4(0.25f, 0.5f, 0.25f, 0.5f);
+        Layer.UVRectTable[11] = XMFLOAT4(0.25f, 0.5f, 0.25f, 0.5f);
+        Layer.UVRectTable[12] = XMFLOAT4(0.5f, 0.75f, 0.25f, 0.25f);
+        Layer.UVRectTable[13] = XMFLOAT4(0.5f, 0.75f, 0.25f, 0.25f);
+        Layer.UVRectTable[14] = XMFLOAT4(0.5f, 0.0f, 0.25f, 0.25f);
+        Layer.UVRectTable[15] = XMFLOAT4(0.5f, 0.5f, 0.25f, 0.25f);
     }
 
     if (0)
@@ -938,6 +956,7 @@ void TessellatedTerrain::UpdateInstanceLayer(ComputeContext* pContext, const Tes
     CBIDL.WindXZVT.w = (FLOAT)Graphics::GetAbsoluteTime();
     CBIDL.Appearance.x = Layer.MinSize / g_WorldScale;
     CBIDL.Appearance.y = (Layer.MaxSize - Layer.MinSize) / g_WorldScale;
+    memcpy(CBIDL.UVRectTable, Layer.UVRectTable, sizeof(CBIDL.UVRectTable));
 
     CBIDL.ModelSpaceTranslation = XMFLOAT4(g_InstanceModelTranslationX, g_InstanceModelTranslationZ, 0, 0);
 

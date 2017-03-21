@@ -5,12 +5,13 @@ cbuffer CBInstancedDecorationLayer : register(b2)
     float4 g_ModelSpaceTranslation;
     float4 g_WindXZVT;
     float4 g_InstanceAppearance;
+    float4 g_UVRects[16];
 };
 
 struct InstanceSourcePlacementVertex
 {
     float2 PositionXZ;
-    float RandomValue;
+    float2 RandomValue;
 };
 
 struct InstancePlacementVertex
