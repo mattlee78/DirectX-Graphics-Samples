@@ -174,6 +174,7 @@
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="Utility.h" />
     <ClInclude Include="VectorMath.h" />
+    <ClInclude Include="WorldGridBuilder.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BuddyAllocator.cpp" />
@@ -250,6 +251,7 @@
     <ClCompile Include="TextRenderer.cpp" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="Utility.cpp" />
+    <ClCompile Include="WorldGridBuilder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\AdaptExposureCS.hlsl" />

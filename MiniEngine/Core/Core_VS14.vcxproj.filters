@@ -280,6 +280,7 @@
     <ClInclude Include="DynamicUploadBuffer.h">
       <Filter>Source Files\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="WorldGridBuilder.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SystemTime.cpp">
@@ -498,6 +499,7 @@
     <ClCompile Include="DynamicUploadBuffer.cpp">
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="WorldGridBuilder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source Files">
