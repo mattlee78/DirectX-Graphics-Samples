@@ -6,6 +6,7 @@
 #include "BulletPhysics.h"
 #include "Network\NetworkTransform.h"
 #include "ModelTemplate.h"
+#include "WorldGridBuilder.h"
 
 namespace Graphics
 {
@@ -179,68 +180,6 @@ private:
 typedef std::unordered_map<UINT32, ModelInstance*> ModelInstanceMap;
 typedef std::unordered_set<ModelInstance*> ModelInstanceSet;
 
-class TerrainPhysicsTracker
-{
-private:
-    TessellatedTerrain* m_pTerrain;
-    PhysicsWorld* m_pPhysicsWorld;
-    FLOAT m_TerrainBlockWorldScale;
-
-    union TerrainCoord
-    {
-        struct
-        {
-            INT32 X;
-            INT32 Z;
-        };
-        UINT64 Hash;
-
-        XMVECTOR GetWorldPosition(FLOAT WorldScale, FLOAT BlockOffset = 0.0f) const;
-    };
-
-    struct TerrainBlock
-    {
-        UINT64 AvailableFence;
-        UINT64 LastFrameUsed;
-        TerrainCoord Coord;
-        CollisionShape* pShape;
-        RigidBody* pRigidBody;
-        UINT32 HeightmapIndex;
-        const FLOAT* pGpuSamples;
-        FLOAT* pHeightmapSamples;
-    };
-
-    typedef std::unordered_map<UINT64, TerrainBlock*> TerrainBlockMap;
-    TerrainBlockMap m_BlockMap;
-
-    D3D12_SUBRESOURCE_FOOTPRINT m_HeightmapFootprint;
-
-public:
-    TerrainPhysicsTracker()
-        : m_pTerrain(nullptr),
-          m_pPhysicsWorld(nullptr)
-    { 
-        ZeroMemory(&m_HeightmapFootprint, sizeof(m_HeightmapFootprint));
-    }
-    bool IsInitialized() const { return m_pTerrain != nullptr; }
-
-    void Initialize(TessellatedTerrain* pTerrain, PhysicsWorld* pWorld, FLOAT BlockWorldScale);
-    void Terminate();
-
-    void ClearBlocks();
-
-    void TrackObject(const XMVECTOR& Origin, const XMVECTOR& Velocity, FLOAT Radius);
-    void Update();
-
-    void ServerRender(GraphicsContext* pContext);
-
-private:
-    TerrainCoord VectorToCoord(const XMVECTOR& Coord) const;
-    void TrackRect(const TerrainCoord& MinCoord, const TerrainCoord& MaxCoord);
-    void FreeTerrainBlock(TerrainBlock* pTB);
-    void CompleteTerrainBlock(TerrainBlock* pTB);
-};
-
 interface IWorldNotifications
 {
 public:
@@ -251,7 +190,7 @@ class World
 {
 private:
     PhysicsWorld m_PhysicsWorld;
-    TerrainPhysicsTracker m_TerrainPhysicsTracker;
+    TerrainPhysicsMap m_TerrainPhysicsMap;
     ModelInstanceSet m_ModelInstances;
     bool m_GraphicsEnabled;
 
@@ -272,7 +211,7 @@ public:
     ModelInstance* SpawnModelInstance(ModelTemplate* pTemplate, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, bool IsRemote = false);
 
     PhysicsWorld* GetPhysicsWorld() { return &m_PhysicsWorld; }
-    TerrainPhysicsTracker* GetTerrainPhysicsTracker() { return &m_TerrainPhysicsTracker; }
+    TerrainPhysicsMap* GetTerrainPhysicsMap() { return &m_TerrainPhysicsMap; }
 
     ModelTemplate* FindOrCreateModelTemplate(const CHAR* strTemplateName);
 };

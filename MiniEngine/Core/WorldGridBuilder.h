@@ -1,6 +1,8 @@
 #pragma once
 
 #include <unordered_map>
+#include <DirectXMath.h>
+#include <DirectXPackedVector.h>
 
 class WorldGridBuilder
 {
@@ -90,4 +92,89 @@ protected:
     void TrackRect(const BlockCoord& MinCoord, const BlockCoord& MaxCoord);
     void TrackBlock(const BlockCoord& Coord);
     void FreeTerrainBlock(TerrainBlock* pTB);
+};
+
+class TessellatedTerrain;
+
+class TerrainServerRenderer : public WorldGridBuilder
+{
+protected:
+    TessellatedTerrain* m_pTessTerrain;
+
+    struct BlockData
+    {
+        FLOAT* pData;
+        UINT32 HeightmapIndex;
+        const FLOAT* pGpuSamples;
+        D3D12_SUBRESOURCE_FOOTPRINT Footprint;
+        FLOAT MinValue;
+        FLOAT MaxValue;
+    };
+
+public:
+    TerrainServerRenderer()
+        : m_pTessTerrain(nullptr)
+    { }
+
+    void Initialize(TessellatedTerrain* pTerrain, FLOAT BlockWorldScale);
+    void Terminate();
+
+    void ServerRender(GraphicsContext* pContext);
+
+protected:
+    virtual bool IsInitialized() { return m_pTessTerrain != nullptr; }
+    virtual void InitializeBlockData(TerrainBlock* pNewBlock);
+    virtual bool IsBlockInitialized(TerrainBlock* pNewBlock);
+    virtual void CompleteBlockData(TerrainBlock* pBlock, TerrainBlock* pNeighborBlocks[4]);
+    virtual void DeleteBlockData(TerrainBlock* pBlock);
+
+    void ConvertHeightmap(TerrainBlock* pBlock);
+
+    virtual void ProcessTerrainHeightfield(TerrainBlock* pBlock) {}
+    virtual void CompleteTerrainHeightfield(TerrainBlock* pBlock, TerrainBlock* pNeighborBlocks[4]) {}
+};
+
+class PhysicsWorld;
+class RigidBody;
+class CollisionShape;
+
+class TerrainPhysicsMap : public TerrainServerRenderer
+{
+protected:
+    PhysicsWorld* m_pPhysicsWorld;
+
+    struct PhysicsBlockData : public BlockData
+    {
+        RigidBody* pRigidBody;
+        CollisionShape* pShape;
+    };
+
+public:
+    void Initialize(PhysicsWorld* pPhysicsWorld, TessellatedTerrain* pTessTerrain, FLOAT BlockWorldScale);
+
+protected:
+    virtual void InitializeBlockData(TerrainBlock* pNewBlock);
+    virtual void DeleteBlockData(TerrainBlock* pBlock);
+    virtual void ProcessTerrainHeightfield(TerrainBlock* pBlock);
+};
+
+class TerrainObjectMap : public TerrainServerRenderer
+{
+protected:
+    struct PlacedObject
+    {
+        DirectX::PackedVector::XMHALF2 NormCoord;
+        FLOAT Radius;
+    };
+
+    struct ObjectBlockData : public BlockData
+    {
+        std::vector<PlacedObject> ObjectCoords;
+    };
+
+protected:
+    virtual void InitializeBlockData(TerrainBlock* pNewBlock);
+    virtual void DeleteBlockData(TerrainBlock* pBlock);
+    virtual void ProcessTerrainHeightfield(TerrainBlock* pBlock);
+    virtual void CompleteTerrainHeightfield(TerrainBlock* pBlock, TerrainBlock* pNeighborBlocks[4]);
 };

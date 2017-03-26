@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "WorldGridBuilder.h"
 #include "GraphicsCore.h"
+#include "TessTerrain.h"
+#include "BulletPhysics.h"
 
 WorldGridBuilder::WorldGridBuilder()
 {
@@ -179,4 +181,247 @@ WorldGridBuilder::TerrainBlock* WorldGridBuilder::FindBlock(const BlockCoord& Co
         return iter->second;
     }
     return nullptr;
+}
+
+void TerrainServerRenderer::Initialize(TessellatedTerrain* pTerrain, FLOAT BlockWorldScale)
+{
+    m_pTessTerrain = pTerrain;
+    WorldGridBuilder::Initialize(BlockWorldScale);
+}
+
+void TerrainServerRenderer::Terminate()
+{
+    m_pTessTerrain = nullptr;
+    WorldGridBuilder::Terminate();
+}
+
+void TerrainServerRenderer::InitializeBlockData(TerrainBlock* pNewBlock)
+{
+    BlockData* pBD = (BlockData*)pNewBlock->pData;
+    if (pBD == nullptr)
+    {
+        pBD = new BlockData();
+        pNewBlock->pData = pBD;
+    }
+    pBD->pData = nullptr;
+    pBD->pGpuSamples = nullptr;
+    pBD->HeightmapIndex = -1;
+    pBD->MinValue = 0;
+    pBD->MaxValue = 0;
+}
+
+void TerrainServerRenderer::DeleteBlockData(TerrainBlock* pBlock)
+{
+    BlockData* pBD = (BlockData*)pBlock->pData;
+    if (pBD == nullptr)
+    {
+        return;
+    }
+
+    if (pBD->HeightmapIndex != -1)
+    {
+        m_pTessTerrain->FreePhysicsHeightmap(pBD->HeightmapIndex);
+        pBD->HeightmapIndex = -1;
+    }
+
+    if (pBD->pData != nullptr)
+    {
+        delete[] pBD->pData;
+        pBD->pData = nullptr;
+    }
+
+    delete pBD;
+    pBlock->pData = nullptr;
+}
+
+bool TerrainServerRenderer::IsBlockInitialized(TerrainBlock* pNewBlock)
+{
+    BlockData* pBD = (BlockData*)pNewBlock->pData;
+
+    if (pBD->HeightmapIndex == -1 || pNewBlock->AvailableFence == 0)
+    {
+        return false;
+    }
+
+    CommandQueue& CQ = Graphics::g_CommandManager.GetQueue();
+
+    if (CQ.IsFenceComplete(pNewBlock->AvailableFence))
+    {
+        assert(pBD->pGpuSamples != nullptr);
+        ProcessTerrainHeightfield(pNewBlock);
+        m_pTessTerrain->FreePhysicsHeightmap(pBD->HeightmapIndex);
+        pBD->HeightmapIndex = -1;
+        pBD->pGpuSamples = nullptr;
+        pNewBlock->AvailableFence = -1;
+        return true;
+    }
+
+    return false;
+}
+
+void TerrainServerRenderer::CompleteBlockData(TerrainBlock* pBlock, TerrainBlock* pNeighborBlocks[4])
+{
+    BlockData* pBD = (BlockData*)pBlock->pData;
+    assert(pBD->HeightmapIndex == -1);
+    assert(pBD->pGpuSamples == nullptr);
+    CompleteTerrainHeightfield(pBlock, pNeighborBlocks);
+}
+
+void TerrainServerRenderer::ServerRender(GraphicsContext* pContext)
+{
+    if (!IsInitialized())
+    {
+        return;
+    }
+
+    auto iter = m_BlockMap.begin();
+    auto end = m_BlockMap.end();
+    while (iter != end)
+    {
+        TerrainBlock* pTB = iter->second;
+        if (pTB->State == WorldGridBuilder::BlockState::Created && pTB->AvailableFence == 0)
+        {
+            BlockData* pBD = (BlockData*)pTB->pData;
+
+            const XMVECTOR BlockPos = pTB->Coord.GetWorldPosition(m_BlockWorldScale);
+
+            UINT32 HeightmapIndex = m_pTessTerrain->PhysicsRender(pContext, BlockPos, m_BlockWorldScale, &pBD->pGpuSamples, &pBD->Footprint);
+            if (HeightmapIndex != -1)
+            {
+                pBD->HeightmapIndex = HeightmapIndex;
+                pTB->AvailableFence = Graphics::g_CommandManager.GetQueue().GetNextFenceValue();
+            }
+        }
+
+        ++iter;
+    }
+}
+
+void TerrainServerRenderer::ConvertHeightmap(TerrainBlock* pBlock)
+{
+    BlockData* pBD = (BlockData*)pBlock->pData;
+    const D3D12_SUBRESOURCE_FOOTPRINT& Footprint = pBD->Footprint;
+
+    assert(pBD->HeightmapIndex != -1);
+    const FLOAT* pSrc = pBD->pGpuSamples;
+    const FLOAT* pSrcRow = pSrc;
+    FLOAT* pSamples = new FLOAT[Footprint.Width * Footprint.Height];
+    FLOAT* pDestRow = pSamples;
+
+    FLOAT MinValue = FLT_MAX;
+    FLOAT MaxValue = -FLT_MAX;
+
+    const FLOAT PhysicsHeightScale = (FLOAT)(Footprint.Width - 1) / m_BlockWorldScale;
+
+    const FLOAT ValueScale = m_pTessTerrain->GetWorldScale() * PhysicsHeightScale;
+    for (UINT32 y = 0; y < Footprint.Height; ++y)
+    {
+        for (UINT32 x = 0; x < Footprint.Width; ++x)
+        {
+            FLOAT SrcValue = pSrcRow[x];
+            FLOAT DestValue = SrcValue * ValueScale;
+            pDestRow[x] = DestValue;
+            if (DestValue < MinValue) MinValue = DestValue;
+            if (DestValue > MaxValue) MaxValue = DestValue;
+        }
+        pSrcRow = (const FLOAT*)((BYTE*)pSrcRow + Footprint.RowPitch);
+        pDestRow += Footprint.Width;
+    }
+
+    pBD->pData = pSamples;
+    pBD->MinValue = MinValue;
+    pBD->MaxValue = MaxValue;
+}
+
+void TerrainPhysicsMap::Initialize(PhysicsWorld* pPhysicsWorld, TessellatedTerrain* pTessTerrain, FLOAT BlockWorldScale)
+{
+    m_pPhysicsWorld = pPhysicsWorld;
+    TerrainServerRenderer::Initialize(pTessTerrain, BlockWorldScale);
+}
+
+void TerrainPhysicsMap::InitializeBlockData(TerrainBlock* pNewBlock)
+{
+    PhysicsBlockData* pBD = new PhysicsBlockData();
+    pBD->pRigidBody = nullptr;
+    pBD->pShape = nullptr;
+    pNewBlock->pData = pBD;
+
+    TerrainServerRenderer::InitializeBlockData(pNewBlock);
+}
+
+void TerrainPhysicsMap::DeleteBlockData(TerrainBlock* pBlock)
+{
+    PhysicsBlockData* pBD = (PhysicsBlockData*)pBlock->pData;
+    if (pBD->pRigidBody != nullptr)
+    {
+        m_pPhysicsWorld->RemoveRigidBody(pBD->pRigidBody);
+        delete pBD->pRigidBody;
+        pBD->pRigidBody = nullptr;
+    }
+
+    if (pBD->pShape != nullptr)
+    {
+        delete pBD->pShape;
+        pBD->pShape = nullptr;
+    }
+
+    TerrainServerRenderer::DeleteBlockData(pBlock);
+}
+
+void TerrainPhysicsMap::ProcessTerrainHeightfield(TerrainBlock* pBlock)
+{
+    PhysicsBlockData* pBD = (PhysicsBlockData*)pBlock->pData;
+    const D3D12_SUBRESOURCE_FOOTPRINT& Footprint = pBD->Footprint;
+    ConvertHeightmap(pBlock);
+
+    const FLOAT PhysicsHeightScale = (FLOAT)(Footprint.Width - 1) / m_BlockWorldScale;
+    const FLOAT ShapeScale = 1.0f / PhysicsHeightScale;
+    const FLOAT CenterYPos = (pBD->MinValue + pBD->MaxValue) * 0.5f * ShapeScale;
+
+    CollisionShape* pShape = CollisionShape::CreateHeightfield(pBD->pData, Footprint.Width, Footprint.Height, pBD->MinValue, pBD->MaxValue);
+    pShape->SetUniformScale(1.0f / PhysicsHeightScale);
+
+    XMVECTOR BlockCenterPos = pBlock->Coord.GetWorldPosition(m_BlockWorldScale, 0.5f);
+    BlockCenterPos -= XMVectorSet(0, 0, m_BlockWorldScale, 0);
+    BlockCenterPos = XMVectorSetY(BlockCenterPos, CenterYPos);
+    XMMATRIX matTransform = XMMatrixTranslationFromVector(BlockCenterPos);
+    RigidBody* pRB = new RigidBody(pShape, 0, matTransform);
+
+    m_pPhysicsWorld->AddRigidBody(pRB);
+
+    pBD->pShape = pShape;
+    pBD->pRigidBody = pRB;
+}
+
+void TerrainObjectMap::InitializeBlockData(TerrainBlock* pNewBlock)
+{
+    ObjectBlockData* pBD = new ObjectBlockData();
+    pNewBlock->pData = pBD;
+    TerrainServerRenderer::InitializeBlockData(pNewBlock);
+}
+
+void TerrainObjectMap::DeleteBlockData(TerrainBlock* pBlock)
+{
+    TerrainServerRenderer::DeleteBlockData(pBlock);
+}
+
+void TerrainObjectMap::ProcessTerrainHeightfield(TerrainBlock* pBlock)
+{
+    ObjectBlockData* pBD = (ObjectBlockData*)pBlock->pData;
+    const D3D12_SUBRESOURCE_FOOTPRINT& Footprint = pBD->Footprint;
+    ConvertHeightmap(pBlock);
+
+    // TODO: place objects
+}
+
+void TerrainObjectMap::CompleteTerrainHeightfield(TerrainBlock* pBlock, TerrainBlock* pNeighborBlocks[4])
+{
+    ObjectBlockData* pBD = (ObjectBlockData*)pBlock->pData;
+    ObjectBlockData* pNBD[4];
+    for (UINT32 i = 0; i < 4; ++i)
+    {
+        pNBD[i] = (ObjectBlockData*)pNeighborBlocks[i]->pData;
+    }
+
+    // TODO: add additional cross-block objects based on objects within pBD and pNBDs
 }
