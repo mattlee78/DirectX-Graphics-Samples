@@ -83,6 +83,7 @@ private:
 
 public:
     GameNetClient();
+    void InitializeWorld();
     void Terminate();
     void SetNotificationClient(IClientNotifications* pNotifications) { m_pNotifications = pNotifications; }
     World* GetWorld() { return &m_World; }

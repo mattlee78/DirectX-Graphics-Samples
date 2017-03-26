@@ -65,6 +65,9 @@ NumVar g_DeformOffset("Terrain/Generated Offset", 0.0f, -500.0f, 500.0f, 0.01f);
 BoolVar g_DebugGrid("Terrain/Debug Grid Enable", false);
 NumVar g_DebugGridScale("Terrain/Debug Grid Scale", 512, 50.0f, 5000.0f, 50.0f);
 
+static const DXGI_FORMAT g_HeightmapFormat = DXGI_FORMAT_R32_FLOAT;
+static const DXGI_FORMAT g_ZoneMapFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+
 struct Adjacency
 {
 	// These are the size of the neighbours along +/- x or y axes.  For interior tiles
@@ -199,8 +202,10 @@ TessellatedTerrain::TessellatedTerrain()
     ZeroMemory(m_pTileRings, sizeof(m_pTileRings));
 }
 
-void TessellatedTerrain::Initialize()
+void TessellatedTerrain::Initialize(bool ClientGraphicsEnabled)
 {
+    m_ClientGraphicsEnabled = ClientGraphicsEnabled;
+
     LoadTerrainTextures();
 
     CreateTileRings();
@@ -267,10 +272,13 @@ void TessellatedTerrain::LoadTerrainTextures()
     ZeroMemory(m_hTerrainTextures, sizeof(m_hTerrainTextures));
     ZeroMemory(m_TerrainTextures, sizeof(m_TerrainTextures));
 
-    LoadTerrainTexture("TerrainRock", TTL_Rock);
-    LoadTerrainTexture("TerrainDirt", TTL_Dirt);
-    LoadTerrainTexture("TerrainGrass_Far", TTL_Grass);
-    LoadTerrainTexture("TerrainSnow", TTL_Snow);
+    if (m_ClientGraphicsEnabled)
+    {
+        LoadTerrainTexture("TerrainRock", TTL_Rock);
+        LoadTerrainTexture("TerrainDirt", TTL_Dirt);
+        LoadTerrainTexture("TerrainGrass_Far", TTL_Grass);
+        LoadTerrainTexture("TerrainSnow", TTL_Snow);
+    }
 }
 
 void TessellatedTerrain::LoadTerrainTexture(const CHAR* strNamePrefix, TerrainTextureLayers TTL)
@@ -480,7 +488,7 @@ void TessellatedTerrain::CreateTessellationPSO()
 
 void TessellatedTerrain::CreateDeformPSO()
 {
-    DXGI_FORMAT ColorFormat[2] = { m_HeightMap.GetFormat(), m_ZoneMap.GetFormat() };
+    DXGI_FORMAT ColorFormat[2] = { g_HeightmapFormat, g_ZoneMapFormat };
 
     m_InitializationPSO.SetRootSignature(m_RootSig);
     m_InitializationPSO.SetRasterizerState(Graphics::RasterizerDefault);
@@ -503,10 +511,13 @@ void TessellatedTerrain::CreateDeformPSO()
 
 void TessellatedTerrain::CreateTextures()
 {
-    m_HeightMap.Create(L"TerrainTessellation Heightmap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R32_FLOAT);
-    m_GradientMap.Create(L"TerrainTessellation GradientMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R16G16_FLOAT);
-    m_ZoneMap.Create(L"TerrainTessellation ZoneMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
-    m_MaterialMap.Create(L"TerrainTessellation MaterialMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
+    if (m_ClientGraphicsEnabled)
+    {
+        m_HeightMap.Create(L"TerrainTessellation Heightmap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, g_HeightmapFormat);
+        m_GradientMap.Create(L"TerrainTessellation GradientMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R16G16_FLOAT);
+        m_ZoneMap.Create(L"TerrainTessellation ZoneMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, g_ZoneMapFormat);
+        m_MaterialMap.Create(L"TerrainTessellation MaterialMap", (UINT32)g_HeightmapDimension, (UINT32)g_HeightmapDimension, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
+    }
     m_SnapGridSize = (g_WorldScale * m_OuterRingWorldSize) / g_HeightmapDimension;
 }
 
@@ -564,7 +575,7 @@ void TessellatedTerrain::CreatePhysicsTextures()
 {
     const UINT32 PhysicsTextureSize = 64 + 1;
 
-    m_PhysicsFootprint.Format = m_HeightMap.GetFormat();
+    m_PhysicsFootprint.Format = g_HeightmapFormat;
     m_PhysicsFootprint.Width = PhysicsTextureSize;
     m_PhysicsFootprint.Height = PhysicsTextureSize;
     m_PhysicsFootprint.Depth = 1;
@@ -572,7 +583,7 @@ void TessellatedTerrain::CreatePhysicsTextures()
     m_PhysicsFootprint.RowPitch = ((PhysicsTextureSize * sizeof(FLOAT)) + AlignmentMask) & ~AlignmentMask;
 
     m_PhysicsHeightMap.Create(L"TerrainTessellation Physics Heightmap", m_PhysicsFootprint.Width, m_PhysicsFootprint.Height, 1, m_PhysicsFootprint.Format);
-    m_PhysicsZoneMap.Create(L"TerrainTessellation Physics ZoneMap", m_PhysicsFootprint.Width, m_PhysicsFootprint.Height, 1, m_ZoneMap.GetFormat());
+    m_PhysicsZoneMap.Create(L"TerrainTessellation Physics ZoneMap", m_PhysicsFootprint.Width, m_PhysicsFootprint.Height, 1, g_ZoneMapFormat);
 
     for (UINT32 i = 0; i < ARRAYSIZE(m_DebugPhysicsHeightMaps); ++i)
     {
@@ -653,6 +664,11 @@ void TessellatedTerrain::CreateInstancePSOs()
 
 void TessellatedTerrain::CreateInstanceLayers()
 {
+    if (!m_ClientGraphicsEnabled)
+    {
+        return;
+    }
+
     m_MaxInstanceCount = 128 * 1024;
 
     const UINT32 Seed = 0x123456;
@@ -769,6 +785,8 @@ void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const Tessel
         return;
     }
 
+    assert(m_ClientGraphicsEnabled);
+
     const UINT32 CurrentDimension = m_HeightMap.GetWidth();
     if (CurrentDimension != (UINT32)g_HeightmapDimension)
     {
@@ -799,6 +817,8 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
     {
         return;
     }
+
+    assert(m_ClientGraphicsEnabled);
 
     if (pDesc->ZPrePass && g_TerrainWireframe)
     {
@@ -883,6 +903,8 @@ void TessellatedTerrain::RenderInstanceLayers(GraphicsContext* pContext, const T
     {
         return;
     }
+
+    assert(m_ClientGraphicsEnabled);
 
     if (g_TerrainInstanceUpdates)
     {

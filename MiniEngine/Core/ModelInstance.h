@@ -6,6 +6,7 @@
 #include "BulletPhysics.h"
 #include "Network\NetworkTransform.h"
 #include "ModelTemplate.h"
+#include "TessTerrain.h"
 #include "WorldGridBuilder.h"
 
 namespace Graphics
@@ -190,6 +191,7 @@ class World
 {
 private:
     PhysicsWorld m_PhysicsWorld;
+    TessellatedTerrain m_TessTerrain;
     TerrainPhysicsMap m_TerrainPhysicsMap;
     ModelInstanceSet m_ModelInstances;
     bool m_GraphicsEnabled;
@@ -202,7 +204,6 @@ public:
     virtual ~World();
 
     void Initialize(bool GraphicsEnabled, IWorldNotifications* pNotify);
-    void InitializeTerrain(TessellatedTerrain* pTerrain);
     void Terminate();
     void Tick(float deltaT, INT64 Ticks);
     void Render(ModelRenderContext& MRC);
@@ -211,6 +212,7 @@ public:
     ModelInstance* SpawnModelInstance(ModelTemplate* pTemplate, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, bool IsRemote = false);
 
     PhysicsWorld* GetPhysicsWorld() { return &m_PhysicsWorld; }
+    TessellatedTerrain* GetTerrain() { return &m_TessTerrain; }
     TerrainPhysicsMap* GetTerrainPhysicsMap() { return &m_TerrainPhysicsMap; }
 
     ModelTemplate* FindOrCreateModelTemplate(const CHAR* strTemplateName);

@@ -85,7 +85,6 @@ private:
     void ProcessCommandLine();
     bool ProcessCommand(const CHAR* strCommand, const CHAR* strArgument);
 	void RenderObjects(GraphicsContext& Context, const BaseCamera& Camera, PsoLayoutCache* pPsoCache, RenderPass PassType);
-    void CreateParticleEffects();
 
     void RemoteObjectCreated(ModelInstance* pModelInstance, UINT ParentObjectID);
     void RemoteObjectDeleted(ModelInstance* pModelInstance);
@@ -125,8 +124,6 @@ private:
     GameNetServer m_NetServer;
     PrintfDebugListener m_ServerDebugListener;
     std::vector<ModelInstance*> m_PlacedModelInstances;
-
-    TessellatedTerrain m_TessTerrain;
 
     Vector3 DebugVector;
 };
@@ -255,11 +252,10 @@ void GameClient::Startup( void )
 
 	TextureManager::Initialize(L"Textures/");
 
+    m_NetClient.InitializeWorld();
     m_pClientWorld = m_NetClient.GetWorld();
 
     ModelInstance* pMI = nullptr;
-
-	//CreateParticleEffects();
 
     Vector3 eye(100, 100, -100);
     if (pMI != nullptr)
@@ -304,12 +300,6 @@ void GameClient::Startup( void )
             m_NetClient.SetNotificationClient(this);
             m_NetClient.Connect(15, m_strConnectToServerName, m_ConnectToPort, L"", L"");
         }
-    }
-
-    m_TessTerrain.Initialize();
-    if (m_NetServer.IsStarted())
-    {
-        m_NetServer.GetWorld()->InitializeTerrain(&m_TessTerrain);
     }
 
     if (m_NetServer.IsStarted() && false)
@@ -499,8 +489,6 @@ void GameClient::Cleanup( void )
     }
 
     m_NetClient.Terminate();
-
-    m_TessTerrain.Terminate();
 
 	delete m_pCameraController;
 	m_pCameraController = nullptr;
@@ -779,10 +767,8 @@ void GameClient::RenderScene( void )
 
     if (m_NetServer.IsStarted())
     {
-        m_NetServer.GetWorld()->GetTerrainPhysicsTracker()->ServerRender(&gfxContext);
+        m_NetServer.GetWorld()->GetTerrainPhysicsMap()->ServerRender(&gfxContext);
     }
-
-	ParticleEffects::Update(gfxContext.GetComputeContext(), Graphics::GetFrameTime());
 
     CBLightShadowWorldConstants psConstants = {};
     psConstants.sunDirection = m_SunDirection;
@@ -802,7 +788,7 @@ void GameClient::RenderScene( void )
     RD.pLightShadowConstants = &psConstants;
     RD.pExtraTextures = m_ExtraTextures;
 
-    m_TessTerrain.OffscreenRender(&gfxContext, &RD);
+    m_NetClient.GetWorld()->GetTerrain()->OffscreenRender(&gfxContext, &RD);
 
 	{
 		ScopedTimer _prof(L"Z PrePass", gfxContext);
@@ -819,7 +805,7 @@ void GameClient::RenderScene( void )
 		RenderObjects(gfxContext, m_Camera, &m_DepthPSOCache, RenderPass_ZPrePass);
 
         RD.ZPrePass = true;
-        m_TessTerrain.Render(&gfxContext, &RD);
+        m_NetClient.GetWorld()->GetTerrain()->Render(&gfxContext, &RD);
 	}
 
 	SSAO::Render(gfxContext, m_Camera);
@@ -878,13 +864,11 @@ void GameClient::RenderScene( void )
             RenderObjects(gfxContext, m_Camera, &m_ModelPSOCache, RenderPass_Color);
 
             RD.ZPrePass = false;
-            m_TessTerrain.Render(&gfxContext, &RD);
+            m_NetClient.GetWorld()->GetTerrain()->Render(&gfxContext, &RD);
 
             LineRender::Render(gfxContext, m_ViewProjMatrix);
         }
 	}
-
-	//ParticleEffects::Render(gfxContext, m_Camera, g_SceneColorBuffer, g_SceneDepthBuffer, g_LinearDepth);
 
 	// Until I work out how to couple these two, it's "either-or".
 	if (DepthOfField::Enable)
@@ -914,63 +898,7 @@ void GameClient::RenderUI(class GraphicsContext& Context)
         Text.DrawTexturedRect(g_OuterShadowBuffer.GetSRV(), 1920 - Width, Width, Width, Width, true);
     }
 
-    m_TessTerrain.UIRender(Text);
+    m_NetClient.GetWorld()->GetTerrain()->UIRender(Text);
 
     Text.End();
-}
-
-void GameClient::CreateParticleEffects()
-{
-    /*
-	ParticleEffectProperties Effect = ParticleEffectProperties();
-	Effect.MinStartColor = Effect.MaxStartColor = Effect.MinEndColor = Effect.MaxEndColor = Color(1.0f, 1.0f, 1.0f, 0.0f);
-	Effect.TexturePath = L"sparkTex.dds";
-
-	Effect.TotalActiveLifetime = FLT_MAX;
-	Effect.Size = Vector4(4.0f, 8.0f, 4.0f, 8.0f);
-	Effect.Velocity = Vector4(20.0f, 200.0f, 50.0f, 180.0f);
-	Effect.LifeMinMax = XMFLOAT2(1.0f, 3.0f);
-	Effect.MassMinMax = XMFLOAT2(4.5f, 15.0f);
-	Effect.EmitProperties.Gravity = XMFLOAT3(0.0f, -100.0f, 0.0f);
-	Effect.EmitProperties.FloorHeight = -0.5f;
-	Effect.EmitProperties.EmitPosW = Effect.EmitProperties.LastEmitPosW = XMFLOAT3(-1200.0f, 185.0f, -445.0f);
-	Effect.EmitProperties.MaxParticles = 800;
-	Effect.EmitRate = 64.0f;
-	Effect.Spread.x = 20.0f;
-	Effect.Spread.y = 50.0f;
-	ParticleEffects::InstantiateEffect( &Effect );
-
-	ParticleEffectProperties Smoke = ParticleEffectProperties();
-	Smoke.TexturePath = L"smoke.dds";
-
-	Smoke.TotalActiveLifetime = FLT_MAX;;
-	Smoke.EmitProperties.MaxParticles = 25;
-	Smoke.EmitProperties.EmitPosW = Smoke.EmitProperties.LastEmitPosW = XMFLOAT3(1120.0f, 185.0f, -445.0f);
-	Smoke.EmitRate = 64.0f;
-	Smoke.LifeMinMax = XMFLOAT2(2.5f, 4.0f);
-	Smoke.Size = Vector4(60.0f, 108.0f, 30.0f, 208.0f);
-	Smoke.Velocity = Vector4(30.0f, 30.0f, 10.0f, 40.0f);
-	Smoke.MassMinMax = XMFLOAT2(1.0, 3.5);
-	Smoke.Spread.x = 60.0f;
-	Smoke.Spread.y = 70.0f;
-	Smoke.Spread.z = 20.0f;
-	ParticleEffects::InstantiateEffect( &Smoke );
-
-	ParticleEffectProperties Fire = ParticleEffectProperties();
-	Fire.MinStartColor = Fire.MaxStartColor = Fire.MinEndColor = Fire.MaxEndColor = Color(1.0f, 1.0f, 1.0f, 0.0f);
-	Fire.TexturePath = L"fire.dds";
-
-	Fire.TotalActiveLifetime = FLT_MAX;
-	Fire.Size = Vector4(54.0f, 68.0f, 0.1f, 0.3f);
-	Fire.Velocity = Vector4 (10.0f, 30.0f, 50.0f, 50.0f);
-	Fire.LifeMinMax = XMFLOAT2(1.0f, 3.0f);
-	Fire.MassMinMax = XMFLOAT2(10.5f, 14.0f);
-	Fire.EmitProperties.Gravity = XMFLOAT3(0.0f, 1.0f, 0.0f);
-	Fire.EmitProperties.EmitPosW = Fire.EmitProperties.LastEmitPosW = XMFLOAT3(1120.0f, 125.0f, 405.0f);
-	Fire.EmitProperties.MaxParticles = 25;
-	Fire.EmitRate = 64.0f;
-	Fire.Spread.x = 1.0f;
-	Fire.Spread.y = 60.0f;
-	ParticleEffects::InstantiateEffect( &Fire );
-    */
 }

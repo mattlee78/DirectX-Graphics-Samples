@@ -423,11 +423,8 @@ void World::Initialize(bool GraphicsEnabled, IWorldNotifications* pNotify)
     m_GraphicsEnabled = GraphicsEnabled;
     m_pNotify = pNotify;
     m_PhysicsWorld.Initialize(0, XMVectorSet(0, -9.8f, 0, 0));
-}
-
-void World::InitializeTerrain(TessellatedTerrain* pTerrain)
-{
-    m_TerrainPhysicsMap.Initialize(&m_PhysicsWorld, pTerrain, pTerrain->GetWorldScale() * 0.25f);
+    m_TessTerrain.Initialize(GraphicsEnabled);
+    m_TerrainPhysicsMap.Initialize(&m_PhysicsWorld, &m_TessTerrain, m_TessTerrain.GetWorldScale() * 0.25f);
 }
 
 void World::Tick(float deltaT, INT64 Ticks)
@@ -564,5 +561,6 @@ void World::Terminate()
         }
         m_ModelTemplates.clear();
     }
+    m_TessTerrain.Terminate();
 }
 

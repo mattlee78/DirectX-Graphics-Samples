@@ -8,9 +8,13 @@ GameNetClient::GameNetClient()
     m_BaseObjectID = 0;
 }
 
-VOID GameNetClient::InitializeClient()
+void GameNetClient::InitializeWorld()
 {
     m_World.Initialize(true, nullptr);
+}
+
+VOID GameNetClient::InitializeClient()
+{
 }
 
 INetworkObject* GameNetClient::CreateRemoteObject(INetworkObject* pParentObject, UINT ID, const VOID* pCreationData, SIZE_T CreationDataSizeBytes)

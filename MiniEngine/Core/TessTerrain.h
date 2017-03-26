@@ -118,6 +118,8 @@ struct InstancePlacementVertex
 class TessellatedTerrain
 {
 private:
+    bool m_ClientGraphicsEnabled;
+
     static const int VTX_PER_TILE_EDGE = 9;				// overlap => -2
     static const int TRI_STRIP_INDEX_COUNT = (VTX_PER_TILE_EDGE - 1) * (2 * VTX_PER_TILE_EDGE + 2);
     static const int QUAD_LIST_INDEX_COUNT = (VTX_PER_TILE_EDGE - 1) * (VTX_PER_TILE_EDGE - 1) * 4;
@@ -313,7 +315,7 @@ private:
 public:
     TessellatedTerrain();
 
-    void Initialize();
+    void Initialize(bool ClientGraphicsEnabled);
     void Terminate();
 
     FLOAT GetWorldScale() const;

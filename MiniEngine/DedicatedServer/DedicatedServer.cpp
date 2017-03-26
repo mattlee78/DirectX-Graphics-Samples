@@ -15,7 +15,6 @@ public:
 
 PrintfDebugListener g_DebugListener;
 GameNetServer g_Server;
-TessellatedTerrain m_TessTerrain;
 
 void InitializeEngine()
 {
@@ -23,12 +22,11 @@ void InitializeEngine()
     Graphics::Initialize();
     SystemTime::Initialize();
     DataFile::SetDataFileRootPath("Data");
-    m_TessTerrain.Initialize();
 }
 
 void TerminateEngine()
 {
-    m_TessTerrain.Terminate();
+    g_Server.Terminate();
     Graphics::Terminate();
     Graphics::Shutdown();
 }
@@ -48,14 +46,12 @@ int main()
         Sleep(0);
     }
 
-    g_Server.GetWorld()->InitializeTerrain(&m_TessTerrain);
-
     while (g_Server.IsStarted())
     {
         if (g_Server.SingleThreadedTick())
         {
             GraphicsContext& gfxContext = GraphicsContext::Begin(L"Server Render");
-            g_Server.GetWorld()->GetTerrainPhysicsTracker()->ServerRender(&gfxContext);
+            g_Server.GetWorld()->GetTerrainPhysicsMap()->ServerRender(&gfxContext);
             gfxContext.Finish();
         }
     }
