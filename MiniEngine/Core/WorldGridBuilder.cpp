@@ -3,6 +3,8 @@
 #include "GraphicsCore.h"
 #include "TessTerrain.h"
 #include "BulletPhysics.h"
+#include "LineRender.h"
+#include "Math/Random.h"
 
 WorldGridBuilder::WorldGridBuilder()
 {
@@ -171,6 +173,8 @@ void WorldGridBuilder::Update()
 
         iter = nextiter;
     }
+
+    PostUpdate();
 }
 
 WorldGridBuilder::TerrainBlock* WorldGridBuilder::FindBlock(const BlockCoord& Coord) const
@@ -297,7 +301,7 @@ void TerrainServerRenderer::ServerRender(GraphicsContext* pContext)
     }
 }
 
-void TerrainServerRenderer::ConvertHeightmap(TerrainBlock* pBlock)
+void TerrainServerRenderer::ConvertHeightmap(TerrainBlock* pBlock, FLOAT HeightScaleFactor)
 {
     BlockData* pBD = (BlockData*)pBlock->pData;
     const D3D12_SUBRESOURCE_FOOTPRINT& Footprint = pBD->Footprint;
@@ -311,9 +315,7 @@ void TerrainServerRenderer::ConvertHeightmap(TerrainBlock* pBlock)
     FLOAT MinValue = FLT_MAX;
     FLOAT MaxValue = -FLT_MAX;
 
-    const FLOAT PhysicsHeightScale = (FLOAT)(Footprint.Width - 1) / m_BlockWorldScale;
-
-    const FLOAT ValueScale = m_pTessTerrain->GetWorldScale() * PhysicsHeightScale;
+    const FLOAT ValueScale = m_pTessTerrain->GetWorldScale() * HeightScaleFactor;
     for (UINT32 y = 0; y < Footprint.Height; ++y)
     {
         for (UINT32 x = 0; x < Footprint.Width; ++x)
@@ -372,9 +374,9 @@ void TerrainPhysicsMap::ProcessTerrainHeightfield(TerrainBlock* pBlock)
 {
     PhysicsBlockData* pBD = (PhysicsBlockData*)pBlock->pData;
     const D3D12_SUBRESOURCE_FOOTPRINT& Footprint = pBD->Footprint;
-    ConvertHeightmap(pBlock);
-
     const FLOAT PhysicsHeightScale = (FLOAT)(Footprint.Width - 1) / m_BlockWorldScale;
+    ConvertHeightmap(pBlock, PhysicsHeightScale);
+
     const FLOAT ShapeScale = 1.0f / PhysicsHeightScale;
     const FLOAT CenterYPos = (pBD->MinValue + pBD->MaxValue) * 0.5f * ShapeScale;
 
@@ -395,6 +397,7 @@ void TerrainPhysicsMap::ProcessTerrainHeightfield(TerrainBlock* pBlock)
 
 void TerrainObjectMap::InitializeBlockData(TerrainBlock* pNewBlock)
 {
+    m_RequireNeighborsForCompletion = true;
     ObjectBlockData* pBD = new ObjectBlockData();
     pNewBlock->pData = pBD;
     TerrainServerRenderer::InitializeBlockData(pNewBlock);
@@ -409,9 +412,23 @@ void TerrainObjectMap::ProcessTerrainHeightfield(TerrainBlock* pBlock)
 {
     ObjectBlockData* pBD = (ObjectBlockData*)pBlock->pData;
     const D3D12_SUBRESOURCE_FOOTPRINT& Footprint = pBD->Footprint;
-    ConvertHeightmap(pBlock);
+    ConvertHeightmap(pBlock, 1.0f);
 
     // TODO: place objects
+    Math::RandomNumberGenerator rng;
+    rng.SetSeed((UINT32)pBlock->Coord.Hash ^ (UINT32)(pBlock->Coord.Hash >> 32));
+
+    PlacedObject PO;
+    for (UINT32 i = 0; i < 100; ++i)
+    {
+//         UINT32 Row = i / 10;
+//         UINT32 Col = i % 10;
+//         XMVECTOR NormXY = XMVectorSet((FLOAT)Row * 0.1f, (FLOAT)Col * 0.1f, 0, 0);
+        XMVECTOR NormXY = XMVectorSet(rng.NextFloat(), rng.NextFloat(), 0, 0);
+        XMStoreHalf2(&PO.NormCoord, NormXY);
+        PO.Radius = rng.NextFloat(0, 5);
+        pBD->ObjectCoords.push_back(PO);
+    }
 }
 
 void TerrainObjectMap::CompleteTerrainHeightfield(TerrainBlock* pBlock, TerrainBlock* pNeighborBlocks[4])
@@ -421,7 +438,74 @@ void TerrainObjectMap::CompleteTerrainHeightfield(TerrainBlock* pBlock, TerrainB
     for (UINT32 i = 0; i < 4; ++i)
     {
         pNBD[i] = (ObjectBlockData*)pNeighborBlocks[i]->pData;
+        assert(pNBD[i] != nullptr);
     }
 
     // TODO: add additional cross-block objects based on objects within pBD and pNBDs
+}
+
+void TerrainObjectMap::PostUpdate()
+{
+    if (1)
+    {
+        return;
+    }
+
+    const FLOAT HeightScale = 1.0f;
+    const XMVECTOR BlockOffset = XMVectorSet(0, 0, -m_BlockWorldScale, 0);
+
+    auto iter = m_BlockMap.begin();
+    auto end = m_BlockMap.end();
+    while (iter != end)
+    {
+        const TerrainBlock* pTB = iter->second;
+        const ObjectBlockData* pOBD = (const ObjectBlockData*)pTB->pData;
+        ++iter;
+
+        XMVECTOR BlockMin = pTB->Coord.GetWorldPosition(m_BlockWorldScale, 0.0f) + BlockOffset;
+        XMVECTOR BlockMax = pTB->Coord.GetWorldPosition(m_BlockWorldScale, 1.0f) + BlockOffset;
+        BlockMin = XMVectorSetY(BlockMin, pOBD->MinValue * HeightScale);
+        BlockMax = XMVectorSetY(BlockMax, pOBD->MaxValue * HeightScale);
+
+        LineRender::DrawAxisAlignedBox(BlockMin, BlockMax, g_XMOne);
+
+        if (pOBD->pData != nullptr)
+        {
+            const XMVECTOR BoxSize = XMVectorReplicate(2.0f);
+            const UINT32 ObjCount = (UINT32)pOBD->ObjectCoords.size();
+            for (UINT32 i = 0; i < ObjCount; ++i)
+            {
+                const PlacedObject& PO = pOBD->ObjectCoords[i];
+                XMVECTOR NormXY = XMLoadHalf2(&PO.NormCoord);
+                XMVECTOR HeightY = LerpCoords(NormXY, pTB) * XMVectorReplicate(HeightScale);
+                XMVECTOR PosXZ = XMVectorLerpV(BlockMin, BlockMax, XMVectorSwizzle<0, 3, 1, 3>(NormXY));
+                XMVECTOR PosXYZ = XMVectorSelect(HeightY, PosXZ, g_XMSelect1010);
+                LineRender::DrawAxisAlignedBox(PosXYZ - BoxSize, PosXYZ + BoxSize, XMVectorSet(1, 0, 1, 1));
+            }
+        }
+    }
+}
+
+XMVECTOR TerrainObjectMap::LerpCoords(XMVECTOR NormalizedXY, const TerrainBlock* pBlock) const
+{
+    const ObjectBlockData* pOBD = (const ObjectBlockData*)pBlock->pData;
+    assert(pOBD->pData != nullptr);
+
+    const UINT32 PhysicsMapDimension = m_pTessTerrain->GetPhysicsMapDimension();
+    NormalizedXY *= XMVectorReplicate((FLOAT)(PhysicsMapDimension - 1));
+    XMVECTOR Frac = NormalizedXY - XMVectorFloor(NormalizedXY);
+    XMVECTOR InvFrac = g_XMOne - Frac;
+    XMVECTOR FracXIX = XMVectorPermute<0, 4, 1, 5>(Frac, InvFrac);
+    UINT32 Column = (UINT32)XMVectorGetX(NormalizedXY);
+    UINT32 Row = (UINT32)XMVectorGetY(NormalizedXY);
+    const UINT32 Coord = Row * PhysicsMapDimension + Column;
+    const FLOAT* pSampleA = (const FLOAT*)pOBD->pData + Coord;
+    const XMVECTOR SamplesAB = XMLoadFloat2((const XMFLOAT2*)pSampleA);
+    const XMVECTOR SamplesCD = XMLoadFloat2((const XMFLOAT2*)(pSampleA + PhysicsMapDimension));
+    XMVECTOR LerpAB = SamplesAB * FracXIX;
+    LerpAB += XMVectorSplatY(LerpAB);
+    XMVECTOR LerpCD = SamplesCD * FracXIX;
+    LerpCD += XMVectorSplatY(LerpCD);
+    XMVECTOR Lerp = LerpAB * XMVectorSplatZ(FracXIX) + LerpCD * XMVectorSplatW(FracXIX);
+    return XMVectorSplatX(Lerp);
 }

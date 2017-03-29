@@ -199,6 +199,12 @@ void TileRing::SetRenderingState(GraphicsContext* pContext) const
 
 TessellatedTerrain::TessellatedTerrain()
 {
+    for (UINT32 i = 0; i < ARRAYSIZE(m_InstanceLayers); ++i)
+    {
+        m_InstanceLayers[i].InstanceCount = 0;
+        m_InstanceLayers[i].pModel = nullptr;
+    }
+
     ZeroMemory(m_pTileRings, sizeof(m_pTileRings));
 }
 
@@ -252,8 +258,11 @@ void TessellatedTerrain::Terminate()
 
     m_PhysicsHeightMap.Destroy();
     m_PhysicsZoneMap.Destroy();
-    m_ReadbackResource.GetResource()->Release();
-    m_ReadbackResource.Destroy();
+    if (m_ReadbackResource.GetResource() != nullptr)
+    {
+        m_ReadbackResource.GetResource()->Release();
+        m_ReadbackResource.Destroy();
+    }
     for (UINT32 i = 0; i < ARRAYSIZE(m_DebugPhysicsHeightMaps); ++i)
     {
         m_DebugPhysicsHeightMaps[i].Destroy();
@@ -693,12 +702,6 @@ void TessellatedTerrain::CreateInstanceLayers()
 
     m_DrawInstancedArgumentCount = 4096 / sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
     m_DrawInstancedArgumentBuffer.Create(L"Terrain Instance Draw Argument Buffer", m_DrawInstancedArgumentCount, sizeof(D3D12_DRAW_INDEXED_ARGUMENTS), nullptr);
-
-    for (UINT32 i = 0; i < ARRAYSIZE(m_InstanceLayers); ++i)
-    {
-        m_InstanceLayers[i].InstanceCount = 0;
-        m_InstanceLayers[i].pModel = nullptr;
-    }
 
     {
         InstancedDecorationLayer& Layer = m_InstanceLayers[0];
@@ -1323,7 +1326,6 @@ UINT32 TessellatedTerrain::PhysicsRender(GraphicsContext* pContext, const XMVECT
     const UINT32 FootprintIndex = FindAvailablePhysicsHeightmap();
     if (FootprintIndex == -1)
     {
-        assert(FALSE);
         return -1;
     }
 

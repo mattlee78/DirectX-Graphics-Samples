@@ -596,11 +596,11 @@ void GameClient::Update( float deltaT )
                 m_pInputRemoting->ClientUpdate(InputState);
             }
         }
-
-        LARGE_INTEGER ClientTicks;
-        QueryPerformanceCounter(&ClientTicks);
-        m_pClientWorld->Tick(deltaT, ClientTicks.QuadPart);
     }
+
+    LARGE_INTEGER ClientTicks;
+    QueryPerformanceCounter(&ClientTicks);
+    m_pClientWorld->Tick(deltaT, ClientTicks.QuadPart);
 
     if (DisplayPhysicsDebug)
     {
@@ -765,9 +765,10 @@ void GameClient::RenderScene( void )
 
     GraphicsContext& gfxContext = GraphicsContext::Begin(L"Scene Render");
 
+    m_NetClient.GetWorld()->ServerRender(&gfxContext);
     if (m_NetServer.IsStarted())
     {
-        m_NetServer.GetWorld()->GetTerrainPhysicsMap()->ServerRender(&gfxContext);
+        m_NetServer.GetWorld()->ServerRender(&gfxContext);
     }
 
     CBLightShadowWorldConstants psConstants = {};
@@ -788,6 +789,7 @@ void GameClient::RenderScene( void )
     RD.pLightShadowConstants = &psConstants;
     RD.pExtraTextures = m_ExtraTextures;
 
+    m_NetClient.GetWorld()->TrackCameraPos(CameraPos);
     m_NetClient.GetWorld()->GetTerrain()->OffscreenRender(&gfxContext, &RD);
 
 	{

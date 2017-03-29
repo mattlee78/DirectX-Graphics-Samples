@@ -425,6 +425,7 @@ void World::Initialize(bool GraphicsEnabled, IWorldNotifications* pNotify)
     m_PhysicsWorld.Initialize(0, XMVectorSet(0, -9.8f, 0, 0));
     m_TessTerrain.Initialize(GraphicsEnabled);
     m_TerrainPhysicsMap.Initialize(&m_PhysicsWorld, &m_TessTerrain, m_TessTerrain.GetWorldScale() * 0.25f);
+    m_TerrainObjectMap.Initialize(&m_TessTerrain, m_TessTerrain.GetWorldScale() * 4.0f);
 }
 
 void World::Tick(float deltaT, INT64 Ticks)
@@ -451,6 +452,8 @@ void World::Tick(float deltaT, INT64 Ticks)
 
     m_PhysicsWorld.Update(deltaT);
 
+    m_TerrainObjectMap.Update();
+
     iter = m_ModelInstances.begin();
     end = m_ModelInstances.end();
     while (iter != end)
@@ -459,11 +462,18 @@ void World::Tick(float deltaT, INT64 Ticks)
         pMI->PostPhysicsUpdate(deltaT);
         if (pMI->IsDynamic())
         {
+            m_TerrainObjectMap.TrackObject(pMI->GetWorldPosition(), pMI->GetWorldVelocity(), pMI->GetRadius());
             m_TerrainPhysicsMap.TrackObject(pMI->GetWorldPosition(), pMI->GetWorldVelocity(), pMI->GetRadius());
         }
     }
 
     m_TerrainPhysicsMap.Update();
+}
+
+void World::TrackCameraPos(const XMVECTOR& CameraPos)
+{
+    FLOAT WorldRadius = m_TessTerrain.GetWorldSize();
+    m_TerrainObjectMap.TrackObject(CameraPos, g_XMZero, WorldRadius);
 }
 
 void World::Render(ModelRenderContext& MRC)
@@ -477,6 +487,12 @@ void World::Render(ModelRenderContext& MRC)
         ModelInstance* pMI = *iter++;
         pMI->Render(MRC);
     }
+}
+
+void World::ServerRender(GraphicsContext* pContext)
+{
+    m_TerrainObjectMap.ServerRender(pContext);
+    m_TerrainPhysicsMap.ServerRender(pContext);
 }
 
 ModelInstance* World::SpawnModelInstance(const CHAR* strTemplateName, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, bool IsRemote)

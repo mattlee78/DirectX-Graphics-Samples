@@ -192,6 +192,7 @@ class World
 private:
     PhysicsWorld m_PhysicsWorld;
     TessellatedTerrain m_TessTerrain;
+    TerrainObjectMap m_TerrainObjectMap;
     TerrainPhysicsMap m_TerrainPhysicsMap;
     ModelInstanceSet m_ModelInstances;
     bool m_GraphicsEnabled;
@@ -207,6 +208,8 @@ public:
     void Terminate();
     void Tick(float deltaT, INT64 Ticks);
     void Render(ModelRenderContext& MRC);
+    void ServerRender(GraphicsContext* pContext);
+    void TrackCameraPos(const XMVECTOR& CameraPos);
 
     ModelInstance* SpawnModelInstance(const CHAR* strTemplateName, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, bool IsRemote = false);
     ModelInstance* SpawnModelInstance(ModelTemplate* pTemplate, const CHAR* strInstanceName, const DecomposedTransform& InitialTransform, bool IsRemote = false);
@@ -214,6 +217,7 @@ public:
     PhysicsWorld* GetPhysicsWorld() { return &m_PhysicsWorld; }
     TessellatedTerrain* GetTerrain() { return &m_TessTerrain; }
     TerrainPhysicsMap* GetTerrainPhysicsMap() { return &m_TerrainPhysicsMap; }
+    TerrainObjectMap* GetTerrainObjectMap() { return &m_TerrainObjectMap; }
 
     ModelTemplate* FindOrCreateModelTemplate(const CHAR* strTemplateName);
 };

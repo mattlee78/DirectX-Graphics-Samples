@@ -319,6 +319,8 @@ public:
     void Terminate();
 
     FLOAT GetWorldScale() const;
+    FLOAT GetWorldSize() const { return m_OuterRingWorldSize * GetWorldScale(); }
+    UINT32 GetPhysicsMapDimension() const { return m_PhysicsHeightMap.GetWidth(); }
 
     void OffscreenRender(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
     void Render(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);

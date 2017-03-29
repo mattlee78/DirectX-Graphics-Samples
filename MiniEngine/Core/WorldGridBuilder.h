@@ -85,6 +85,7 @@ protected:
     virtual bool IsBlockInitialized(TerrainBlock* pNewBlock) { return true; }
     virtual void CompleteBlockData(TerrainBlock* pBlock, TerrainBlock* pNeighborBlocks[4]) { }
     virtual void DeleteBlockData(TerrainBlock* pBlock) { }
+    virtual void PostUpdate() { }
 
 protected:
     BlockCoord VectorToCoord(const XMVECTOR& Coord) const;
@@ -128,7 +129,7 @@ protected:
     virtual void CompleteBlockData(TerrainBlock* pBlock, TerrainBlock* pNeighborBlocks[4]);
     virtual void DeleteBlockData(TerrainBlock* pBlock);
 
-    void ConvertHeightmap(TerrainBlock* pBlock);
+    void ConvertHeightmap(TerrainBlock* pBlock, FLOAT HeightScaleFactor);
 
     virtual void ProcessTerrainHeightfield(TerrainBlock* pBlock) {}
     virtual void CompleteTerrainHeightfield(TerrainBlock* pBlock, TerrainBlock* pNeighborBlocks[4]) {}
@@ -177,4 +178,7 @@ protected:
     virtual void DeleteBlockData(TerrainBlock* pBlock);
     virtual void ProcessTerrainHeightfield(TerrainBlock* pBlock);
     virtual void CompleteTerrainHeightfield(TerrainBlock* pBlock, TerrainBlock* pNeighborBlocks[4]);
+    virtual void PostUpdate();
+
+    XMVECTOR LerpCoords(XMVECTOR NormalizedXY, const TerrainBlock* pBlock) const;
 };
