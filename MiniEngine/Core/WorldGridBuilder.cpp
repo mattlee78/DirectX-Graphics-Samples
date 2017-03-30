@@ -442,6 +442,9 @@ void TerrainObjectMap::CompleteTerrainHeightfield(TerrainBlock* pBlock, TerrainB
     }
 
     // TODO: add additional cross-block objects based on objects within pBD and pNBDs
+
+    // TODO: for client, build instance VBs for renderable objects
+    // TODO: for server, build physics objects for collidable objects
 }
 
 void TerrainObjectMap::PostUpdate()
