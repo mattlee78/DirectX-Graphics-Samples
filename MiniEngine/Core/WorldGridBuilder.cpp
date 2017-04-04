@@ -535,11 +535,11 @@ void TerrainObjectMap::PostUpdate()
 
         if (pOBD->pData != nullptr)
         {
-            const XMVECTOR BoxSize = XMVectorReplicate(2.0f);
             const UINT32 ObjCount = (UINT32)pOBD->ObjectCoords.size();
             for (UINT32 i = 0; i < ObjCount; ++i)
             {
                 const PlacedObject& PO = pOBD->ObjectCoords[i];
+                const XMVECTOR BoxSize = XMVectorReplicate(PO.Radius);
                 XMVECTOR NormXY = XMLoadHalf2(&PO.NormCoord);
                 XMVECTOR HeightY = LerpCoords(NormXY, pTB) * XMVectorReplicate(HeightScale);
                 XMVECTOR PosXZ = XMVectorLerpV(BlockMin, BlockMax, XMVectorSwizzle<0, 3, 1, 3>(NormXY));

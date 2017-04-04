@@ -163,8 +163,8 @@ float3 TerrainMaterialBlend(float normalYSquared, float ypos, float2 texUV, out 
     const float DirtSlope = 0.64;
     const float DirtSlopeBlend = 0.15;
 
-    const float SnowAltitude = 1.25;
-    const float RockAltitude = 1.0;
+    const float SnowAltitude = 1.0;
+    const float RockAltitude = 0.8;
     const float AltitudeBlend = 0.001;
 
     [branch]

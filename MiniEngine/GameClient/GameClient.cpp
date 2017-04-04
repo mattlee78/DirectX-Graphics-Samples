@@ -126,6 +126,10 @@ private:
     std::vector<ModelInstance*> m_PlacedModelInstances;
 
     Vector3 DebugVector;
+
+    Vector3 m_LastCameraPos;
+    Vector3 m_LastTargetPos;
+    FLOAT m_LastTargetVelocity;
 };
 
 CREATE_APPLICATION( GameClient )
@@ -186,6 +190,10 @@ void GameClient::Startup( void )
     m_StartServer = true;
     strcpy_s(m_strConnectToServerName, "localhost");
     m_ConnectToPort = 31338;
+
+    m_LastCameraPos = Vector3(kZero);
+    m_LastTargetPos = Vector3(kZero);
+    m_LastTargetVelocity = 0;
 
     ProcessCommandLine();
 
@@ -661,6 +669,23 @@ void GameClient::Update( float deltaT )
     }
 	m_ViewProjMatrix = m_Camera.GetViewProjMatrix();
 
+    m_LastCameraPos = m_Camera.GetPosition();
+    if (!m_ControllableModelInstances.empty())
+    {
+        ModelInstance* pFirstMI = *m_ControllableModelInstances.begin();
+        Vector3 LastTargetPos = m_LastTargetPos;
+        m_LastTargetPos = pFirstMI->GetWorldPosition();
+        FLOAT FrameDistance = XMVectorGetX(XMVector3Length(m_LastTargetPos - LastTargetPos));
+        FLOAT FrameVelocity = FrameDistance / deltaT;
+        FLOAT Lerp = std::min(1.0f, deltaT * 3);
+        m_LastTargetVelocity = FrameVelocity * Lerp + m_LastTargetVelocity * (1.0f - Lerp);
+    }
+    else
+    {
+        m_LastTargetPos = Vector3(kZero);
+        m_LastTargetVelocity = 0;
+    }
+
 	float costheta = cosf(m_SunOrientation);
 	float sintheta = sinf(m_SunOrientation);
 	float cosphi = cosf(m_SunInclination * 3.14159f * 0.5f);
@@ -896,6 +921,11 @@ void GameClient::RenderUI(class GraphicsContext& Context)
     if (!m_NetClient.IsConnected(nullptr) && m_ConnectToPort != 0)
     {
         Text.DrawString("Connecting...");
+    }
+    Text.DrawFormattedString("Camera: <%0.2f %0.2f %0.2f>\n", (FLOAT)m_LastCameraPos.GetX(), (FLOAT)m_LastCameraPos.GetY(), (FLOAT)m_LastCameraPos.GetZ());
+    if (!m_ControllableModelInstances.empty())
+    {
+        Text.DrawFormattedString("Target: %0.1f m/s %0.1f mph <%0.2f %0.2f %0.2f>\n", m_LastTargetVelocity, m_LastTargetVelocity * 2.23694f, (FLOAT)m_LastTargetPos.GetX(), (FLOAT)m_LastTargetPos.GetY(), (FLOAT)m_LastTargetPos.GetZ());
     }
     //Text.DrawFormattedString("Debug Vector: %10.3f %10.3f %10.3f", (FLOAT)DebugVector.GetX(), (FLOAT)DebugVector.GetY(), (FLOAT)DebugVector.GetZ());
 

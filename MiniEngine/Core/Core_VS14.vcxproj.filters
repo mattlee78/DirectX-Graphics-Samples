@@ -1003,6 +1003,18 @@
     <FxCompile Include="Shaders\BoundNeighborhoodCS.hlsl">
       <Filter>Shaders\MB+TAA</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\Terrain\WaterPassThroughVS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\WaterPatchDS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\WaterPatchHS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\WaterPatchPS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Math\Functions.inl">
@@ -1129,6 +1141,9 @@
       <Filter>Shaders\Misc</Filter>
     </None>
     <None Include="Shaders\Terrain\InstanceRendering.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </None>
+    <None Include="Shaders\Terrain\Water.hlsli">
       <Filter>Shaders\TerrainTessellation</Filter>
     </None>
   </ItemGroup>
