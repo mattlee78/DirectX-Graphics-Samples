@@ -338,6 +338,7 @@ void TerrainServerRenderer::ConvertHeightmap(TerrainBlock* pBlock, FLOAT HeightS
 void TerrainPhysicsMap::Initialize(PhysicsWorld* pPhysicsWorld, TessellatedTerrain* pTessTerrain, FLOAT BlockWorldScale)
 {
     m_pPhysicsWorld = pPhysicsWorld;
+    m_WaterLevel = 0;
     TerrainServerRenderer::Initialize(pTessTerrain, BlockWorldScale);
 }
 
@@ -367,6 +368,19 @@ void TerrainPhysicsMap::DeleteBlockData(TerrainBlock* pBlock)
         pBD->pShape = nullptr;
     }
 
+    if (pBD->pWaterRigidBody != nullptr)
+    {
+        m_pPhysicsWorld->RemoveRigidBody(pBD->pWaterRigidBody);
+        delete pBD->pWaterRigidBody;
+        pBD->pWaterRigidBody = nullptr;
+    }
+
+    if (pBD->pWaterShape != nullptr)
+    {
+        delete pBD->pWaterShape;
+        pBD->pWaterShape = nullptr;
+    }
+
     TerrainServerRenderer::DeleteBlockData(pBlock);
 }
 
@@ -393,6 +407,53 @@ void TerrainPhysicsMap::ProcessTerrainHeightfield(TerrainBlock* pBlock)
 
     pBD->pShape = pShape;
     pBD->pRigidBody = pRB;
+
+    if (pBD->MinValue < m_WaterLevel)
+    {
+        FLOAT WaterHalfHeight = (m_WaterLevel - pBD->MinValue) * 0.5f * ShapeScale;
+        XMVECTOR BoxHalfSize = XMVectorSet(m_BlockWorldScale * 0.5f, WaterHalfHeight, m_BlockWorldScale * 0.5f, 0);
+        CollisionShape* pWaterShape = CollisionShape::CreateBox(BoxHalfSize);
+        FLOAT WaterCenterY = (m_WaterLevel + pBD->MinValue) * 0.5f * ShapeScale;
+        BlockCenterPos = XMVectorSetY(BlockCenterPos, WaterCenterY);
+        matTransform = XMMatrixTranslationFromVector(BlockCenterPos);
+        RigidBody* pWaterRB = new RigidBody(pWaterShape, 0, matTransform);
+        m_pPhysicsWorld->AddRigidBody(pWaterRB);
+        pWaterRB->SetWaterRigidBody();
+        pBD->pWaterShape = pWaterShape;
+        pBD->pWaterRigidBody = pWaterRB;
+    }
+}
+
+void TerrainObjectMap::Initialize(TessellatedTerrain* pTessTerrain, FLOAT BlockWorldScale)
+{
+    TerrainServerRenderer::Initialize(pTessTerrain, BlockWorldScale);
+    m_WaterLevel = 0;
+}
+
+void TerrainObjectMap::RenderWater(GraphicsContext* pContext)
+{
+    const XMVECTOR BlockOffset = XMVectorSet(0, 0, -m_BlockWorldScale, 0);
+    auto iter = m_BlockMap.begin();
+    auto end = m_BlockMap.end();
+    while (iter != end)
+    {
+        TerrainBlock* pTB = iter->second;
+        if (pTB->pData == nullptr || pTB->State == WorldGridBuilder::BlockState::Initialized)
+        {
+            ++iter;
+            continue;
+        }
+        ObjectBlockData* pBD = (ObjectBlockData*)pTB->pData;
+        if (pBD->MinValue >= m_WaterLevel)
+        {
+            ++iter;
+            continue;
+        }
+        XMVECTOR BlockCoord = pTB->Coord.GetWorldPosition(m_BlockWorldScale, 0.5f) + BlockOffset;
+        BlockCoord = XMVectorSetY(BlockCoord, m_WaterLevel);
+        LineRender::DrawGridXZ(XMMatrixTranslationFromVector(BlockCoord), m_BlockWorldScale * 0.5f, 100, XMVectorSet(0.5f, 0.5f, 1.0f, 1.0f));
+        ++iter;
+    }
 }
 
 void TerrainObjectMap::InitializeBlockData(TerrainBlock* pNewBlock)

@@ -544,7 +544,7 @@ void GameClient::Update( float deltaT )
         if (!m_ClientObjectsCreated && m_NetClient.CanSpawnObjects())
         {
             m_ClientObjectsCreated = true;
-            DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 400, 100));
+            DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(100, 180, 100));
             m_NetClient.SpawnObjectOnServer("Vehicle2", nullptr, DT, XMFLOAT3(0, 00, 0));
         }
 
@@ -717,6 +717,7 @@ void GameClient::Update( float deltaT )
 	m_MainScissor.bottom = (LONG)g_SceneColorBuffer.GetHeight();
 
     LineRender::DrawAxis(XMMatrixScalingFromVector(XMVectorReplicate(10)));
+    //LineRender::DrawGridXZ(XMMatrixIdentity(), 5000, 100, g_XMOne);
 
     m_NetServer.SingleThreadedTick();
 
@@ -869,6 +870,11 @@ void GameClient::RenderScene( void )
             m_NetClient.GetWorld()->GetTerrain()->Render(&gfxContext, &RD);
 
             LineRender::Render(gfxContext, m_ViewProjMatrix);
+        }
+
+        {
+            // transparent render
+            m_NetClient.GetWorld()->GetTerrainObjectMap()->RenderWater(&gfxContext);
         }
 	}
 

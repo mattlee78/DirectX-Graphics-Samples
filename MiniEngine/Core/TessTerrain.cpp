@@ -59,8 +59,8 @@ IntVar g_TexTwistOctaves("Terrain/Tex Twist Octaves", 1, 1, MAX_OCTAVES);
 IntVar g_DetailNoiseScale("Terrain/Detail Noise Scale", 0, 0, 200);
 NumVar g_WorldScale("Terrain/World Scale", 512, 50, 2000, 50);
 ExpVar g_HeightmapDimension("Terrain/Heightmap Dimension", 1024, 5, 12, 1);
-NumVar g_DeformScale("Terrain/Generated Scale", 1.5f, 0.01f, 100.0f, 0.01f);
-NumVar g_DeformOffset("Terrain/Generated Offset", 0.0f, -500.0f, 500.0f, 0.01f);
+NumVar g_DeformScale("Terrain/Generated Scale", 1.71f, 0.01f, 100.0f, 0.01f);
+NumVar g_DeformOffset("Terrain/Generated Offset", -0.47f, -500.0f, 500.0f, 0.01f);
 
 BoolVar g_DebugGrid("Terrain/Debug Grid Enable", false);
 NumVar g_DebugGridScale("Terrain/Debug Grid Scale", 512, 50.0f, 5000.0f, 50.0f);

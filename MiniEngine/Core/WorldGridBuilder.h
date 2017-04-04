@@ -143,11 +143,15 @@ class TerrainPhysicsMap : public TerrainServerRenderer
 {
 protected:
     PhysicsWorld* m_pPhysicsWorld;
+    FLOAT m_WaterLevel;
 
     struct PhysicsBlockData : public BlockData
     {
         RigidBody* pRigidBody;
         CollisionShape* pShape;
+
+        RigidBody* pWaterRigidBody;
+        CollisionShape* pWaterShape;
     };
 
 public:
@@ -162,6 +166,8 @@ protected:
 class TerrainObjectMap : public TerrainServerRenderer
 {
 protected:
+    FLOAT m_WaterLevel;
+
     struct PlacedObject
     {
         DirectX::PackedVector::XMHALF2 NormCoord;
@@ -172,6 +178,10 @@ protected:
     {
         std::vector<PlacedObject> ObjectCoords;
     };
+
+public:
+    void Initialize(TessellatedTerrain* pTessTerrain, FLOAT BlockWorldScale);
+    void RenderWater(GraphicsContext* pContext);
 
 protected:
     virtual void InitializeBlockData(TerrainBlock* pNewBlock);
