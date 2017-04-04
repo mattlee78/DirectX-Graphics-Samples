@@ -24,6 +24,7 @@ cbuffer cbCommon : register(b1)
     int3   g_FractalOctaves : packoffset(c0);		// ridge, fBm, uv twist
     float3 g_TextureWorldOffset : packoffset(c1);	// Offset of fractal terrain in texture space.
     float3 g_CoarseSampleSpacing : packoffset(c2);	// x = World space distance between samples in the coarse height map. y = world scale
+    float4 g_WaterLevel : packoffset(c3);           // Water level ypos scaled by inverse world scale
 };
 
 struct Adjacency
@@ -138,6 +139,9 @@ float3 SmoothLerpTexColor(Texture2D TexA, float3 ColorB, float2 texUV, float Val
     return lerp(TexA.Sample(SamplerRepeatLinear, texUV).xyz, ColorB, LerpParam);
 }
 
+static const float MaterialMapScale = 4;
+static const float MaterialMapOffset = 1;
+
 float3 TerrainMaterialBlend(float normalYSquared, float ypos, float2 texUV, out float3 SpecularColor, out float SpecularMask, out float3 NormalSample)
 {
     SpecularColor = float3(0, 0, 0);
@@ -168,6 +172,11 @@ float3 TerrainMaterialBlend(float normalYSquared, float ypos, float2 texUV, out 
     {
         Diffuse = g_TerrainRockDiffuse.Sample(SamplerRepeatLinear, RockTexUV).xyz;
         NormalSample = SampleNormal(g_TerrainRockNormal, RockTexUV);
+    }
+    else if (ypos < g_WaterLevel.x)
+    {
+        Diffuse = g_TerrainDirtDiffuse.Sample(SamplerRepeatLinear, ModTexUV).xyz;
+        NormalSample = SampleNormal(g_TerrainDirtNormal, ModTexUV);
     }
     else if (normalYSquared < (RockSlope + RockSlopeBlend))
     {

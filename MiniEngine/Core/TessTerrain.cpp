@@ -208,9 +208,24 @@ TessellatedTerrain::TessellatedTerrain()
     ZeroMemory(m_pTileRings, sizeof(m_pTileRings));
 }
 
-void TessellatedTerrain::Initialize(bool ClientGraphicsEnabled)
+void TessellatedTerrain::CreateDefaultConstructionDesc(TerrainConstructionDesc* pDesc)
+{
+    ZeroMemory(pDesc, sizeof(*pDesc));
+    pDesc->RandomSeed = 0x1234;
+}
+
+void TessellatedTerrain::Initialize(bool ClientGraphicsEnabled, const TerrainConstructionDesc* pDesc)
 {
     m_ClientGraphicsEnabled = ClientGraphicsEnabled;
+
+    if (pDesc != nullptr)
+    {
+        m_ConstructionDesc = *pDesc;
+    }
+    else
+    {
+        CreateDefaultConstructionDesc(&m_ConstructionDesc);
+    }
 
     LoadTerrainTextures();
 
@@ -975,6 +990,7 @@ void TessellatedTerrain::UpdateInstanceLayer(ComputeContext* pContext, const Tes
     CBIDL.ModelSpaceSizeOffset.x = Layer.VisibleRadius;
     CBIDL.ModelSpaceSizeOffset.y = Layer.VisibleRadius * 0.5f;
     CBIDL.ModelSpaceSizeOffset.z = m_OuterRingWorldSize / Layer.VisibleRadius;
+    CBIDL.ModelSpaceSizeOffset.w = m_ConstructionDesc.WaterLevelY / g_WorldScale;
     CBIDL.WindXZVT.x = 0.7071f;
     CBIDL.WindXZVT.y = 0.7071f;
     CBIDL.WindXZVT.z = 0.3f;
@@ -1081,6 +1097,8 @@ void TessellatedTerrain::RenderTerrainHeightmap(
     m_CBCommon.CoarseSampleSpacing.x = g_WorldScale * m_pTileRings[m_nRings - 1]->outerWidth() / (FLOAT)Dimension;
     m_CBCommon.CoarseSampleSpacing.y = g_WorldScale;
     m_CBCommon.CoarseSampleSpacing.z = (2.0f * g_WorldScale * (FLOAT)Dimension) / 1024.0f;
+
+    m_CBCommon.WaterLevel.x = m_ConstructionDesc.WaterLevelY / g_WorldScale;
 
     SetTextureWorldOffset(CameraPosWorld);
     pContext->SetDynamicConstantBufferView(TerrainRootParam_CBCommon, sizeof(m_CBCommon), &m_CBCommon);

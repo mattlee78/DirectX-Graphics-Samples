@@ -64,7 +64,7 @@
             ],
             "WaterThrusters" : [
                {
-                  "Thrust" : 1000,
+                  "Thrust" : 2000,
                   "SteeringMaxAngle" : 0.785,
                   "LocalPosition" : [ 0.0, -0.5, -1.0 ]
                }

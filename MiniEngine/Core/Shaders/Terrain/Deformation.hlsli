@@ -141,6 +141,6 @@ void GradientPS( DeformVertex input, out float4 GradientMap : SV_Target0, out fl
     float3 normal = normalize(float3(scaledgradient.x, 16, scaledgradient.y));
     float smoothedheight = 0.25 * (x0 + x1 + y0 + y1);
 
-    MaterialMap = float4(normal.y * normal.y, smoothedheight * 0.5f, 0, 1);
+    MaterialMap = float4(normal.y * normal.y, (smoothedheight + MaterialMapOffset) / MaterialMapScale, 0, 1);
 }
 

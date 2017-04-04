@@ -643,7 +643,8 @@ float4 SmoothShadePS(MeshVertex input) : SV_Target
     float3 TempSpecular;
     float TempSpecularMask;
     float3 NormalSample;
-    float3 TempDiffuse = TerrainMaterialBlend(MatMapSample.x, MatMapSample.y * 2, texUV, TempSpecular, TempSpecularMask, NormalSample);
+    float TerrainHeight = (MatMapSample.y * MaterialMapScale) - MaterialMapOffset;
+    float3 TempDiffuse = TerrainMaterialBlend(MatMapSample.x, TerrainHeight, texUV, TempSpecular, TempSpecularMask, NormalSample);
 
     float3 Tangent = normalize(cross(normal, float3(1, 0, 0)));
     float3 Bitangent = normalize(cross(Tangent, normal));

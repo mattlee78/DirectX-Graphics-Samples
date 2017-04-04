@@ -7,6 +7,8 @@ RWStructuredBuffer<InstancePlacementVertex> OutputVertices : register(u0);
 [numthreads(8, 8, 1)]
 void InstancePrepassCS( uint3 DTid : SV_DispatchThreadID )
 {
+    bool Visible = true;
+
     const uint index = DTid.y * 8 + DTid.x;
 
     float2 InPosXZ = InputVertices[index].PositionXZ;
@@ -26,17 +28,24 @@ void InstancePrepassCS( uint3 DTid : SV_DispatchThreadID )
     float2 InPosUV = worldXZtoHeightUV(InPosXZ);
     float HeightMapSample = g_CoarseHeightMap.SampleLevel(SamplerClampLinear, InPosUV, 0).x;
 
-    float3 WorldPos = float3(InPosXZ.x, HeightMapSample, InPosXZ.y);
-    float DistanceFromCamera = length(WorldPos - (g_EyePos / g_CoarseSampleSpacing.y));
-
-    bool Visible = true;
-    if (DistanceFromCamera > g_LODFadeRadius.x)
+    if (HeightMapSample < g_ModelSpaceSizeOffset.w)
     {
         Visible = false;
     }
-    else
+
+    float3 WorldPos = float3(InPosXZ.x, HeightMapSample, InPosXZ.y);
+    float DistanceFromCamera = length(WorldPos - (g_EyePos / g_CoarseSampleSpacing.y));
+
+    if (Visible)
     {
-        Visible = inFrustum(WorldPos, g_EyePos / g_CoarseSampleSpacing.y, g_ViewDir, InstanceScale * 2);
+        if (DistanceFromCamera > g_LODFadeRadius.x)
+        {
+            Visible = false;
+        }
+        else
+        {
+            Visible = inFrustum(WorldPos, g_EyePos / g_CoarseSampleSpacing.y, g_ViewDir, InstanceScale * 2);
+        }
     }
 
     float LODScale = 1.0f;

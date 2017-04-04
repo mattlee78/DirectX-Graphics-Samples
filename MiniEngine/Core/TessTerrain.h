@@ -93,6 +93,12 @@ private:
 	TileRing& operator=(const TileRing&);
 };
 
+struct TerrainConstructionDesc
+{
+    UINT64 RandomSeed;
+    FLOAT WaterLevelY;
+};
+
 __declspec(align(16))
 struct TessellatedTerrainRenderDesc
 {
@@ -125,6 +131,8 @@ private:
     static const int QUAD_LIST_INDEX_COUNT = (VTX_PER_TILE_EDGE - 1) * (VTX_PER_TILE_EDGE - 1) * 4;
     static const int MAX_RINGS = 10;
     int m_nRings = 0;
+
+    TerrainConstructionDesc m_ConstructionDesc;
 
     TileRing* m_pTileRings[MAX_RINGS];
     float m_OuterRingWorldSize = 0.0f;
@@ -291,8 +299,9 @@ private:
         XMINT4 FractalOctaves;
         XMFLOAT4 TextureWorldOffset;
         XMFLOAT4 CoarseSampleSpacing;
+        XMFLOAT4 WaterLevel;
     } m_CBCommon;
-    C_ASSERT(sizeof(CBCommon) == 3 * sizeof(XMFLOAT4));
+    C_ASSERT(sizeof(CBCommon) == 4 * sizeof(XMFLOAT4));
 
     __declspec(align(16))
     struct CBDeform
@@ -315,8 +324,12 @@ private:
 public:
     TessellatedTerrain();
 
-    void Initialize(bool ClientGraphicsEnabled);
+    static void CreateDefaultConstructionDesc(TerrainConstructionDesc* pDesc);
+
+    void Initialize(bool ClientGraphicsEnabled, const TerrainConstructionDesc* pDesc);
     void Terminate();
+
+    const TerrainConstructionDesc* GetConstructionDesc() const { return &m_ConstructionDesc; }
 
     FLOAT GetWorldScale() const;
     FLOAT GetWorldSize() const { return m_OuterRingWorldSize * GetWorldScale(); }

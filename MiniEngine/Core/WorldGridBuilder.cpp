@@ -338,7 +338,7 @@ void TerrainServerRenderer::ConvertHeightmap(TerrainBlock* pBlock, FLOAT HeightS
 void TerrainPhysicsMap::Initialize(PhysicsWorld* pPhysicsWorld, TessellatedTerrain* pTessTerrain, FLOAT BlockWorldScale)
 {
     m_pPhysicsWorld = pPhysicsWorld;
-    m_WaterLevel = 0;
+    m_WaterLevel = pTessTerrain->GetConstructionDesc()->WaterLevelY;
     TerrainServerRenderer::Initialize(pTessTerrain, BlockWorldScale);
 }
 
@@ -427,7 +427,7 @@ void TerrainPhysicsMap::ProcessTerrainHeightfield(TerrainBlock* pBlock)
 void TerrainObjectMap::Initialize(TessellatedTerrain* pTessTerrain, FLOAT BlockWorldScale)
 {
     TerrainServerRenderer::Initialize(pTessTerrain, BlockWorldScale);
-    m_WaterLevel = 0;
+    m_WaterLevel = pTessTerrain->GetConstructionDesc()->WaterLevelY;
 }
 
 void TerrainObjectMap::RenderWater(GraphicsContext* pContext)
