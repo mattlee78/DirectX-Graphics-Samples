@@ -35,6 +35,11 @@
 #include "CompiledShaders\InstanceRenderVS.h"
 #include "CompiledShaders\InstanceRenderPS.h"
 
+#include "CompiledShaders\WaterPassThroughVS.h"
+#include "CompiledShaders\WaterPatchDS.h"
+#include "CompiledShaders\WaterPatchHS.h"
+#include "CompiledShaders\WaterPatchPS.h"
+
 BoolVar g_TerrainEnabled("Terrain/Enabled", true);
 BoolVar g_HwTessellation("Terrain/HW Tessellation", true);
 IntVar g_TessellatedTriWidth("Terrain/Tessellated Triangle Width", 20, 1, 100);
@@ -42,6 +47,8 @@ BoolVar g_TerrainInstancesEnabled("Terrain/Instances/Enabled", true);
 BoolVar g_TerrainInstanceUpdates("Terrain/Instances/CS Update Enabled", true);
 NumVar g_InstanceModelTranslationX("Terrain/Instances/Translation X", 0, -16, 16, 0.1f);
 NumVar g_InstanceModelTranslationZ("Terrain/Instances/Translation Z", 0, -16, 16, 0.1f);
+BoolVar g_TerrainGroundEnabled("Terrain/Ground Enabled", true);
+BoolVar g_TerrainWaterEnabled("Terrain/Water Enabled", true);
 
 BoolVar g_TerrainWireframe("Terrain/Wireframe", false);
 NumVar g_WireframeAlpha("Terrain/Wireframe Alpha", 0.5f, 0, 5, 0.1f);
@@ -64,6 +71,10 @@ NumVar g_DeformOffset("Terrain/Generated Offset", -0.47f, -500.0f, 500.0f, 0.01f
 
 BoolVar g_DebugGrid("Terrain/Debug Grid Enable", false);
 NumVar g_DebugGridScale("Terrain/Debug Grid Scale", 512, 50.0f, 5000.0f, 50.0f);
+
+NumVar g_WaterUVScale("Terrain/Water/UV Scale", 1.0f, 0.0001f, 10.0f, 0.01f);
+NumVar g_WaterYScale("Terrain/Water/Y Scale", 0.01f, 0, 1, 0.001f);
+NumVar g_WaterTimeScale("Terrain/Water/Time Scale", 0.03f, 0, 1, 0.001f);
 
 static const DXGI_FORMAT g_HeightmapFormat = DXGI_FORMAT_R32_FLOAT;
 static const DXGI_FORMAT g_ZoneMapFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -245,6 +256,8 @@ void TessellatedTerrain::Initialize(bool ClientGraphicsEnabled, const TerrainCon
 
     CreateInstanceLayers();
 
+    CreateWaterResources();
+
     ZeroMemory(&m_CBCommon, sizeof(m_CBCommon));
     ZeroMemory(&m_CBTerrain, sizeof(m_CBTerrain));
     ZeroMemory(&m_CBWireframe, sizeof(m_CBWireframe));
@@ -284,6 +297,8 @@ void TessellatedTerrain::Terminate()
     }
 
     TerminateInstanceLayers();
+
+    TerminateWaterResources();
 }
 
 FLOAT TessellatedTerrain::GetWorldScale() const
@@ -451,7 +466,7 @@ void TessellatedTerrain::CreateTessellationPSO()
 
     m_TessellationPSO.SetRootSignature(m_RootSig);
     m_TessellationPSO.SetRasterizerState(NormalDesc);
-    m_TessellationPSO.SetBlendState(Graphics::BlendTraditional);
+    m_TessellationPSO.SetBlendState(Graphics::BlendDisable);
     m_TessellationPSO.SetDepthStencilState(Graphics::DepthStateTestEqual);
     m_TessellationPSO.SetInputLayout(ElementCount, pElements);
     m_TessellationPSO.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH);
@@ -796,6 +811,53 @@ void TessellatedTerrain::TerminateInstanceLayers()
     }
 }
 
+void TessellatedTerrain::CreateWaterResources()
+{
+    if (!m_ClientGraphicsEnabled)
+    {
+        return;
+    }
+
+    m_pWaterBumpTexture = TextureManager::LoadFromFile("Terrain\\water_bump.dds", false);
+
+    /*
+    const UINT32 VertexCount = m_WaterPatchSize * m_WaterPatchSize;
+    XMFLOAT4* pPatchData = new XMFLOAT4[VertexCount];
+    const FLOAT ScaleFactor = (FLOAT)m_WaterGridPoints / (FLOAT)m_WaterPatchSize;
+    for (UINT32 y = 0; y < m_WaterPatchSize; ++y)
+    {
+        const FLOAT YValue = (FLOAT)y * ScaleFactor;
+        for (UINT32 x = 0; x < m_WaterPatchSize; ++x)
+        {
+            const FLOAT XValue = (FLOAT)x * ScaleFactor;
+            pPatchData[y * m_WaterPatchSize + x] = XMFLOAT4(XValue, YValue, ScaleFactor, ScaleFactor);
+        }
+    }
+
+    m_WaterPatchVB.Create(L"Water Patch VB", VertexCount, sizeof(XMFLOAT4), pPatchData);
+    delete[] pPatchData;
+
+    const D3D12_INPUT_ELEMENT_DESC WaterLayout =
+    { "PATCH_PARAMETERS",  0, DXGI_FORMAT_R32G32B32A32_FLOAT,   0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+
+    DXGI_FORMAT ColorFormat = Graphics::g_SceneColorBuffer.GetFormat();
+    DXGI_FORMAT DepthFormat = Graphics::g_SceneDepthBuffer.GetFormat();
+    */
+
+    m_WaterPSO = m_TessellationPSO;
+    m_WaterPSO.SetBlendState(Graphics::BlendTraditional);
+    m_WaterPSO.SetDepthStencilState(Graphics::DepthStateReadOnly);
+    m_WaterPSO.SetVertexShader(g_pWaterPassThroughVS, sizeof(g_pWaterPassThroughVS));
+    m_WaterPSO.SetDomainShader(g_pWaterPatchDS, sizeof(g_pWaterPatchDS));
+    m_WaterPSO.SetPixelShader(g_pWaterPatchPS, sizeof(g_pWaterPatchPS));
+    m_WaterPSO.Finalize();
+}
+
+void TessellatedTerrain::TerminateWaterResources()
+{
+    m_WaterPatchVB.Destroy();
+}
+
 void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
 {
     if (!g_TerrainEnabled)
@@ -831,7 +893,7 @@ void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const Tessel
 
 void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
 {
-    if (!g_TerrainEnabled)
+    if (!g_TerrainEnabled || !g_TerrainGroundEnabled)
     {
         return;
     }
@@ -897,7 +959,7 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
 
     RenderInstanceLayers(pContext, pDesc);
 
-    RenderTerrain(pContext, pDesc);
+    RenderTerrain(pContext, pDesc, false);
 
     if (g_DebugGrid)
     {
@@ -913,6 +975,61 @@ void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerr
             }
         }
     }
+}
+
+void TessellatedTerrain::AlphaRender(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
+{
+    assert(!pDesc->ZPrePass);
+
+    if (!g_TerrainEnabled || g_TerrainWireframe || !g_TerrainWaterEnabled)
+    {
+        return;
+    }
+
+    assert(m_ClientGraphicsEnabled);
+
+    pContext->SetRootSignature(m_RootSig);
+
+    pContext->SetDynamicConstantBufferView(TerrainRootParam_CBLightAndShadow, sizeof(*pDesc->pLightShadowConstants), pDesc->pLightShadowConstants);
+    pContext->SetDynamicConstantBufferView(TerrainRootParam_CBCommon, sizeof(m_CBCommon), &m_CBCommon);
+    pContext->SetDynamicDescriptors(TerrainRootParam_DTShadowSSAO, 0, 3, pDesc->pExtraTextures);
+
+    D3D12_CPU_DESCRIPTOR_HANDLE hNoiseTextures[4] = {};
+    hNoiseTextures[0] = m_pDetailNoiseTexture->GetSRV();
+    hNoiseTextures[1] = m_pDetailNoiseGradTexture->GetSRV();
+    hNoiseTextures[2] = m_pNoiseTexture->GetSRV();
+    hNoiseTextures[3] = m_hColorNoiseSRV;
+    pContext->SetDynamicDescriptors(TerrainRootParam_DTNoisemap, 0, ARRAYSIZE(hNoiseTextures), hNoiseTextures);
+
+    // Something's wrong in the shader and the tri size is out by a factor of 2.  Why?!?
+    m_CBTerrain.tessellatedTriWidth.x = 8 * g_TessellatedTriWidth;
+
+    m_CBTerrain.DebugShowPatches.x = (INT)g_DebugDrawPatches;
+    m_CBTerrain.DebugShowTiles.x = (INT)g_DebugDrawTiles;
+
+    m_CBWireframe.WireAlpha.x = 0;
+    m_CBWireframe.WireWidth.x = 1.0f;
+
+    m_CBTerrain.DetailNoiseScale.x = 0.001f * (FLOAT)g_DetailNoiseScale;
+
+    m_CBWireframe.Viewport.x = pDesc->Viewport.Width;
+    m_CBWireframe.Viewport.y = pDesc->Viewport.Height;
+    m_CBWireframe.Viewport.z = pDesc->Viewport.TopLeftX;
+    m_CBWireframe.Viewport.w = pDesc->Viewport.TopLeftY;
+    m_CBTerrain.screenSize.x = pDesc->Viewport.Width;
+    m_CBTerrain.screenSize.y = pDesc->Viewport.Height;
+
+    // I'm still trying to figure out if the detail scale can be derived from any combo of ridge + twist.
+    // I don't think this works well (nor does ridge+twist+fBm).  By contrast the relationship with fBm is
+    // straightforward.  The -4 is a fudge factor that accounts for the frequency of the coarsest octave
+    // in the pre-rendered detail map.
+    const float DETAIL_UV_SCALE = powf(2.0f, std::max(g_RidgeOctaves, g_TexTwistOctaves) + g_fBmOctaves - 4.0f);
+    m_CBTerrain.DetailUVScale.x = DETAIL_UV_SCALE;
+    m_CBTerrain.DetailUVScale.y = 1.0f / DETAIL_UV_SCALE;
+
+    SetMatrices(pDesc);
+
+    RenderTerrain(pContext, pDesc, true);
 }
 
 void TessellatedTerrain::RenderInstanceLayers(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
@@ -1098,7 +1215,10 @@ void TessellatedTerrain::RenderTerrainHeightmap(
     m_CBCommon.CoarseSampleSpacing.y = g_WorldScale;
     m_CBCommon.CoarseSampleSpacing.z = (2.0f * g_WorldScale * (FLOAT)Dimension) / 1024.0f;
 
-    m_CBCommon.WaterLevel.x = m_ConstructionDesc.WaterLevelY / g_WorldScale;
+    m_CBCommon.WaterConstants.x = m_ConstructionDesc.WaterLevelY / g_WorldScale;
+    m_CBCommon.WaterConstants.y = (FLOAT)Graphics::GetAbsoluteTime() * g_WaterTimeScale;
+    m_CBCommon.WaterConstants.z = g_WaterUVScale;
+    m_CBCommon.WaterConstants.w = g_WaterYScale;
 
     SetTextureWorldOffset(CameraPosWorld);
     pContext->SetDynamicConstantBufferView(TerrainRootParam_CBCommon, sizeof(m_CBCommon), &m_CBCommon);
@@ -1158,10 +1278,16 @@ void TessellatedTerrain::RenderTerrainHeightmap(
     }
 }
 
-void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)
+void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc, bool Water)
 {
     bool LODShaderEnabled = false;
-    if (g_HwTessellation)
+    if (Water)
+    {
+        pContext->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST);
+        pContext->SetIndexBuffer(m_TileQuadListIB.IndexBufferView(0, -1, true));
+        pContext->SetPipelineState(m_WaterPSO);
+    }
+    else if (g_HwTessellation)
     {
         pContext->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST);
         pContext->SetIndexBuffer(m_TileQuadListIB.IndexBufferView(0, -1, true));
@@ -1202,10 +1328,16 @@ void TessellatedTerrain::RenderTerrain(GraphicsContext* pContext, const Tessella
     pContext->SetDynamicConstantBufferView(TerrainRootParam_CBWireframe, sizeof(m_CBWireframe), &m_CBWireframe);
 
     D3D12_CPU_DESCRIPTOR_HANDLE hSRVs[4] = {};
+    UINT32 HeightmapSrvCount = 3;
     hSRVs[0] = m_HeightMap.GetSRV();
     hSRVs[1] = m_GradientMap.GetSRV();
     hSRVs[2] = m_MaterialMap.GetSRV();
-    pContext->SetDynamicDescriptors(TerrainRootParam_DTHeightmap, 0, 3, hSRVs);
+    if (Water)
+    {
+        hSRVs[3] = m_pWaterBumpTexture->GetSRV();
+        HeightmapSrvCount = 4;
+    }
+    pContext->SetDynamicDescriptors(TerrainRootParam_DTHeightmap, 0, HeightmapSrvCount, hSRVs);
 
     SetTerrainTextures(pContext);
 

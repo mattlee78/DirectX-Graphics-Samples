@@ -898,8 +898,11 @@ void GameClient::RenderScene( void )
         }
 
         {
+            ScopedTimer _prof(L"Render Alpha", gfxContext);
+
             // transparent render
-            m_NetClient.GetWorld()->GetTerrainObjectMap()->RenderWater(&gfxContext);
+            m_NetClient.GetWorld()->GetTerrain()->AlphaRender(&gfxContext, &RD);
+            //m_NetClient.GetWorld()->GetTerrainObjectMap()->RenderWater(&gfxContext);
         }
 	}
 

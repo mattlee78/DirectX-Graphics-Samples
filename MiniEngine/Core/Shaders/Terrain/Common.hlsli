@@ -24,7 +24,7 @@ cbuffer cbCommon : register(b1)
     int3   g_FractalOctaves : packoffset(c0);		// ridge, fBm, uv twist
     float3 g_TextureWorldOffset : packoffset(c1);	// Offset of fractal terrain in texture space.
     float3 g_CoarseSampleSpacing : packoffset(c2);	// x = World space distance between samples in the coarse height map. y = world scale
-    float4 g_WaterLevel : packoffset(c3);           // Water level ypos scaled by inverse world scale
+    float4 g_WaterConstants : packoffset(c3);       // x = Water level ypos scaled by inverse world scale, y = water time, z = water UV scale, w = water Y scale
 };
 
 struct Adjacency
@@ -173,7 +173,7 @@ float3 TerrainMaterialBlend(float normalYSquared, float ypos, float2 texUV, out 
         Diffuse = g_TerrainRockDiffuse.Sample(SamplerRepeatLinear, RockTexUV).xyz;
         NormalSample = SampleNormal(g_TerrainRockNormal, RockTexUV);
     }
-    else if (ypos < g_WaterLevel.x)
+    else if (ypos < g_WaterConstants.x)
     {
         Diffuse = g_TerrainDirtDiffuse.Sample(SamplerRepeatLinear, ModTexUV).xyz;
         NormalSample = SampleNormal(g_TerrainDirtNormal, ModTexUV);

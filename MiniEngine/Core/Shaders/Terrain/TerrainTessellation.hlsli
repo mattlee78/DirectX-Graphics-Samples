@@ -27,6 +27,7 @@
 Texture2D g_CoarseHeightMap : register(t0);
 Texture2D g_CoarseGradientMap : register(t1);
 Texture2D g_CoarseMaterialMap : register(t2);
+Texture2D g_WaterBumpMap : register(t3);
 Texture2D g_DetailNoiseTexture : register(t4);
 Texture2D g_DetailNoiseGradTexture : register(t5);
 

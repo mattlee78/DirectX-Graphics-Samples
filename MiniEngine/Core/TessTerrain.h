@@ -266,6 +266,12 @@ private:
     ByteAddressBuffer m_DrawInstancedArgumentBuffer;
     UINT32 m_DrawInstancedArgumentCount;
 
+    static const UINT32 m_WaterGridPoints = 512;
+    static const UINT32 m_WaterPatchSize = 64;
+    const ManagedTexture* m_pWaterBumpTexture;
+    StructuredBuffer m_WaterPatchVB;
+    GraphicsPSO m_WaterPSO;
+
     __declspec(align(16))
     struct CBTerrain
     {
@@ -299,7 +305,7 @@ private:
         XMINT4 FractalOctaves;
         XMFLOAT4 TextureWorldOffset;
         XMFLOAT4 CoarseSampleSpacing;
-        XMFLOAT4 WaterLevel;
+        XMFLOAT4 WaterConstants;
     } m_CBCommon;
     C_ASSERT(sizeof(CBCommon) == 4 * sizeof(XMFLOAT4));
 
@@ -321,6 +327,39 @@ private:
     } m_CBWireframe;
     C_ASSERT(sizeof(CBWireframe) == 3 * sizeof(XMFLOAT4));
 
+    __declspec(align(16))
+    struct CBWater
+    {
+        FLOAT		g_RenderCaustics;
+        FLOAT		g_UseDynamicLOD;
+        FLOAT		g_FrustumCullInHS;
+        FLOAT       g_DynamicTessFactor;
+
+        FLOAT       g_StaticTessFactor;
+        FLOAT		g_TerrainBeingRendered;
+        FLOAT		g_HalfSpaceCullSign;
+        FLOAT		g_HalfSpaceCullPosition;
+
+        FLOAT		g_SkipCausticsCalculation;
+        FLOAT	    g_MainBufferSizeMultiplier;
+        FLOAT		g_ZNear;
+        FLOAT		g_ZFar;
+
+        XMFLOAT3    g_LightPosition;
+        INT			g_MSSamples;
+
+        XMFLOAT4X4  g_ModelViewMatrix;
+        XMFLOAT4X4  g_ModelViewProjectionMatrix;
+        XMFLOAT4X4  g_ModelViewProjectionMatrixInv;
+        XMFLOAT4X4  g_LightModelViewProjectionMatrix;
+        XMFLOAT4X4  g_LightModelViewProjectionMatrixInv;
+        XMFLOAT3    g_CameraPosition;
+        XMFLOAT3    g_CameraDirection;
+
+        XMFLOAT2    g_WaterBumpTexcoordShift;
+        XMFLOAT2    g_ScreenSizeInv;
+    } m_CBWater;
+
 public:
     TessellatedTerrain();
 
@@ -337,6 +376,7 @@ public:
 
     void OffscreenRender(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
     void Render(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
+    void AlphaRender(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
     void UIRender(TextContext& Text);
 
     UINT32 PhysicsRender(GraphicsContext* pContext, const XMVECTOR& EyePos, FLOAT WorldScale, const FLOAT** ppHeightSamples, D3D12_SUBRESOURCE_FOOTPRINT* pFootprint);
@@ -359,6 +399,9 @@ private:
     void CreateInstanceLayers();
     void TerminateInstanceLayers();
 
+    void CreateWaterResources();
+    void TerminateWaterResources();
+
     void RenderTerrainHeightmap(
         GraphicsContext* pContext, 
         ColorBuffer* pHeightmap, 
@@ -367,7 +410,7 @@ private:
         ColorBuffer* pMaterialMap,
         XMFLOAT4 CameraPosWorld,
         FLOAT UVScale);
-    void RenderTerrain(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc);
+    void RenderTerrain(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc, bool Water);
     void SetMatrices(const TessellatedTerrainRenderDesc* pDesc);
     void SetTextureWorldOffset(const XMFLOAT4& CameraPosWorld);
     UINT32 FindAvailablePhysicsHeightmap();

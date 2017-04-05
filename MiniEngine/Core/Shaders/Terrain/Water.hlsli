@@ -28,28 +28,28 @@ static const float2 QuadTexCoordinates[4] =
     { 1.0, 0.0 }
 };
 
-SamplerState SamplerLinearWrap
+SamplerState SamplerLinearWrap : register(s1)
 {
     Filter = MIN_MAG_MIP_LINEAR;
     AddressU = Wrap;
     AddressV = Wrap;
 };
 
-SamplerState SamplerLinearClamp
+SamplerState SamplerLinearClamp : register(s0)
 {
     Filter = MIN_MAG_MIP_LINEAR;
     AddressU = Clamp;
     AddressV = Clamp;
 };
 
-SamplerState SamplerPointClamp
+SamplerState SamplerPointClamp : register(s2)
 {
     Filter = MIN_MAG_MIP_POINT;
     AddressU = Clamp;
     AddressV = Clamp;
 };
 
-SamplerState SamplerAnisotropicWrap
+SamplerState SamplerAnisotropicWrap : register(s4)
 {
     Filter = ANISOTROPIC;
     AddressU = Wrap;
@@ -90,7 +90,7 @@ SamplerComparisonState SamplerBackBufferDepth
     ComparisonFunc = LESS_EQUAL;
 };
 
-SamplerComparisonState SamplerDepthAnisotropic
+SamplerComparisonState SamplerDepthAnisotropic : register(s15)
 {
     Filter = COMPARISON_ANISOTROPIC;
     AddressU = Border;
@@ -105,10 +105,10 @@ SamplerComparisonState SamplerDepthAnisotropic
 //--------------------------------------------------------------------------------------
 
 // static textures
-Texture2D g_HeightfieldTexture;
-Texture2D g_SlopeDiffuseTexture;
-Texture2D g_WaterBumpTexture;
-Texture2D g_DepthMapTexture;
+Texture2D g_HeightfieldTexture : register(t0);
+Texture2D g_SlopeDiffuseTexture : register(t1);
+Texture2D g_DepthMapTexture : register(t2);
+Texture2D g_WaterBumpTexture : register(t3);
 
 // rendertarget textures
 Texture2D g_SkyTexture;
@@ -182,23 +182,29 @@ struct PatchData
 // Constant Buffers
 //--------------------------------------------------------------------------------------
 
-shared cbuffer cb0
+cbuffer cbWater : register(b0)
 {
-
 	// rendering control variables
 	float		g_RenderCaustics;
 	float		g_UseDynamicLOD;
 	float		g_FrustumCullInHS;
 	float       g_DynamicTessFactor;
+
 	float       g_StaticTessFactor;
 	float		g_TerrainBeingRendered;
 	float		g_HalfSpaceCullSign;
 	float		g_HalfSpaceCullPosition;
-	float		g_SkipCausticsCalculation;
-	int			g_MSSamples;
 
-	// view/time dependent variables
-	float4x4    g_ModelViewMatrix;
+	float		g_SkipCausticsCalculation;
+    float	    g_MainBufferSizeMultiplier;
+    float		g_ZNear;
+    float		g_ZFar;
+
+    float3      g_LightPosition;
+    int			g_MSSamples;
+   
+    // view/time dependent variables
+	float4x4    g_ModelViewMatrix : register(c4);
     float4x4    g_ModelViewProjectionMatrix;
 	float4x4	g_ModelViewProjectionMatrixInv;
     float4x4    g_LightModelViewProjectionMatrix;
@@ -206,37 +212,25 @@ shared cbuffer cb0
     float3      g_CameraPosition;
     float3      g_CameraDirection;
 
-
-	float3      g_LightPosition;
-	float2      g_WaterBumpTexcoordShift;
-	float2      g_ScreenSizeInv;
-	float	    g_MainBufferSizeMultiplier;
-	float		g_ZNear;
-	float		g_ZFar;
-
-	// constants defining visual appearance
-	float2		g_DiffuseTexcoordScale={130.0,130.0};
-	float2		g_RockBumpTexcoordScale={10.0,10.0};
-	float		g_RockBumpHeightScale=3.0;
-	float2		g_SandBumpTexcoordScale={3.5,3.5};
-	float		g_SandBumpHeightScale=0.5;
-	float       g_TerrainSpecularIntensity=0.5;
-	float2		g_WaterMicroBumpTexcoordScale={225,225};
-	float2		g_WaterBumpTexcoordScale={7,7};
-	float		g_WaterHeightBumpScale=1.0f;
-	float3      g_WaterDeepColor={0.1,0.4,0.7};
-	float3      g_WaterScatterColor={0.3,0.7,0.6};
-	float3      g_WaterSpecularColor={1,1,1};
-	float       g_WaterSpecularIntensity=350.0;
-
-	float       g_WaterSpecularPower=1000;
-	float2      g_WaterColorIntensity={0.1,0.2};
-	float3      g_AtmosphereBrightColor={1.0,1.1,1.4};
-	float3      g_AtmosphereDarkColor={0.6,0.6,0.7};
-	float		g_FogDensity = 1.0f/700.0f;
-    float2		g_HeightFieldOrigin = float2(0, 0);
-	float		g_HeightFieldSize = 512;
+    float2      g_WaterBumpTexcoordShift;
+    float2      g_ScreenSizeInv;
 };
+
+// constants defining visual appearance
+static const float2		g_WaterMicroBumpTexcoordScale = { 225,225 };
+static const float2		g_WaterBumpTexcoordScale = { 7,7 };
+static const float		g_WaterHeightBumpScale = 1.0f;
+static const float3     g_WaterDeepColor = { 0.1,0.4,0.7 };
+static const float3     g_WaterScatterColor = { 0.3,0.7,0.6 };
+static const float3     g_WaterSpecularColor = { 1,1,1 };
+static const float      g_WaterSpecularIntensity = 350.0;
+static const float      g_WaterSpecularPower = 1000;
+static const float2     g_WaterColorIntensity = { 0.1,0.2 };
+static const float3     g_AtmosphereBrightColor = { 1.0,1.1,1.4 };
+static const float3     g_AtmosphereDarkColor = { 0.6,0.6,0.7 };
+static const float		g_FogDensity = 1.0f / 700.0f;
+static const float2		g_HeightFieldOrigin = float2(0, 0);
+static const float		g_HeightFieldSize = 512;
 
 //--------------------------------------------------------------------------------------
 // Misc functions
