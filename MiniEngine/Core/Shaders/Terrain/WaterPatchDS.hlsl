@@ -1,9 +1,10 @@
 #include "TerrainTessellation.hlsli"
 
-float ComputeWaterDisplacement(float3 worldPos)
+// Returns a normal vector in XYZ plus a displacement height in W:
+float4 ComputeWaterDisplacement(float3 worldPos)
 {
     const float2 texUV = worldPos.xz + float2(g_TextureWorldOffset.x, -g_TextureWorldOffset.z) * g_tileWorldSize.y;
-    float height = 0;
+    float4 result = float4(0, 4, 0, 0);
     float heightScale = 1;
     float2 texcoord = texUV * g_WaterConstants.z;
     float2 variance = float2(1, 1);
@@ -12,17 +13,22 @@ float ComputeWaterDisplacement(float3 worldPos)
     {
         float2 CurrentTexCoord = texcoord + variance * timeoffset;
         float4 TexSample = g_WaterBumpMap.SampleLevel(SamplerRepeatLinear, CurrentTexCoord, 0).rbga;
-        height += (TexSample.w - 0.5) * heightScale;
+        result.xz += (2 * TexSample.xz - 1) * heightScale;
+        result.w += (TexSample.w - 0.5) * heightScale;
         heightScale *= 0.65;
         texcoord *= 1.4;
         variance.x *= -1;
     }
-    return height * g_WaterConstants.w;
+    //result.xz *= (g_WaterConstants.w * 100.0f);
+    result.xyz = normalize(result.xyz);
+    result.w *= g_WaterConstants.w;
+    return result;
 }
 
 float3 TessellatedWaterPos(HS_CONSTANT_DATA_OUTPUT input,
     float2 UV : SV_DomainLocation,
-    const OutputPatch<HS_OUTPUT, 4> terrainQuad)
+    const OutputPatch<HS_OUTPUT, 4> terrainQuad,
+    out float3 normal)
 {
     // bilerp the position
     float3 worldPos = Bilerp(terrainQuad[0].vPosition, terrainQuad[1].vPosition, terrainQuad[2].vPosition, terrainQuad[3].vPosition, UV);
@@ -32,8 +38,21 @@ float3 TessellatedWaterPos(HS_CONSTANT_DATA_OUTPUT input,
     float height = g_WaterConstants.x;
     worldPos.y += height;
 
-    float wh = ComputeWaterDisplacement(worldPos);
-    worldPos.y += wh;
+    const float2 heightUV = worldXZtoHeightUV(worldPos.xz);
+    const float terrainYpos = g_CoarseHeightMap.SampleLevel(SamplerRepeatLinear, heightUV, 0).r;
+
+    const float waterDepth = height - terrainYpos;
+    if (waterDepth > -0.005f)
+    {
+        float lerp = saturate(waterDepth / 0.01f) * 0.5f + 0.5f;
+        float4 wd = ComputeWaterDisplacement(worldPos);
+        worldPos.y += wd.w * lerp;
+        normal = wd.xyz;
+    }
+    else
+    {
+        normal = float3(0, 1, 0);
+    }
 
     return worldPos;
 }
@@ -46,23 +65,16 @@ MeshVertex WaterPatchDS(HS_CONSTANT_DATA_OUTPUT input,
 {
     MeshVertex Output = (MeshVertex)0;
 
-    const float3 worldPos = TessellatedWaterPos(input, UV, terrainQuad);
+    float3 waterNormal;
+    const float3 worldPos = TessellatedWaterPos(input, UV, terrainQuad, waterNormal);
     Output.vPosition = mul(float4(worldPos.xyz, 1), g_WorldViewProj);
     Output.debugColour = lerpDebugColours(input.debugColour, UV);
     Output.vWorldXYZ = worldPos;
-    Output.vNormal = float3(1, 1, 1);
+    Output.vNormal = waterNormal;
 
     Output.vShadowPos = mul(float4(worldPos.xyz, 1), g_ModelToShadow).xyz;
     Output.vShadowPosOuter = mul(float4(worldPos.xyz, 1), g_ModelToShadowOuter).xyz;
     Output.vViewDir = mul(float4(worldPos.xyz, 1), g_WorldMatrix).xyz;
-
-    // For debugging, darken a chequer board pattern of tiles to highlight tile boundaries.
-    if (g_DebugShowPatches)
-    {
-        const uint patchY = PatchID / PATCHES_PER_TILE_EDGE;
-        const uint patchX = PatchID - patchY * PATCHES_PER_TILE_EDGE;
-        Output.vNormal *= (0.5 * ((patchX + patchY) % 2) + 0.5);
-    }
 
     return Output;
 }

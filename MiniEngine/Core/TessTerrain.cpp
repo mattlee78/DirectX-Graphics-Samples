@@ -73,7 +73,7 @@ BoolVar g_DebugGrid("Terrain/Debug Grid Enable", false);
 NumVar g_DebugGridScale("Terrain/Debug Grid Scale", 512, 50.0f, 5000.0f, 50.0f);
 
 NumVar g_WaterUVScale("Terrain/Water/UV Scale", 1.0f, 0.0001f, 10.0f, 0.01f);
-NumVar g_WaterYScale("Terrain/Water/Y Scale", 0.01f, 0, 1, 0.001f);
+NumVar g_WaterYScale("Terrain/Water/Y Scale", 0.005f, 0, 1, 0.001f);
 NumVar g_WaterTimeScale("Terrain/Water/Time Scale", 0.03f, 0, 1, 0.001f);
 
 static const DXGI_FORMAT g_HeightmapFormat = DXGI_FORMAT_R32_FLOAT;
@@ -1002,7 +1002,7 @@ void TessellatedTerrain::AlphaRender(GraphicsContext* pContext, const Tessellate
     pContext->SetDynamicDescriptors(TerrainRootParam_DTNoisemap, 0, ARRAYSIZE(hNoiseTextures), hNoiseTextures);
 
     // Something's wrong in the shader and the tri size is out by a factor of 2.  Why?!?
-    m_CBTerrain.tessellatedTriWidth.x = 8 * g_TessellatedTriWidth;
+    m_CBTerrain.tessellatedTriWidth.x = g_TessellatedTriWidth;
 
     m_CBTerrain.DebugShowPatches.x = (INT)g_DebugDrawPatches;
     m_CBTerrain.DebugShowTiles.x = (INT)g_DebugDrawTiles;
