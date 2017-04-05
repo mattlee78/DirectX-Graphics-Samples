@@ -346,6 +346,7 @@ namespace GameCore
 
 		ShowWindow( g_hWnd, SW_SHOWDEFAULT );
 
+        bool Quit = false;
 		do
 		{
 			MSG msg = {};
@@ -353,11 +354,13 @@ namespace GameCore
 			{
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
-			}
-			if (msg.message == WM_QUIT)
-				break;
+                if (msg.message == WM_QUIT)
+                {
+                    Quit = true;
+                }
+            }
 		}
-		while (UpdateApplication(app));	// Returns false to quit loop
+		while (!Quit && UpdateApplication(app));	// Returns false to quit loop
 
 		Graphics::Terminate();
 		TerminateApplication(app);
