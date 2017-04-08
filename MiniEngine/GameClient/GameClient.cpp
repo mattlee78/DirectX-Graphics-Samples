@@ -69,6 +69,9 @@ public:
 	{
         m_ClientObjectsCreated = false;
         m_FollowCameraEnabled = false;
+        const FLOAT Brightness = 5.0f;
+        Color SkyColor(0.5f * Brightness, 0.5f * Brightness, 1.0f * Brightness);
+        Graphics::g_SceneColorBuffer.SetClearColor(SkyColor);
 	}
 
 	virtual void Startup( void ) override;
@@ -383,6 +386,10 @@ void GameClient::Startup( void )
 //             m_NetServer.SpawnObject(nullptr, "*cube1.5", nullptr, DT, XMFLOAT3(0, 0, 0));
 //         }
     }
+
+//     InstancedLODModel LMT;
+//     LMT.Load("Models\\MapleGreenMountain_A.bmesh");
+//     LMT.Unload();
 }
 
 bool GameClient::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument)

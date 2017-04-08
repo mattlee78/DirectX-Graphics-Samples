@@ -168,10 +168,19 @@ class TerrainObjectMap : public TerrainServerRenderer
 protected:
     FLOAT m_WaterLevel;
 
+    enum ObjectType
+    {
+        OT_FlatGround = 0,
+        OT_Rock,
+        OT_TreeParent,
+        OT_TreeChild,
+    };
+
     struct PlacedObject
     {
         DirectX::PackedVector::XMHALF2 NormCoord;
         FLOAT Radius;
+        ObjectType Type;
     };
 
     struct ObjectBlockData : public BlockData

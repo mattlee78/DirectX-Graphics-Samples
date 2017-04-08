@@ -308,6 +308,7 @@ bool Model::LoadBMESH(const char *filename)
 
         assert(pSrcMesh->IndexData.Format == DXGI_FORMAT_R16_UINT);
 
+        DestMesh.ParentMeshID = (UINT32)(pSrcMesh - Header.Meshes.pFirstObject);
         DestMesh.indexCount = SrcSubset.IndexCount;
         DestMesh.indexDataByteOffset = (UINT32)(pSrcMesh->IndexData.ByteBuffer.pFirstObject - pIndexBaseAddress) + SrcSubset.StartIndex * 2;
         DestMesh.vertexCount = SrcSubset.VertexCount;
@@ -425,4 +426,3 @@ bool CollisionMesh::Load(const CHAR* strBMeshFilename, bool IsConvex)
 
     return Success;
 }
-

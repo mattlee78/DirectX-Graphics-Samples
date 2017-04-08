@@ -141,7 +141,7 @@ public:
     FLOAT GetMass() const;
     const ModelRigidBodyDesc* GetRigidBodyDesc() const { return m_pDesc->pRigidBody; }
     Math::Vector3 GetRenderOffset() const { return Math::Vector3(XMLoadFloat3(&m_pDesc->RenderOffset)); }
-    bool IsPlayerControllable() const { return (bool)m_pDesc->IsPlayerControllable; }
+    bool IsPlayerControllable() const { return m_pDesc->IsPlayerControllable == TRUE; }
 
 private:
     bool CreateDefaultTemplate(const CHAR* strName, bool GraphicsEnabled);

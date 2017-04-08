@@ -2,11 +2,14 @@
 
 float3 ComputeWaterMicrobump(float2 texUV)
 {
-    float2 microtexUV = texUV * g_WaterConstants.z;
+    float2 microtexUV = texUV * 5;
     float2 timeoffset = float2(g_WaterConstants.y * 1.0f, g_WaterConstants.y * 0.7f);
-    float3 BumpA = normalize(2 * g_WaterBumpMap.Sample(SamplerRepeatLinear, microtexUV - timeoffset * 0.2f).rbg - float3(1, -8, 1));
-    float3 BumpB = normalize(2 * g_WaterBumpMap.Sample(SamplerRepeatLinear, microtexUV * 0.5f - timeoffset * 0.05f).rbg - float3(1, -8, 1));
-    return normalize(BumpA + BumpB);
+    float2 BumpA = 2 * g_WaterBumpMap.Sample(SamplerRepeatLinear, microtexUV - timeoffset * 2.0f).rg - 1;
+    float2 BumpB = 2 * g_WaterBumpMap.Sample(SamplerRepeatLinear, microtexUV * 0.5f - timeoffset * 0.5f).rg - 1;
+    float2 Bump = BumpA + BumpB;
+    float3 n = float3(Bump.x, 8, Bump.y);
+    return normalize(n);
+    //return float3(Bump.xy, 1);
 }
 
 float4 WaterPatchPS(MeshVertex input) : SV_Target
@@ -30,13 +33,14 @@ float4 WaterPatchPS(MeshVertex input) : SV_Target
     float3 Bitangent = normalize(cross(Tangent, normal));
 
     float3x3 BasisMatrix;
-    BasisMatrix[0] = normal;
-    BasisMatrix[1] = Tangent;
+    BasisMatrix[1] = normal;
+    BasisMatrix[0] = Tangent;
     BasisMatrix[2] = Bitangent;
 
-    //float3 MicrobumpNormal = ComputeWaterMicrobump(texUV);
+    float3 MicrobumpNormal = ComputeWaterMicrobump(texUV);
 
-    float3 NewNormal = normal;
+    //float3 NewNormal = normal;
+    float3 NewNormal = mul(MicrobumpNormal, BasisMatrix);
 
     float3 viewDir = normalize(input.vViewDir);
     float3 shadowCoord = input.vShadowPos;
@@ -47,5 +51,6 @@ float4 WaterPatchPS(MeshVertex input) : SV_Target
     {
         LitResult *= input.vNormal.x;
     }
+    //return float4(MicrobumpNormal * 0.5 + 0.5, 1);
     return float4(LitResult, 0.75f * shallowAlpha);
 }

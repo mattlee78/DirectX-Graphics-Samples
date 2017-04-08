@@ -766,21 +766,6 @@ void TessellatedTerrain::CreateInstanceLayers()
         Layer.UVRectTable[15] = XMFLOAT4(0.5f, 0.5f, 0.25f, 0.25f);
     }
 
-    if (0)
-    {
-        InstancedDecorationLayer& Layer = m_InstanceLayers[1];
-        Layer.InstanceCount = 16384;
-        Layer.InstancePlacementBuffer.Create(L"Instance Placement Buffer", Layer.InstanceCount, sizeof(InstancePlacementVertex), nullptr);
-        Layer.PlacementVBView = Layer.InstancePlacementBuffer.VertexBufferView();
-        const UINT32 RingIndex = 0;
-        const FLOAT ScaleFactor = 0.5f;
-        Layer.VisibleRadius = m_pTileRings[RingIndex]->GetRadius() * ScaleFactor;
-        Layer.FadeRadius = Layer.VisibleRadius * 0.9f;
-        Layer.pModel = new Graphics::Model();
-        Layer.pModel->Load("Models\\GrassDecoration2.bmesh");
-        Layer.InstanceArgumentCount = 1;
-    }
-
     UINT32 ArgIndex = 0;
     for (UINT32 i = 0; i < ARRAYSIZE(m_InstanceLayers); ++i)
     {
@@ -820,30 +805,6 @@ void TessellatedTerrain::CreateWaterResources()
 
     m_pWaterBumpTexture = TextureManager::LoadFromFile("Terrain\\water_bump.dds", false);
 
-    /*
-    const UINT32 VertexCount = m_WaterPatchSize * m_WaterPatchSize;
-    XMFLOAT4* pPatchData = new XMFLOAT4[VertexCount];
-    const FLOAT ScaleFactor = (FLOAT)m_WaterGridPoints / (FLOAT)m_WaterPatchSize;
-    for (UINT32 y = 0; y < m_WaterPatchSize; ++y)
-    {
-        const FLOAT YValue = (FLOAT)y * ScaleFactor;
-        for (UINT32 x = 0; x < m_WaterPatchSize; ++x)
-        {
-            const FLOAT XValue = (FLOAT)x * ScaleFactor;
-            pPatchData[y * m_WaterPatchSize + x] = XMFLOAT4(XValue, YValue, ScaleFactor, ScaleFactor);
-        }
-    }
-
-    m_WaterPatchVB.Create(L"Water Patch VB", VertexCount, sizeof(XMFLOAT4), pPatchData);
-    delete[] pPatchData;
-
-    const D3D12_INPUT_ELEMENT_DESC WaterLayout =
-    { "PATCH_PARAMETERS",  0, DXGI_FORMAT_R32G32B32A32_FLOAT,   0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-
-    DXGI_FORMAT ColorFormat = Graphics::g_SceneColorBuffer.GetFormat();
-    DXGI_FORMAT DepthFormat = Graphics::g_SceneDepthBuffer.GetFormat();
-    */
-
     m_WaterPSO = m_TessellationPSO;
     m_WaterPSO.SetBlendState(Graphics::BlendTraditional);
     m_WaterPSO.SetDepthStencilState(Graphics::DepthStateReadOnly);
@@ -855,7 +816,6 @@ void TessellatedTerrain::CreateWaterResources()
 
 void TessellatedTerrain::TerminateWaterResources()
 {
-    m_WaterPatchVB.Destroy();
 }
 
 void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)

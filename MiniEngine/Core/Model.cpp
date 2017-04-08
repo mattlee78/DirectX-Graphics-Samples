@@ -15,7 +15,7 @@
 #include "Model.h"
 #include <string.h>
 #include <float.h>
-
+#include "TessTerrain.h"
 
 namespace Graphics
 {
@@ -221,6 +221,76 @@ void Model::LoadPostProcess(bool needToOptimize)
 		assert(0);
 #endif
 	}
+}
+
+bool InstancedLODModel::Load(const CHAR* strFilename)
+{
+    m_pModel = new Model();
+    bool Success = m_pModel->Load(strFilename);
+    if (!Success)
+    {
+        delete m_pModel;
+        m_pModel = nullptr;
+        return false;
+    }
+
+    const UINT32 SubsetCount = m_pModel->m_Header.meshCount;
+    D3D12_DRAW_INDEXED_ARGUMENTS* pIndirectArgs = new D3D12_DRAW_INDEXED_ARGUMENTS[SubsetCount];
+    ZeroMemory(pIndirectArgs, sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) * SubsetCount);
+
+    UINT32 MaxParentID = 0;
+    for (UINT32 i = 0; i < SubsetCount; ++i)
+    {
+        const Model::Mesh& m = m_pModel->m_pMesh[i];
+        MaxParentID = std::max(MaxParentID, m.ParentMeshID);
+        pIndirectArgs[i].IndexCountPerInstance = m.indexCount;
+        pIndirectArgs[i].BaseVertexLocation = m.vertexDataByteOffset / m.vertexStride;
+        pIndirectArgs[i].StartIndexLocation = m.indexDataByteOffset / 2;
+    }
+
+    m_LODCount = MaxParentID + 1;
+    m_pLODs = new LODRender[m_LODCount];
+
+    UINT32 CurrentLODIndex = -1;
+    for (UINT32 i = 0; i < SubsetCount; ++i)
+    {
+        const Model::Mesh& m = m_pModel->m_pMesh[i];
+        const UINT32 LODIndex = MaxParentID - m.ParentMeshID;
+        ASSERT(LODIndex < m_LODCount);
+        LODRender& LR = m_pLODs[LODIndex];
+        if (LODIndex != CurrentLODIndex)
+        {
+            CurrentLODIndex = LODIndex;
+            LR.SubsetStartIndex = i;
+            LR.SubsetCount = 1;
+            LR.InstancePlacements.Create(L"LOD IP", m_MaxInstanceCountPerFrame, sizeof(InstancePlacementVertex), nullptr);
+        }
+        else
+        {
+            LR.SubsetCount++;
+        }
+    }
+
+    m_DrawInstancedArguments.Create(L"LOD DrawIndexed Args", SubsetCount, sizeof(D3D12_DRAW_INDEXED_ARGUMENTS), pIndirectArgs);
+    delete[] pIndirectArgs;
+
+    return true;
+}
+
+void InstancedLODModel::Unload()
+{
+    for (UINT32 i = 0; i < m_LODCount; ++i)
+    {
+        m_pLODs[i].InstancePlacements.Destroy();
+    }
+    delete[] m_pLODs;
+    m_pLODs = nullptr;
+    m_LODCount = 0;
+
+    delete m_pModel;
+    m_pModel = nullptr;
+
+    m_DrawInstancedArguments.Destroy();
 }
 
 } // namespace Graphics

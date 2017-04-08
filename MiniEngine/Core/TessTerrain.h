@@ -257,7 +257,7 @@ private:
         XMFLOAT4 UVRectTable[16];
     };
 
-    InstancedDecorationLayer m_InstanceLayers[8];
+    InstancedDecorationLayer m_InstanceLayers[4];
     UINT32 m_MaxInstanceCount;
     StructuredBuffer m_SourcePlacementBuffer;
     ComputePSO m_InstancePlacementPSO;
@@ -266,10 +266,7 @@ private:
     ByteAddressBuffer m_DrawInstancedArgumentBuffer;
     UINT32 m_DrawInstancedArgumentCount;
 
-    static const UINT32 m_WaterGridPoints = 512;
-    static const UINT32 m_WaterPatchSize = 64;
     const ManagedTexture* m_pWaterBumpTexture;
-    StructuredBuffer m_WaterPatchVB;
     GraphicsPSO m_WaterPSO;
 
     __declspec(align(16))
