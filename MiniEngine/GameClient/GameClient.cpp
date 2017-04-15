@@ -266,18 +266,7 @@ void GameClient::Startup( void )
     m_NetClient.InitializeWorld();
     m_pClientWorld = m_NetClient.GetWorld();
 
-    ModelInstance* pMI = nullptr;
-
     Vector3 eye(100, 100, -100);
-    if (pMI != nullptr)
-    {
-        const Model* pModel = pMI->GetModel();
-        float modelRadius = Length(pModel->m_Header.boundingBox.max - pModel->m_Header.boundingBox.min) * .5f;
-        if (modelRadius >= 200)
-        {
-            eye = pMI->GetWorldPosition() + (pModel->m_Header.boundingBox.min + pModel->m_Header.boundingBox.max) * .5f + Vector3(modelRadius * .5f, 0.0f, 0.0f);
-        }
-    }
 	m_Camera.SetEyeAtUp( eye, Vector3(kZero), Vector3(kYUnitVector) );
 	m_Camera.SetZRange( 1.0f, 10000.0f );
 	m_pCameraController = new CameraController(m_Camera, Vector3(kYUnitVector));

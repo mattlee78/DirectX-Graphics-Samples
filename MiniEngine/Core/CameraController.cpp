@@ -134,7 +134,7 @@ FollowCameraController::FollowCameraController(Camera& TargetCamera, const Vecto
     m_MaxXZDistance = XZRadius;
     m_MaxYDistance = YDistance;
     m_TargetYOffset = TargetYOffset;
-    m_CameraMoveSpeed = 1.0f;
+    m_CameraMoveSpeed = 5.0f;
     m_TargetMoveSpeed = 10.0f;
     m_LastTargetPos = Vector3(0, 0, 0);
     m_pLastTargetObject = nullptr;
