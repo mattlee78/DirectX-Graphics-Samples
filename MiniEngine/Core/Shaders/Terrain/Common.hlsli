@@ -16,7 +16,7 @@
 #define INCLUDED_COMMON_FXH
 
 static const int CONTROL_VTX_PER_TILE_EDGE = 9;
-static const int PATCHES_PER_TILE_EDGE = 8;
+static const uint PATCHES_PER_TILE_EDGE = 8;
 static const float RECIP_CONTROL_VTX_PER_TILE_EDGE = 1.0 / 9;
 
 cbuffer cbCommon : register(b1)

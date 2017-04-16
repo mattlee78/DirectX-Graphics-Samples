@@ -360,7 +360,7 @@ float SmallerNeighbourAdjacencyFix(float3 p0, float3 p1, float diameter)
 	return SmallerNeighbourAdjacencyClamp(t);
 }
 
-float LargerNeighbourAdjacencyFix(float3 p0, float3 p1, int patchIdx, float diameter)
+float LargerNeighbourAdjacencyFix(float3 p0, float3 p1, uint patchIdx, float diameter)
 {
 	// We move one of the corner vertices in 2D (x,z) to match where the corner vertex is 
 	// on our larger neighbour.  We move p0 or p1 depending on the even/odd patch index.
@@ -425,7 +425,7 @@ HS_CONSTANT_DATA_OUTPUT TerrainScreenspaceLODConstantsHS(InputPatch<VS_CONTROL_P
 
 		// Edges that need adjacency adjustment are identified by the per-instance ip[0].adjacency 
 		// scalars, in *conjunction* with a patch ID that puts them on the edge of a tile.
-		int2 patchXY;
+		uint2 patchXY;
 		patchXY.y = PatchID / PATCHES_PER_TILE_EDGE;
 		patchXY.x = PatchID - patchXY.y * PATCHES_PER_TILE_EDGE;
 

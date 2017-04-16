@@ -1015,6 +1015,12 @@
     <FxCompile Include="Shaders\Terrain\WaterPatchPS.hlsl">
       <Filter>Shaders\TerrainTessellation</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\Terrain\InstanceMeshVS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\InstanceMeshPS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Math\Functions.inl">
@@ -1144,6 +1150,9 @@
       <Filter>Shaders\TerrainTessellation</Filter>
     </None>
     <None Include="Shaders\Terrain\Water.hlsli">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </None>
+    <None Include="Shaders\Terrain\InstanceMesh.hlsli">
       <Filter>Shaders\TerrainTessellation</Filter>
     </None>
   </ItemGroup>

@@ -494,6 +494,22 @@
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Filename)</EntryPointName>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">%(Filename)</EntryPointName>
     </FxCompile>
+    <FxCompile Include="Shaders\Terrain\InstanceMeshPS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Filename)</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Filename)</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">%(Filename)</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\InstanceMeshVS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Filename)</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Filename)</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">%(Filename)</EntryPointName>
+    </FxCompile>
     <FxCompile Include="Shaders\Terrain\InstancePrepassCS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">5.0</ShaderModel>
@@ -653,6 +669,7 @@
     <None Include="Shaders\Terrain\Common.hlsli" />
     <None Include="Shaders\Terrain\Deformation.hlsli" />
     <None Include="Shaders\Terrain\INoise.hlsli" />
+    <None Include="Shaders\Terrain\InstanceMesh.hlsli" />
     <None Include="Shaders\Terrain\InstanceRendering.hlsli" />
     <None Include="Shaders\Terrain\TerrainTessellation.hlsli" />
     <None Include="Shaders\Terrain\Water.hlsli" />
