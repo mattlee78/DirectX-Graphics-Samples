@@ -18,6 +18,7 @@
 #include "GraphicsCore.h"
 #include "DescriptorHeap.h"
 #include "EngineProfiling.h"
+#include "BufferManager.h"
 
 using namespace Graphics;
 
@@ -463,6 +464,12 @@ void CommandContext::WriteBuffer( GpuResource& Dest, size_t DestOffset, const vo
 
 void CommandContext::FillBuffer( GpuResource& Dest, size_t DestOffset, DWParam Value, size_t NumBytes )
 {
+    if (Value.Uint == 0 && NumBytes <= g_ZeroBufferSizeBytes)
+    {
+        CopyBufferRegion(Dest, DestOffset, g_ZeroBuffer, 0, NumBytes);
+        return;
+    }
+
 	DynAlloc TempSpace = m_CpuLinearAllocator.Allocate( NumBytes, 512 );
 	__m128 VectorValue = _mm_set1_ps(Value.Float);
 	SIMDMemFill(TempSpace.DataPtr, VectorValue, Math::DivideByMultiple(NumBytes, 16));

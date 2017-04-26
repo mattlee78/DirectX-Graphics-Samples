@@ -259,26 +259,4 @@ struct CollisionMesh
     void Unload();
 };
 
-class InstancedLODModel
-{
-protected:
-    Model* m_pModel;
-    UINT32 m_LODCount;
-    static const UINT32 m_MaxInstanceCountPerFrame = 1024;
-
-    struct LODRender
-    {
-        UINT32 SubsetStartIndex;
-        UINT32 SubsetCount;
-        StructuredBuffer InstancePlacements;
-    };
-    LODRender* m_pLODs;
-
-    ByteAddressBuffer m_DrawInstancedArguments;
-
-public:
-    bool Load(const CHAR* strFilename);
-    void Unload();
-};
-
 }

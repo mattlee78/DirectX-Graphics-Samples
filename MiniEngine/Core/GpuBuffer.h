@@ -59,6 +59,9 @@ public:
 		return IndexBufferView(Offset, (uint32_t)(m_BufferSize - Offset), m_ElementSize == 4);
 	}
 
+    UINT32 GetElementCount() const { return m_ElementCount; }
+    UINT32 GetElementSizeBytes() const { return m_ElementSize; }
+
 protected:
 
 	GpuBuffer(void) : m_BufferSize(0), m_ElementCount(0), m_ElementSize(0)

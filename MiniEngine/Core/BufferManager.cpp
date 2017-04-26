@@ -19,6 +19,8 @@
 
 namespace Graphics
 {
+    ByteAddressBuffer g_ZeroBuffer;
+
 	DepthBuffer g_SceneDepthBuffer;
 	ColorBuffer g_SceneColorBuffer;
 	ColorBuffer g_PostEffectsBuffer;
@@ -88,6 +90,8 @@ namespace Graphics
 
 void Graphics::InitializeRenderingBuffers( uint32_t bufferWidth, uint32_t bufferHeight )
 {
+    g_ZeroBuffer.Create(L"Zero Filled Buffer", g_ZeroBufferSizeBytes, 1, nullptr);
+
 	GraphicsContext& InitContext = GraphicsContext::Begin();
 
 	const uint32_t bufferWidth1 = (bufferWidth + 1) / 2;
@@ -229,6 +233,8 @@ void Graphics::InitializeRenderingBuffers( uint32_t bufferWidth, uint32_t buffer
 
 void Graphics::DestroyRenderingBuffers()
 {
+    g_ZeroBuffer.Destroy();
+
 	g_SceneDepthBuffer.Destroy();
 	g_SceneColorBuffer.Destroy();
 	g_VelocityBuffer.Destroy();

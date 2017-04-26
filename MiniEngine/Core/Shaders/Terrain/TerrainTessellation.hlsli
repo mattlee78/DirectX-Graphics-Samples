@@ -297,13 +297,13 @@ float SphereToScreenSpaceTessellation(float3 p0, float3 p1, float diameter)
 }
 
 // Lifted from Tim's Island demo code.
-bool inFrustum(const float3 pt, const float3 eyePos, const float3 viewDir, float margin)
+bool inFrustum(const float3 pt, const float3 eyePos, const float3 viewDir, float margin, float4x4 WVP)
 {
 	// conservative frustum culling
 	float3 eyeToPt = pt - eyePos;
 	float3 patch_to_camera_direction_vector = viewDir * dot(eyeToPt, viewDir) - eyeToPt;
 	float3 patch_center_realigned = pt + normalize(patch_to_camera_direction_vector) * min(margin, length(patch_to_camera_direction_vector));
-	float4 patch_screenspace_center = mul(float4(patch_center_realigned, 1.0), g_WorldViewProjLOD);
+	float4 patch_screenspace_center = mul(float4(patch_center_realigned, 1.0), WVP);
 
 	if(((patch_screenspace_center.x/patch_screenspace_center.w > -1.0) && (patch_screenspace_center.x/patch_screenspace_center.w < 1.0) &&
 		(patch_screenspace_center.y/patch_screenspace_center.w > -1.0) && (patch_screenspace_center.y/patch_screenspace_center.w < 1.0) &&
@@ -397,7 +397,7 @@ HS_CONSTANT_DATA_OUTPUT TerrainScreenspaceLODConstantsHS(InputPatch<VS_CONTROL_P
 	const float  sideLen = max(abs(ip[1].vPosition.x - ip[0].vPosition.x), abs(ip[1].vPosition.x - ip[2].vPosition.x));		// assume square & uniform
 	const float  diagLen = sqrt(2*sideLen*sideLen);
 
-	if (!inFrustum(centre, g_EyePos / g_CoarseSampleSpacing.y, g_ViewDir, diagLen))
+	if (!inFrustum(centre, g_EyePos / g_CoarseSampleSpacing.y, g_ViewDir, diagLen, g_WorldViewProjLOD))
 	{
 		Output.Inside[0] = Output.Inside[1] = -1;
 		Output.Edges[0]  = Output.Edges[1]  = Output.Edges[2] = Output.Edges[3] = -1;

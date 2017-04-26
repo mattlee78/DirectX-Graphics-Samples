@@ -44,7 +44,7 @@ void InstancePrepassCS( uint3 DTid : SV_DispatchThreadID )
         }
         else
         {
-            Visible = inFrustum(WorldPos, g_EyePos / g_CoarseSampleSpacing.y, g_ViewDir, InstanceScale * 2);
+            Visible = inFrustum(WorldPos, g_EyePos / g_CoarseSampleSpacing.y, g_ViewDir, InstanceScale * 2, g_WorldViewProjLOD);
         }
     }
 

@@ -101,6 +101,7 @@
     <ClInclude Include="DynamicUploadBuffer.h" />
     <ClInclude Include="DynamicDescriptorHeap.h" />
     <ClInclude Include="DescriptorHeap.h" />
+    <ClInclude Include="InstancedLODModels.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="ModelInstance.h" />
     <ClInclude Include="ModelTemplate.h" />
@@ -195,6 +196,7 @@
     <ClCompile Include="DynamicUploadBuffer.cpp" />
     <ClCompile Include="DynamicDescriptorHeap.cpp" />
     <ClCompile Include="DescriptorHeap.cpp" />
+    <ClCompile Include="InstancedLODModels.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="ModelBMESH.cpp" />
     <ClCompile Include="ModelGenerated.cpp" />
@@ -490,6 +492,17 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Vertex</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Filename)</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Filename)</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">%(Filename)</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\InstanceMeshPrepassCS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Filename)</EntryPointName>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Filename)</EntryPointName>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">%(Filename)</EntryPointName>

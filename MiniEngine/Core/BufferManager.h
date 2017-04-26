@@ -20,6 +20,9 @@
 
 namespace Graphics
 {
+    extern ByteAddressBuffer g_ZeroBuffer;
+    static const UINT32 g_ZeroBufferSizeBytes = 4096;
+
 	extern DepthBuffer g_SceneDepthBuffer;	// D32_FLOAT_S8_UINT
 	extern ColorBuffer g_SceneColorBuffer;	// R11G11B10_FLOAT
 	extern ColorBuffer g_PostEffectsBuffer;	// R32_UINT (to support Read-Modify-Write with a UAV)

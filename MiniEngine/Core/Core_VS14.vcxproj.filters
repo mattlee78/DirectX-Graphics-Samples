@@ -283,6 +283,9 @@
     <ClInclude Include="WorldGridBuilder.h">
       <Filter>Source Files\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="InstancedLODModels.h">
+      <Filter>Source Files\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SystemTime.cpp">
@@ -502,6 +505,9 @@
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="WorldGridBuilder.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="InstancedLODModels.cpp">
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
@@ -1019,6 +1025,9 @@
       <Filter>Shaders\TerrainTessellation</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\Terrain\InstanceMeshPS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Terrain\InstanceMeshPrepassCS.hlsl">
       <Filter>Shaders\TerrainTessellation</Filter>
     </FxCompile>
   </ItemGroup>

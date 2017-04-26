@@ -311,16 +311,8 @@ void RenderModel(ModelRenderContext &MRC, Graphics::Model* pModel, const Matrix4
         pContext->SetPipelineState(*pPso);
         MRC.LastInputLayoutIndex = pModel->m_InputLayoutIndex;
     }
-    UINT32 LastInputLayoutIndex = -1;
 
-    struct VSConstants
-    {
-        Matrix4 modelToProjection;
-        Matrix4 modelToShadow;
-        Matrix4 modelToShadowOuter;
-        Matrix4 modelToWorld;
-        XMFLOAT3 viewerPos;
-    } vsConstants;
+    VSModelConstants vsConstants;
 
     XMVECTOR NewRow3 = XMVectorSelect(g_XMOne, WorldTransform.GetW() - Vector4(MRC.CameraPosition), g_XMSelect1110);
     Matrix4 WT(WorldTransform);

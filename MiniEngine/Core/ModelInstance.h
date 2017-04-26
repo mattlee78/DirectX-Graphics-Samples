@@ -38,6 +38,16 @@ struct ModelRenderContext
     RenderPass CurrentPassType;
 };
 
+__declspec(align(16))
+struct VSModelConstants
+{
+    Math::Matrix4 modelToProjection;
+    Math::Matrix4 modelToShadow;
+    Math::Matrix4 modelToShadowOuter;
+    Math::Matrix4 modelToWorld;
+    XMFLOAT3 viewerPos;
+};
+
 struct DecomposedTransform
 {
     DirectX::XMFLOAT4 PositionScale;
