@@ -34,6 +34,7 @@ namespace Graphics
     class InstancedLODModel
     {
     protected:
+        UINT32 m_ModelIndex;
         Model* m_pModel;
         UINT32 m_LODCount;
         static const UINT32 m_MaxInstanceCountPerFrame = 1024;
@@ -42,12 +43,8 @@ namespace Graphics
         {
             UINT32 SubsetStartIndex;
             UINT32 SubsetCount;
-            StructuredBuffer InstancePlacements;
         };
-        LODRender* m_pLODs;
-        D3D12_CPU_DESCRIPTOR_HANDLE m_hLODPlacementUAVs[4];
-
-        ByteAddressBuffer m_DrawInstancedArguments;
+        LODRender m_LODs[4];
 
         typedef std::unordered_set<StructuredBuffer*> SourcePlacementBufferSet;
         SourcePlacementBufferSet m_SourcePlacementBuffers;
@@ -56,12 +53,10 @@ namespace Graphics
         InstancedLODModel()
             : m_pModel(nullptr),
               m_LODCount(0),
-              m_pLODs(nullptr)
-        { 
-            ZeroMemory(m_hLODPlacementUAVs, sizeof(m_hLODPlacementUAVs));
-        }
+              m_ModelIndex(-1)
+        { }
 
-        bool Load(const CHAR* strFilename);
+        bool Load(const CHAR* strFilename, UINT32 ModelIndex, D3D12_DRAW_INDEXED_ARGUMENTS* pDestArgs, UINT32* pDestArgOffset);
         void Unload();
 
         StructuredBuffer* CreateSourcePlacementBuffer(UINT32 PlacementCount, const MeshPlacementVertex* pPlacements);
@@ -69,27 +64,54 @@ namespace Graphics
 
     private:
         friend class InstancedLODModelManager;
-        void ResetCounters(CommandContext& Context);
         void CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams);
-        void CopyInstanceCounts(ComputeContext& Context);
+        //void CopyInstanceCounts(ComputeContext& Context);
         void Render(GraphicsContext& Context, const ModelRenderContext* pMRC);
     };
 
     class InstancedLODModelManager
     {
     private:
+        static const UINT32 m_MaxModelCount = 256;
+        static const UINT32 m_MaxLODCount = 4;
+        static const UINT32 m_MaxSubsetCountPerModel = 16;
+
         typedef std::unordered_map<const WCHAR*, InstancedLODModel*> ModelMap;
+        UINT32 m_NextModelIndex;
         ModelMap m_Models;
 
         RootSignature m_CullingRootSig;
         ComputePSO m_CullingPSO;
+        ComputePSO m_CreateIndirectArgsPSO;
 
         RootSignature m_RenderRootSig;
+
         GraphicsPSO m_RenderPSO;
         GraphicsPSO m_DepthPSO;
         GraphicsPSO m_ShadowPSO;
 
-        PsoLayoutCache m_PsoCache;
+        PsoLayoutCache m_RenderPSOCache;
+        PsoLayoutCache m_DepthPSOCache;
+        PsoLayoutCache m_ShadowPSOCache;
+
+        // Start of each frame:
+        // 1. Reset instance placements counters
+        // 2. Reset first 4 entries of m_InstanceOffsets to zero 
+        // For each model:
+        // 1. Cull and sort, appending placements to m_InstancePlacements corresponding to LOD
+        // 2. Copy 4 counter values to m_InstanceOffsets[(modelIndex + 1) * 4]
+        // Post process:
+        // For each model * subset:
+        // 1. Create a draw indexed argument struct from subset params and delta between m_InstanceOffsets[n] and m_InstanceOffsets[n - 1]
+        // Render:
+        // Render each subset of each LOD, with the indirect draw args corresponding to each subset
+        StructuredBuffer m_InstancePlacements[m_MaxLODCount];
+        ByteAddressBuffer m_InstanceOffsets;
+        ByteAddressBuffer m_DrawIndirectArguments;
+
+        UINT32 m_CurrentSourceArgumentIndex;
+        GpuResource m_SourceDrawIndirectArguments;
+        D3D12_DRAW_INDEXED_ARGUMENTS* m_pSourceDrawIndirectBuffer;
 
     public:
         void Initialize();

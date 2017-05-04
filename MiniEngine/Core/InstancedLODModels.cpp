@@ -7,12 +7,14 @@
 #include "CompiledShaders/InstanceMeshPrepassCS.h"
 #include "CompiledShaders/InstanceMeshVS.h"
 #include "CompiledShaders/InstanceMeshPS.h"
+#include "CompiledShaders/InstanceMeshDepthVS.h"
+#include "CompiledShaders/InstanceMeshDepthPS.h"
 
 namespace Graphics
 {
     InstancedLODModelManager g_LODModelManager;
 
-    bool InstancedLODModel::Load(const CHAR* strFilename)
+    bool InstancedLODModel::Load(const CHAR* strFilename, UINT32 ModelIndex, D3D12_DRAW_INDEXED_ARGUMENTS* pDestArgs, UINT32* pDestArgOffset)
     {
         m_pModel = new Model();
         bool Success = m_pModel->Load(strFilename);
@@ -23,9 +25,13 @@ namespace Graphics
             return false;
         }
 
+        m_ModelIndex = ModelIndex;
+        ASSERT(m_ModelIndex != -1);
+
+        UINT32 ArgOffset = *pDestArgOffset;
+
         const UINT32 SubsetCount = m_pModel->m_Header.meshCount;
-        D3D12_DRAW_INDEXED_ARGUMENTS* pIndirectArgs = new D3D12_DRAW_INDEXED_ARGUMENTS[SubsetCount];
-        ZeroMemory(pIndirectArgs, sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) * SubsetCount);
+        D3D12_DRAW_INDEXED_ARGUMENTS* pIndirectArgs = pDestArgs + ArgOffset;
 
         UINT32 MaxParentID = 0;
         for (UINT32 i = 0; i < SubsetCount; ++i)
@@ -38,51 +44,40 @@ namespace Graphics
         }
 
         m_LODCount = MaxParentID + 1;
-        m_pLODs = new LODRender[m_LODCount];
 
-        WCHAR strBufferName[32];
         UINT32 CurrentLODIndex = -1;
         for (UINT32 i = 0; i < SubsetCount; ++i)
         {
             const Model::Mesh& m = m_pModel->m_pMesh[i];
             const UINT32 LODIndex = MaxParentID - m.ParentMeshID;
             ASSERT(LODIndex < m_LODCount);
-            LODRender& LR = m_pLODs[LODIndex];
+            LODRender& LR = m_LODs[LODIndex];
             if (LODIndex != CurrentLODIndex)
             {
                 CurrentLODIndex = LODIndex;
                 LR.SubsetStartIndex = i;
                 LR.SubsetCount = 1;
-                swprintf_s(strBufferName, L"LOD %u Instance Placements", LODIndex);
-                LR.InstancePlacements.Create(strBufferName, m_MaxInstanceCountPerFrame, sizeof(MeshPlacementVertex), nullptr);
-                m_hLODPlacementUAVs[LODIndex] = LR.InstancePlacements.GetUAV();
             }
             else
             {
                 LR.SubsetCount++;
             }
+
+            pIndirectArgs[i].StartInstanceLocation = m_ModelIndex;
+            pIndirectArgs[i].InstanceCount = LODIndex;
         }
 
-        m_DrawInstancedArguments.Create(L"LOD DrawIndexed Args", SubsetCount, sizeof(D3D12_DRAW_INDEXED_ARGUMENTS), pIndirectArgs);
-        delete[] pIndirectArgs;
+        *pDestArgOffset = ArgOffset + SubsetCount;
 
         return true;
     }
 
     void InstancedLODModel::Unload()
     {
-        for (UINT32 i = 0; i < m_LODCount; ++i)
-        {
-            m_pLODs[i].InstancePlacements.Destroy();
-        }
-        delete[] m_pLODs;
-        m_pLODs = nullptr;
         m_LODCount = 0;
 
         delete m_pModel;
         m_pModel = nullptr;
-
-        m_DrawInstancedArguments.Destroy();
 
         auto iter = m_SourcePlacementBuffers.begin();
         auto end = m_SourcePlacementBuffers.end();
@@ -95,14 +90,6 @@ namespace Graphics
         m_SourcePlacementBuffers.clear();
     }
 
-    void InstancedLODModel::ResetCounters(CommandContext& Context)
-    {
-        for (UINT32 i = 0; i < m_LODCount; ++i)
-        {
-            Context.ResetCounter(m_pLODs[i].InstancePlacements, 0);
-        }
-    }
-
     void InstancedLODModel::CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams)
     {
         CBInstanceMeshCulling CBInstance = *pCameraParams;
@@ -111,7 +98,7 @@ namespace Graphics
         CBInstance.g_LOD2Params.x = FLT_MAX;
 
         // Set UAVs
-        Context.SetDynamicDescriptors(2, 0, m_LODCount, m_hLODPlacementUAVs);
+        //Context.SetDynamicDescriptors(2, 0, m_LODCount, m_hLODPlacementUAVs);
 
         auto iter = m_SourcePlacementBuffers.begin();
         auto end = m_SourcePlacementBuffers.end();
@@ -132,9 +119,10 @@ namespace Graphics
             Context.Dispatch2D(8, (PlacementCount + 7) >> 3);
         }
 
-        CopyInstanceCounts(Context);
+        //CopyInstanceCounts(Context);
     }
 
+    /*
     void InstancedLODModel::CopyInstanceCounts(ComputeContext& Context)
     {
         Context.TransitionResource(m_DrawInstancedArguments, D3D12_RESOURCE_STATE_COPY_DEST);
@@ -151,6 +139,7 @@ namespace Graphics
         }
         Context.TransitionResource(m_DrawInstancedArguments, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
     }
+    */
 
     void InstancedLODModel::Render(GraphicsContext& Context, const ModelRenderContext* pMRC)
     {
@@ -167,10 +156,10 @@ namespace Graphics
 
         for (UINT32 i = 0; i < m_LODCount; ++i)
         {
-            LODRender& LR = m_pLODs[i];
+            LODRender& LR = m_LODs[i];
 
             // Set instance VB for placements
-            Context.SetVertexBuffer(1, LR.InstancePlacements.VertexBufferView());
+            //Context.SetVertexBuffer(1, LR.InstancePlacements.VertexBufferView());
 
             UINT32 EndSubsetIndex = LR.SubsetStartIndex + LR.SubsetCount;
             for (UINT32 SubsetIndex = LR.SubsetStartIndex; SubsetIndex < EndSubsetIndex; ++SubsetIndex)
@@ -180,7 +169,7 @@ namespace Graphics
                 Context.SetDynamicDescriptors(3, 0, 6, m_pModel->GetSRVs(m.materialIndex));
 
                 UINT32 ArgumentOffset = SubsetIndex * sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
-                Context.DrawIndexedIndirect(m_DrawInstancedArguments, ArgumentOffset);
+                //Context.DrawIndexedIndirect(m_DrawInstancedArguments, ArgumentOffset);
             }
         }
     }
@@ -213,6 +202,29 @@ namespace Graphics
 
     void InstancedLODModelManager::Initialize()
     {
+        const UINT32 SourceArgBufferSizeBytes = m_MaxModelCount * m_MaxSubsetCountPerModel * sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
+        D3D12_RESOURCE_DESC BufferDesc = CD3DX12_RESOURCE_DESC::Buffer(SourceArgBufferSizeBytes);
+        CD3DX12_HEAP_PROPERTIES HeapProps(D3D12_HEAP_TYPE_UPLOAD);
+        ID3D12Resource* pSourceArgBuffer = nullptr;
+        Graphics::g_Device->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &BufferDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, __uuidof(ID3D12Resource), (void**)&pSourceArgBuffer);
+        pSourceArgBuffer->SetName(L"ILMM Source Draw Argument Buffer");
+        pSourceArgBuffer->Map(0, nullptr, (void**)&m_pSourceDrawIndirectBuffer);
+        m_SourceDrawIndirectArguments = GpuResource(pSourceArgBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        m_CurrentSourceArgumentIndex = 0;
+
+        m_DrawIndirectArguments.Create(L"ILMM Processed Draw Argument Buffer", m_MaxModelCount * m_MaxSubsetCountPerModel, sizeof(D3D12_DRAW_INDEXED_ARGUMENTS));
+
+        m_InstanceOffsets.Create(L"ILMM Instance Offset Buffer", (m_MaxModelCount + 1) * m_MaxLODCount, sizeof(UINT32));
+
+        UINT32 MaxInstanceCount = 1024;
+        for (UINT32 i = 0; i < ARRAYSIZE(m_InstancePlacements); ++i)
+        {
+            WCHAR strName[32];
+            swprintf_s(strName, L"ILMM Instance Placement Buffer LOD %u", i);
+            m_InstancePlacements[i].Create(strName, MaxInstanceCount, sizeof(MeshPlacementVertex));
+            MaxInstanceCount *= 4;
+        }
+
         m_CullingRootSig.Reset(4, 2);
         m_CullingRootSig.InitStaticSampler(0, Graphics::SamplerLinearClampDesc, D3D12_SHADER_VISIBILITY_ALL);
         m_CullingRootSig.InitStaticSampler(1, Graphics::SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_ALL);
@@ -265,8 +277,8 @@ namespace Graphics
         m_DepthPSO.SetInputLayout(_countof(vertElem), vertElem);
         m_DepthPSO.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
         m_DepthPSO.SetRenderTargetFormats(0, nullptr, DepthFormat);
-        m_DepthPSO.SetVertexShader(g_pDepthViewerVS, sizeof(g_pDepthViewerVS));
-        m_DepthPSO.SetPixelShader(g_pDepthViewerPS, sizeof(g_pDepthViewerPS));
+        m_DepthPSO.SetVertexShader(g_pInstanceMeshDepthVS, sizeof(g_pInstanceMeshDepthVS));
+        m_DepthPSO.SetPixelShader(g_pInstanceMeshDepthPS, sizeof(g_pInstanceMeshDepthPS));
         m_DepthPSO.Finalize();
         m_DepthPSOCache.Initialize(&m_DepthPSO);
 
@@ -280,10 +292,10 @@ namespace Graphics
         m_RenderPSO.SetBlendState(BlendDisable);
         m_RenderPSO.SetDepthStencilState(DepthStateTestEqual);
         m_RenderPSO.SetRenderTargetFormats(1, &ColorFormat, DepthFormat);
-        m_RenderPSO.SetVertexShader(g_pGameClientVS, sizeof(g_pGameClientVS));
-        m_RenderPSO.SetPixelShader(g_pGameClientPS, sizeof(g_pGameClientPS));
+        m_RenderPSO.SetVertexShader(g_pInstanceMeshVS, sizeof(g_pInstanceMeshVS));
+        m_RenderPSO.SetPixelShader(g_pInstanceMeshPS, sizeof(g_pInstanceMeshPS));
         m_RenderPSO.Finalize();
-        m_ModelPSOCache.Initialize(&m_ModelPSO);
+        m_RenderPSOCache.Initialize(&m_RenderPSO);
     }
 
     void InstancedLODModelManager::Terminate()
@@ -317,9 +329,10 @@ namespace Graphics
         }
 
         InstancedLODModel* pNewModel = new InstancedLODModel();
-        bool Success = pNewModel->Load(strFileName);
+        bool Success = pNewModel->Load(strFileName, m_NextModelIndex, m_pSourceDrawIndirectBuffer, &m_CurrentSourceArgumentIndex);
         if (Success)
         {
+            ++m_NextModelIndex;
             m_Models[pKey] = pNewModel;
             return pNewModel;
         }
@@ -330,26 +343,32 @@ namespace Graphics
 
     void InstancedLODModelManager::CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams)
     {
+        for (UINT32 i = 0; i < ARRAYSIZE(m_InstancePlacements); ++i)
+        {
+            Context.ResetCounter(m_InstancePlacements[i]);
+        }
+
+        Context.FillBuffer(m_InstanceOffsets, 0, 0, 4 * sizeof(UINT32));
+
+        Context.SetRootSignature(m_CullingRootSig);
+        Context.SetPipelineState(m_CullingPSO);
+
+        UINT32 CopyOffset = 4;
         auto iter = m_Models.begin();
         auto end = m_Models.end();
         while (iter != end)
         {
             InstancedLODModel* pModel = iter->second;
-            pModel->ResetCounters(Context);
-            ++iter;
-        }
-
-        Context.SetRootSignature(m_CullingRootSig);
-        Context.SetPipelineState(m_CullingPSO);
-
-        iter = m_Models.begin();
-        end = m_Models.end();
-        while (iter != end)
-        {
-            InstancedLODModel* pModel = iter->second;
             pModel->CullAndSort(Context, pCameraParams);
+            for (UINT32 i = 0; i < ARRAYSIZE(m_InstancePlacements); ++i)
+            {
+                Context.CopyBufferRegion(m_InstanceOffsets, (CopyOffset + i) * sizeof(UINT32), m_InstancePlacements[i].GetCounterBuffer(), 0, sizeof(UINT32));
+            }
+            CopyOffset += ARRAYSIZE(m_InstancePlacements);
             ++iter;
         }
+
+        // TODO: build draw indirect args buffer from source args and instance offsets
     }
 
     void InstancedLODModelManager::Render(GraphicsContext& Context, const ModelRenderContext* pMRC)

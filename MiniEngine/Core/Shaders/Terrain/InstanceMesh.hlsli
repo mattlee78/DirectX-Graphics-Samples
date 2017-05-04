@@ -29,6 +29,12 @@ struct ObjectVSOutput
     float3 bitangent : bitangent;
 };
 
+struct DepthVSOutput
+{
+    float4 position : SV_Position;
+    float2 texcoord0 : texcoord0;
+};
+
 cbuffer VSConstants : register(b0)
 {
     float4x4 modelToProjection;
@@ -60,6 +66,21 @@ ObjectVSOutput InstanceMeshVS(VSInput vsInput, MeshPlacementVertex InstanceInput
     return vsOutput;
 }
 
+DepthVSOutput InstanceMeshDepthVS(VSInput vsInput, MeshPlacementVertex InstanceInput)
+{
+    DepthVSOutput vsOutput;
+
+    float3 WorldPosition = InstanceInput.WorldPosition;
+
+    float3 ModelPosition = QuaternionTransformVector(InstanceInput.OrientationQuaternion, vsInput.position * InstanceInput.UniformScale);
+    WorldPosition += ModelPosition;
+
+    vsOutput.position = mul(modelToProjection, float4(WorldPosition, 1.0));
+    vsOutput.texcoord0 = vsInput.texcoord0;
+
+    return vsOutput;
+}
+
 float3 InstanceMeshPS(ObjectVSOutput vsOutput) : SV_Target0
 {
     return DefaultMaterialLightAndShadow(
@@ -72,6 +93,12 @@ float3 InstanceMeshPS(ObjectVSOutput vsOutput) : SV_Target0
         vsOutput.shadowCoord,
         vsOutput.shadowCoordOuter
     );
+}
+
+void InstanceMeshDepthPS(DepthVSOutput vsOutput)
+{
+    float Alpha = DefaultMaterialAlphaOnly(vsOutput.texcoord0);
+    if (Alpha < 0.5) discard;
 }
 
 StructuredBuffer<MeshPlacementVertex> InputVertices : register(t0);

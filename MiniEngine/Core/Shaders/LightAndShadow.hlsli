@@ -1,5 +1,5 @@
 
-Texture2D<float3> texDiffuse : register(t0);
+Texture2D<float4> texDiffuse : register(t0);
 Texture2D<float3> texSpecular : register(t1);
 Texture2D<float3> texNormal : register(t2);
 //Texture2D<float4> texEmissive : register(t3);
@@ -187,10 +187,16 @@ float3 DefaultMaterialLightAndShadow(
     float3 InputShadowCoordOuter
 )
 {
-    float3 diffuseAlbedo = texDiffuse.Sample(sampler0, InputTexCoord0);
+    float3 diffuseAlbedo = texDiffuse.Sample(sampler0, InputTexCoord0).rgb;
     float3 specularAlbedo = float3(0.56, 0.56, 0.56);
     float specularMask = texSpecular.Sample(sampler0, InputTexCoord0).g;
     float3 normal = texNormal.Sample(sampler0, InputTexCoord0) * 2.0 - 1.0;
 
     return DefaultLightAndShadow(diffuseAlbedo, specularAlbedo, specularMask, normal, InputScreenPositionXY, InputViewDir, InputTangent, InputBitangent, InputNormal, InputShadowCoord, InputShadowCoordOuter);
+}
+
+float DefaultMaterialAlphaOnly(float2 InputTexCoord0)
+{
+    float4 diffuseAlbedo = texDiffuse.Sample(sampler0, InputTexCoord0);
+    return diffuseAlbedo.a;
 }
