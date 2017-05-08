@@ -159,3 +159,36 @@ void InstanceMeshPrepassCS(uint3 DTid : SV_DispatchThreadID)
         }
     }
 }
+
+struct DrawIndexedInstancedParams
+{
+    uint IndexCountPerInstance;
+    uint InstanceCount;
+    uint StartIndexLocation;
+    int BaseVertexLocation;
+    uint StartInstanceLocation;
+};
+
+StructuredBuffer<DrawIndexedInstancedParams> InputDrawParams : register(t0);
+StructuredBuffer<uint> InputInstanceOffsets : register(t1);
+RWStructuredBuffer<DrawIndexedInstancedParams> OutputDrawParams : register(u0);
+
+[numthreads(64, 1, 1)]
+void CreateDrawParamsCS(uint3 DTid : SV_DispatchThreadID)
+{
+    const uint index = DTid.y * 8 + DTid.x;
+
+    DrawIndexedInstancedParams InParams = InputDrawParams[index];
+    uint ModelIndex = InParams.StartInstanceLocation;
+    uint LODIndex = InParams.InstanceCount;
+
+    uint OffsetIndex = ((ModelIndex + 1) * 4) + LODIndex;
+    uint InstanceOffset = InputInstanceOffsets[OffsetIndex - 4];
+    uint InstanceCount = InputInstanceOffsets[OffsetIndex] - InstanceOffset;
+
+    DrawIndexedInstancedParams OutParams = InParams;
+    OutParams.StartInstanceLocation = InstanceOffset;
+    OutParams.InstanceCount = InstanceCount;
+
+    OutputDrawParams[index] = OutParams;
+}

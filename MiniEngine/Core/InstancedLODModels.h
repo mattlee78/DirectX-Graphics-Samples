@@ -35,6 +35,7 @@ namespace Graphics
     {
     protected:
         UINT32 m_ModelIndex;
+        UINT32 m_FirstDrawArgIndex;
         Model* m_pModel;
         UINT32 m_LODCount;
         static const UINT32 m_MaxInstanceCountPerFrame = 1024;
@@ -53,7 +54,8 @@ namespace Graphics
         InstancedLODModel()
             : m_pModel(nullptr),
               m_LODCount(0),
-              m_ModelIndex(-1)
+              m_ModelIndex(-1),
+              m_FirstDrawArgIndex(0)
         { }
 
         bool Load(const CHAR* strFilename, UINT32 ModelIndex, D3D12_DRAW_INDEXED_ARGUMENTS* pDestArgs, UINT32* pDestArgOffset);

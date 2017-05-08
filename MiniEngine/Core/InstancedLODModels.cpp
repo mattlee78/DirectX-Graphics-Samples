@@ -29,6 +29,7 @@ namespace Graphics
         ASSERT(m_ModelIndex != -1);
 
         UINT32 ArgOffset = *pDestArgOffset;
+        m_FirstDrawArgIndex = ArgOffset;
 
         const UINT32 SubsetCount = m_pModel->m_Header.meshCount;
         D3D12_DRAW_INDEXED_ARGUMENTS* pIndirectArgs = pDestArgs + ArgOffset;
