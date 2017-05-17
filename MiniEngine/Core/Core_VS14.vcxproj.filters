@@ -1036,6 +1036,9 @@
     <FxCompile Include="Shaders\Terrain\InstanceMeshDepthPS.hlsl">
       <Filter>Shaders\TerrainTessellation</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\Terrain\CreateDrawParamsCS.hlsl">
+      <Filter>Shaders\TerrainTessellation</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Math\Functions.inl">

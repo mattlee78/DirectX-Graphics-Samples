@@ -67,8 +67,7 @@ namespace Graphics
     private:
         friend class InstancedLODModelManager;
         void CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams);
-        //void CopyInstanceCounts(ComputeContext& Context);
-        void Render(GraphicsContext& Context, const ModelRenderContext* pMRC);
+        void Render(GraphicsContext& Context, const ModelRenderContext* pMRC, StructuredBuffer* pInstancePlacementBuffers, ByteAddressBuffer& DrawInstancedArgs);
     };
 
     class InstancedLODModelManager
@@ -108,6 +107,7 @@ namespace Graphics
         // Render:
         // Render each subset of each LOD, with the indirect draw args corresponding to each subset
         StructuredBuffer m_InstancePlacements[m_MaxLODCount];
+		D3D12_CPU_DESCRIPTOR_HANDLE m_hInstancePlacementUAV[m_MaxLODCount];
         ByteAddressBuffer m_InstanceOffsets;
         ByteAddressBuffer m_DrawIndirectArguments;
 

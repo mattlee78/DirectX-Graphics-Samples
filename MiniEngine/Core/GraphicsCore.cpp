@@ -30,6 +30,7 @@
 #include "ParticleEffectManager.h"
 #include "GraphRenderer.h"
 #include "LineRender.h"
+#include "InstancedLODModels.h"
 
 // Uncomment this to enable experimental support for the new shader compiler, DXC.exe
 //#define DXIL
@@ -697,6 +698,7 @@ void Graphics::Initialize(void)
 	GraphRenderer::Initialize();
 	ParticleEffects::Initialize(kMaxNativeWidth, kMaxNativeHeight);
     LineRender::Initialize();
+	g_LODModelManager.Initialize();
 }
 
 void Graphics::Terminate( void )
@@ -729,6 +731,7 @@ void Graphics::Shutdown( void )
 	ParticleEffects::Shutdown();
 	TextureManager::Shutdown();
     LineRender::Terminate();
+	g_LODModelManager.Terminate();
 
 	for (UINT i = 0; i < SWAP_CHAIN_BUFFER_COUNT; ++i)
 		g_DisplayPlane[i].Destroy();

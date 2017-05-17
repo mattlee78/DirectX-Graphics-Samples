@@ -173,10 +173,19 @@ StructuredBuffer<DrawIndexedInstancedParams> InputDrawParams : register(t0);
 StructuredBuffer<uint> InputInstanceOffsets : register(t1);
 RWStructuredBuffer<DrawIndexedInstancedParams> OutputDrawParams : register(u0);
 
+cbuffer cbCreateDrawParams : register(b0)
+{
+	uint g_MaxDrawArgumentIndex : register(c0);
+};
+
 [numthreads(64, 1, 1)]
 void CreateDrawParamsCS(uint3 DTid : SV_DispatchThreadID)
 {
     const uint index = DTid.y * 8 + DTid.x;
+	if (index >= g_MaxDrawArgumentIndex)
+	{
+		return;
+	}
 
     DrawIndexedInstancedParams InParams = InputDrawParams[index];
     uint ModelIndex = InParams.StartInstanceLocation;
