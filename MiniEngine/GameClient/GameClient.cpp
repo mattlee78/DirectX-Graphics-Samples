@@ -384,18 +384,18 @@ void GameClient::Startup( void )
 	InstancedLODModel* pLODModel = g_LODModelManager.FindOrLoadModel("Models\\BeechAmerican_B.bmesh");
 	if (pLODModel != nullptr)
 	{
-		const FLOAT InstanceSpacing = 10.0f;
+		const FLOAT InstanceSpacing = 30.0f;
 		const FLOAT Ypos = 0;
-		for (UINT32 z = 0; z < 10; ++z)
+		for (INT32 z = -10; z < 10; ++z)
 		{
 			const FLOAT Zpos = (FLOAT)z * InstanceSpacing;
-			for (UINT32 x = 0; x < 10; ++x)
+			for (INT32 x = -10; x < 10; ++x)
 			{
 				const FLOAT Xpos = (FLOAT)x * InstanceSpacing;
 				MeshPlacementVertex MPV;
 				MPV.WorldPosition = XMFLOAT3(Xpos, Ypos, Zpos);
 				MPV.Orientation = XMFLOAT4(0, 0, 0, 1);
-				MPV.UniformScale = 0.01f;
+				MPV.UniformScale = 1.0f;
 				pLODModel->AddDynamicPlacement(MPV);
 			}
 		}
@@ -842,9 +842,15 @@ void GameClient::RenderScene( void )
 
 	ComputeContext& cContext = gfxContext.GetComputeContext();
 	CBInstanceMeshCulling cbIMC = {};
-	XMStoreFloat4x4(&cbIMC.g_CameraWorldViewProj, m_Camera.GetViewProjMatrix());
-	XMStoreFloat4(&cbIMC.g_CameraWorldDir, m_Camera.GetForwardVec());
-	XMStoreFloat4(&cbIMC.g_CameraWorldPos, CameraPos);
+	{
+		XMMATRIX matView = m_Camera.GetViewMatrix();
+		XMMATRIX matProj = m_Camera.GetProjMatrix();
+		XMVECTOR Det;
+		XMMATRIX matWorld = XMMatrixInverse(&Det, matView);
+		XMStoreFloat4x4(&cbIMC.g_CameraWorldViewProj, matView * matProj);
+		XMStoreFloat4(&cbIMC.g_CameraWorldDir, matWorld.r[2]);
+		XMStoreFloat4(&cbIMC.g_CameraWorldPos, matWorld.r[3]);
+	}
 	g_LODModelManager.CullAndSort(cContext, &cbIMC);
 
 	{

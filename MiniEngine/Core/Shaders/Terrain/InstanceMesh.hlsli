@@ -48,7 +48,7 @@ ObjectVSOutput InstanceMeshVS(VSInput vsInput, MeshPlacementVertex InstanceInput
 {
     ObjectVSOutput vsOutput;
 
-    float3 WorldPosition = InstanceInput.WorldPosition;
+    float3 WorldPosition = InstanceInput.WorldPosition - ViewerPos;
 
     float3 ModelPosition = QuaternionTransformVector(InstanceInput.OrientationQuaternion, vsInput.position * InstanceInput.UniformScale);
     WorldPosition += ModelPosition;
@@ -70,7 +70,7 @@ DepthVSOutput InstanceMeshDepthVS(VSInput vsInput, MeshPlacementVertex InstanceI
 {
     DepthVSOutput vsOutput;
 
-    float3 WorldPosition = InstanceInput.WorldPosition;
+    float3 WorldPosition = InstanceInput.WorldPosition - ViewerPos;
 
     float3 ModelPosition = QuaternionTransformVector(InstanceInput.OrientationQuaternion, vsInput.position * InstanceInput.UniformScale);
     WorldPosition += ModelPosition;
@@ -109,7 +109,7 @@ RWStructuredBuffer<MeshPlacementVertex> OutputVerticesLOD3 : register(u3);
 
 cbuffer cbInstanceMeshCulling : register(b0)
 {
-    float4x4 g_CameraWorldViewProj : register(c0);
+    row_major float4x4 g_CameraWorldViewProj : register(c0);
     float3 g_CameraWorldPos : register(c4);
     float3 g_CameraWorldDir : register(c5);
     float4 g_LOD0Params : register(c6);
