@@ -38,6 +38,7 @@
 #include "DataFile.h"
 
 #include "TessTerrain.h"
+#include "InstancedLODModels.h"
 
 #include "CompiledShaders/DepthViewerVS.h"
 #include "CompiledShaders/DepthViewerPS.h"
@@ -379,6 +380,26 @@ void GameClient::Startup( void )
 //     InstancedLODModel LMT;
 //     LMT.Load("Models\\MapleGreenMountain_A.bmesh");
 //     LMT.Unload();
+
+	InstancedLODModel* pLODModel = g_LODModelManager.FindOrLoadModel("Models\\BeechAmerican_B.bmesh");
+	if (pLODModel != nullptr)
+	{
+		const FLOAT InstanceSpacing = 10.0f;
+		const FLOAT Ypos = 0;
+		for (UINT32 z = 0; z < 10; ++z)
+		{
+			const FLOAT Zpos = (FLOAT)z * InstanceSpacing;
+			for (UINT32 x = 0; x < 10; ++x)
+			{
+				const FLOAT Xpos = (FLOAT)x * InstanceSpacing;
+				MeshPlacementVertex MPV;
+				MPV.WorldPosition = XMFLOAT3(Xpos, Ypos, Zpos);
+				MPV.Orientation = XMFLOAT4(0, 0, 0, 1);
+				MPV.UniformScale = 0.01f;
+				pLODModel->AddDynamicPlacement(MPV);
+			}
+		}
+	}
 }
 
 bool GameClient::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument)
@@ -769,6 +790,11 @@ void GameClient::RenderObjects(GraphicsContext& gfxContext, const BaseCamera& Ca
     MRC.CurrentPassType = PassType;
 
     m_pClientWorld->Render(MRC);
+
+	if (PassType == RenderPass_Color)
+	{
+		g_LODModelManager.Render(gfxContext, &MRC);
+	}
 }
 
 void GameClient::RenderScene( void )
@@ -813,6 +839,13 @@ void GameClient::RenderScene( void )
 
     m_NetClient.GetWorld()->TrackCameraPos(CameraPos);
     m_NetClient.GetWorld()->GetTerrain()->OffscreenRender(&gfxContext, &RD);
+
+	ComputeContext& cContext = gfxContext.GetComputeContext();
+	CBInstanceMeshCulling cbIMC = {};
+	XMStoreFloat4x4(&cbIMC.g_CameraWorldViewProj, m_Camera.GetViewProjMatrix());
+	XMStoreFloat4(&cbIMC.g_CameraWorldDir, m_Camera.GetForwardVec());
+	XMStoreFloat4(&cbIMC.g_CameraWorldPos, CameraPos);
+	g_LODModelManager.CullAndSort(cContext, &cbIMC);
 
 	{
 		ScopedTimer _prof(L"Z PrePass", gfxContext);

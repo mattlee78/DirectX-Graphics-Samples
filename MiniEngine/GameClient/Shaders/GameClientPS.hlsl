@@ -16,7 +16,7 @@
 #include "LightAndShadow.hlsli"
 
 [RootSignature(ModelViewer_RootSig)]
-float3 main(ObjectVSOutput vsOutput) : SV_Target0
+float4 main(ObjectVSOutput vsOutput) : SV_Target0
 {
     return DefaultMaterialLightAndShadow(
         vsOutput.texcoord0,

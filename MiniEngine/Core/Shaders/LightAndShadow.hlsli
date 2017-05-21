@@ -176,7 +176,7 @@ float3 DefaultLightAndShadow(
     return ambientContribution + sunlightContribution;
 }
 
-float3 DefaultMaterialLightAndShadow(
+float4 DefaultMaterialLightAndShadow(
     float2 InputTexCoord0,
     uint2 InputScreenPositionXY,
     float3 InputViewDir,
@@ -187,12 +187,14 @@ float3 DefaultMaterialLightAndShadow(
     float3 InputShadowCoordOuter
 )
 {
-    float3 diffuseAlbedo = texDiffuse.Sample(sampler0, InputTexCoord0).rgb;
+	float4 diffuseAll = texDiffuse.Sample(sampler0, InputTexCoord0);
+	float3 diffuseAlbedo = diffuseAll.rgb;
     float3 specularAlbedo = float3(0.56, 0.56, 0.56);
     float specularMask = texSpecular.Sample(sampler0, InputTexCoord0).g;
     float3 normal = texNormal.Sample(sampler0, InputTexCoord0) * 2.0 - 1.0;
 
-    return DefaultLightAndShadow(diffuseAlbedo, specularAlbedo, specularMask, normal, InputScreenPositionXY, InputViewDir, InputTangent, InputBitangent, InputNormal, InputShadowCoord, InputShadowCoordOuter);
+    float3 LitResult = DefaultLightAndShadow(diffuseAlbedo, specularAlbedo, specularMask, normal, InputScreenPositionXY, InputViewDir, InputTangent, InputBitangent, InputNormal, InputShadowCoord, InputShadowCoordOuter);
+	return float4(LitResult, diffuseAll.a);
 }
 
 float DefaultMaterialAlphaOnly(float2 InputTexCoord0)

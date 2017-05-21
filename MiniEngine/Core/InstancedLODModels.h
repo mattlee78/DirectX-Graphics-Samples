@@ -50,6 +50,8 @@ namespace Graphics
         typedef std::unordered_set<StructuredBuffer*> SourcePlacementBufferSet;
         SourcePlacementBufferSet m_SourcePlacementBuffers;
 
+		std::vector<MeshPlacementVertex> m_DynamicPlacements;
+
     public:
         InstancedLODModel()
             : m_pModel(nullptr),
@@ -63,6 +65,8 @@ namespace Graphics
 
         StructuredBuffer* CreateSourcePlacementBuffer(UINT32 PlacementCount, const MeshPlacementVertex* pPlacements);
         bool DestroySourcePlacementBuffer(StructuredBuffer* pBuffer);
+
+		void AddDynamicPlacement(const MeshPlacementVertex& Placement) { m_DynamicPlacements.push_back(Placement); }
 
     private:
         friend class InstancedLODModelManager;

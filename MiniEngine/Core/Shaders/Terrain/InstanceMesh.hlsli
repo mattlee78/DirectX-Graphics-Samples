@@ -81,9 +81,9 @@ DepthVSOutput InstanceMeshDepthVS(VSInput vsInput, MeshPlacementVertex InstanceI
     return vsOutput;
 }
 
-float3 InstanceMeshPS(ObjectVSOutput vsOutput) : SV_Target0
+float4 InstanceMeshPS(ObjectVSOutput vsOutput) : SV_Target0
 {
-    return DefaultMaterialLightAndShadow(
+	return DefaultMaterialLightAndShadow(
         vsOutput.texcoord0,
         uint2(vsOutput.position.xy),
         vsOutput.viewDir,
@@ -171,14 +171,14 @@ struct DrawIndexedInstancedParams
 
 StructuredBuffer<DrawIndexedInstancedParams> InputDrawParams : register(t0);
 StructuredBuffer<uint> InputInstanceOffsets : register(t1);
-RWStructuredBuffer<DrawIndexedInstancedParams> OutputDrawParams : register(u0);
+RWByteAddressBuffer OutputDrawParams : register(u0);
 
 cbuffer cbCreateDrawParams : register(b0)
 {
 	uint g_MaxDrawArgumentIndex : register(c0);
 };
 
-[numthreads(64, 1, 1)]
+[numthreads(8, 8, 1)]
 void CreateDrawParamsCS(uint3 DTid : SV_DispatchThreadID)
 {
     const uint index = DTid.y * 8 + DTid.x;
@@ -187,17 +187,18 @@ void CreateDrawParamsCS(uint3 DTid : SV_DispatchThreadID)
 		return;
 	}
 
-    DrawIndexedInstancedParams InParams = InputDrawParams[index];
-    uint ModelIndex = InParams.StartInstanceLocation;
-    uint LODIndex = InParams.InstanceCount;
+    DrawIndexedInstancedParams DrawParams = InputDrawParams[index];
+    uint ModelIndex = DrawParams.StartInstanceLocation;
+    uint LODIndex = DrawParams.InstanceCount;
 
     uint OffsetIndex = ((ModelIndex + 1) * 4) + LODIndex;
     uint InstanceOffset = InputInstanceOffsets[OffsetIndex - 4];
     uint InstanceCount = InputInstanceOffsets[OffsetIndex] - InstanceOffset;
 
-    DrawIndexedInstancedParams OutParams = InParams;
-    OutParams.StartInstanceLocation = InstanceOffset;
-    OutParams.InstanceCount = InstanceCount;
-
-    OutputDrawParams[index] = OutParams;
+	uint BaseOffset = index * 5 * 4;
+	OutputDrawParams.Store(BaseOffset +  0, DrawParams.IndexCountPerInstance);
+	OutputDrawParams.Store(BaseOffset +  4, InstanceCount);
+	OutputDrawParams.Store(BaseOffset +  8, DrawParams.StartIndexLocation);
+	OutputDrawParams.Store(BaseOffset + 12, DrawParams.BaseVertexLocation);
+	OutputDrawParams.Store(BaseOffset + 16, InstanceOffset);
 }

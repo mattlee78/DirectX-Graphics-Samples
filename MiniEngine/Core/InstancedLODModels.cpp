@@ -117,6 +117,21 @@ namespace Graphics
             // Dispatch with placement buffer count
             Context.Dispatch2D(8, (PlacementCount + 7) >> 3);
         }
+
+		const UINT32 DynamicPlacementCount = (UINT32)m_DynamicPlacements.size();
+		if (DynamicPlacementCount > 0)
+		{
+			Context.SetDynamicSRV(1, DynamicPlacementCount * sizeof(MeshPlacementVertex), &m_DynamicPlacements.front());
+
+			// Set constant buffer with camera, LOD, and buffer size:
+			CBInstance.g_MaxVertexCount.x = DynamicPlacementCount;
+			Context.SetDynamicConstantBufferView(0, sizeof(CBInstance), &CBInstance);
+
+			// Dispatch with placement buffer count
+			Context.Dispatch2D(8, (DynamicPlacementCount + 7) >> 3);
+
+			//m_DynamicPlacements.clear();
+		}
     }
 
     void InstancedLODModel::Render(GraphicsContext& Context, const ModelRenderContext* pMRC, StructuredBuffer* pInstancePlacementBuffers, ByteAddressBuffer& DrawInstancedArgs)
@@ -273,8 +288,10 @@ namespace Graphics
         m_ShadowPSOCache.Initialize(&m_ShadowPSO);
 
         m_RenderPSO = m_DepthPSO;
-        m_RenderPSO.SetBlendState(BlendDisable);
-        m_RenderPSO.SetDepthStencilState(DepthStateTestEqual);
+		D3D12_BLEND_DESC BlendCoverage = BlendTraditional;
+		BlendCoverage.AlphaToCoverageEnable = TRUE;
+        m_RenderPSO.SetBlendState(BlendCoverage);
+        //m_RenderPSO.SetDepthStencilState(DepthStateTestEqual);
         m_RenderPSO.SetRenderTargetFormats(1, &ColorFormat, DepthFormat);
         m_RenderPSO.SetVertexShader(g_pInstanceMeshVS, sizeof(g_pInstanceMeshVS));
         m_RenderPSO.SetPixelShader(g_pInstanceMeshPS, sizeof(g_pInstanceMeshPS));
@@ -355,6 +372,7 @@ namespace Graphics
             pModel->CullAndSort(Context, pCameraParams);
             for (UINT32 i = 0; i < ARRAYSIZE(m_InstancePlacements); ++i)
             {
+				Context.TransitionResource(m_InstancePlacements[i].GetCounterBuffer(), D3D12_RESOURCE_STATE_COPY_SOURCE);
                 Context.CopyBufferRegion(m_InstanceOffsets, (CopyOffset + i) * sizeof(UINT32), m_InstancePlacements[i].GetCounterBuffer(), 0, sizeof(UINT32));
             }
             CopyOffset += ARRAYSIZE(m_InstancePlacements);
@@ -370,8 +388,7 @@ namespace Graphics
 		Context.SetBufferSRV(2, m_InstanceOffsets);
 		Context.SetDynamicDescriptor(3, 0, m_DrawIndirectArguments.GetUAV());
 		Context.SetDynamicConstantBufferView(0, sizeof(m_CurrentSourceArgumentIndex), &m_CurrentSourceArgumentIndex);
-		const UINT32 DispatchCount = (m_CurrentSourceArgumentIndex + 63) >> 6;
-		Context.Dispatch(DispatchCount);
+		Context.Dispatch2D(8, (m_CurrentSourceArgumentIndex + 7) >> 3);
 
 		Context.TransitionResource(m_DrawIndirectArguments, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
     }
