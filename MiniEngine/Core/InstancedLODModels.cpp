@@ -29,6 +29,11 @@ namespace Graphics
         m_ModelIndex = ModelIndex;
         ASSERT(m_ModelIndex != -1);
 
+		const Model::BoundingBox& bbox = m_pModel->GetBoundingBox();
+		Scalar RadiusA = Math::Length(bbox.min);
+		Scalar RadiusB = Math::Length(bbox.max);
+		m_BoundingRadius = Math::Max(RadiusA, RadiusB);
+
         UINT32 ArgOffset = *pDestArgOffset;
         m_FirstDrawArgIndex = ArgOffset;
 
@@ -95,9 +100,12 @@ namespace Graphics
     void InstancedLODModel::CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams)
     {
         CBInstanceMeshCulling CBInstance = *pCameraParams;
-        CBInstance.g_LOD0Params.x = FLT_MAX;
-        CBInstance.g_LOD1Params.x = FLT_MAX;
-        CBInstance.g_LOD2Params.x = FLT_MAX;
+        CBInstance.g_LOD0Params.x = 30.0f;
+        CBInstance.g_LOD1Params.x = 150.0f;
+        CBInstance.g_LOD2Params.x = 400.0f;
+		//CBInstance.g_LOD0Params.x = FLT_MAX;
+
+		CBInstance.g_LOD0Params.y = m_BoundingRadius;
 
         auto iter = m_SourcePlacementBuffers.begin();
         auto end = m_SourcePlacementBuffers.end();
@@ -251,8 +259,8 @@ namespace Graphics
         D3D12_INPUT_ELEMENT_DESC vertElem[] =
         {
             { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
             { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
             { "BITANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 

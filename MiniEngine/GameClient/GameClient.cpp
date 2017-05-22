@@ -303,7 +303,7 @@ void GameClient::Startup( void )
         }
     }
 
-    if (m_NetServer.IsStarted() && false)
+    if (false && m_NetServer.IsStarted())
     {
         DecomposedTransform DT;
         //m_NetServer.SpawnObject(nullptr, "Models/sponza.h3d", nullptr, DT, XMFLOAT3(0, 0, 0));
@@ -375,12 +375,16 @@ void GameClient::Startup( void )
 //             DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, Ypos, -100), Pitch, 0);
 //             m_NetServer.SpawnObject(nullptr, "*cube1.5", nullptr, DT, XMFLOAT3(0, 0, 0));
 //         }
+
+// 		DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 0, 0), 0, 0);
+// 		m_NetServer.SpawnObject(nullptr, "Models\\BeechAmerican_B.bmesh", nullptr, DT, XMFLOAT3(0, 0, 0));
     }
 
 //     InstancedLODModel LMT;
 //     LMT.Load("Models\\MapleGreenMountain_A.bmesh");
 //     LMT.Unload();
 
+	/*
 	InstancedLODModel* pLODModel = g_LODModelManager.FindOrLoadModel("Models\\BeechAmerican_B.bmesh");
 	if (pLODModel != nullptr)
 	{
@@ -394,12 +398,15 @@ void GameClient::Startup( void )
 				const FLOAT Xpos = (FLOAT)x * InstanceSpacing;
 				MeshPlacementVertex MPV;
 				MPV.WorldPosition = XMFLOAT3(Xpos, Ypos, Zpos);
-				MPV.Orientation = XMFLOAT4(0, 0, 0, 1);
+				XMVECTOR qRotation = XMQuaternionRotationRollPitchYaw(0, (Xpos + Zpos) * 0.1f, 0);
+				XMStoreFloat4(&MPV.Orientation, qRotation);
+				//MPV.Orientation = XMFLOAT4(0, 0, 0, 1);
 				MPV.UniformScale = 1.0f;
 				pLODModel->AddDynamicPlacement(MPV);
 			}
 		}
 	}
+	*/
 }
 
 bool GameClient::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument)

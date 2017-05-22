@@ -37,6 +37,7 @@ namespace Graphics
         UINT32 m_ModelIndex;
         UINT32 m_FirstDrawArgIndex;
         Model* m_pModel;
+		FLOAT m_BoundingRadius;
         UINT32 m_LODCount;
         static const UINT32 m_MaxInstanceCountPerFrame = 1024;
 

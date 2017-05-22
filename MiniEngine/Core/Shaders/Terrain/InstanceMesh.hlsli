@@ -131,7 +131,7 @@ void InstanceMeshPrepassCS(uint3 DTid : SV_DispatchThreadID)
 
     MeshPlacementVertex NewVertex = InputVertices[index];
 
-    Visible = Visible & inFrustum(NewVertex.WorldPosition, g_CameraWorldPos, g_CameraWorldDir, NewVertex.UniformScale * 2, g_CameraWorldViewProj);
+    Visible = Visible & inFrustum(NewVertex.WorldPosition, g_CameraWorldPos, g_CameraWorldDir, NewVertex.UniformScale * 2 * g_LOD0Params.y, g_CameraWorldViewProj);
 
     if (Visible)
     {
