@@ -384,7 +384,7 @@ void GameClient::Startup( void )
 //     LMT.Load("Models\\MapleGreenMountain_A.bmesh");
 //     LMT.Unload();
 
-	if (1)
+	if (0)
 	{
 		InstancedLODModel* pLODModel = g_LODModelManager.FindOrLoadModel("Models\\BeechAmerican_B.bmesh");
 		if (pLODModel != nullptr)
