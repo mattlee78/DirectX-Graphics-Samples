@@ -384,29 +384,31 @@ void GameClient::Startup( void )
 //     LMT.Load("Models\\MapleGreenMountain_A.bmesh");
 //     LMT.Unload();
 
-	/*
-	InstancedLODModel* pLODModel = g_LODModelManager.FindOrLoadModel("Models\\BeechAmerican_B.bmesh");
-	if (pLODModel != nullptr)
+	if (1)
 	{
-		const FLOAT InstanceSpacing = 30.0f;
-		const FLOAT Ypos = 0;
-		for (INT32 z = -10; z < 10; ++z)
+		InstancedLODModel* pLODModel = g_LODModelManager.FindOrLoadModel("Models\\BeechAmerican_B.bmesh");
+		if (pLODModel != nullptr)
 		{
-			const FLOAT Zpos = (FLOAT)z * InstanceSpacing;
-			for (INT32 x = -10; x < 10; ++x)
+			const FLOAT InstanceSpacing = 100.0f;
+			const FLOAT Ypos = 0;
+			const INT GridSize = 50;
+			for (INT32 z = -GridSize; z < GridSize; ++z)
 			{
-				const FLOAT Xpos = (FLOAT)x * InstanceSpacing;
-				MeshPlacementVertex MPV;
-				MPV.WorldPosition = XMFLOAT3(Xpos, Ypos, Zpos);
-				XMVECTOR qRotation = XMQuaternionRotationRollPitchYaw(0, (Xpos + Zpos) * 0.1f, 0);
-				XMStoreFloat4(&MPV.Orientation, qRotation);
-				//MPV.Orientation = XMFLOAT4(0, 0, 0, 1);
-				MPV.UniformScale = 1.0f;
-				pLODModel->AddDynamicPlacement(MPV);
+				const FLOAT Zpos = (FLOAT)z * InstanceSpacing;
+				for (INT32 x = -GridSize; x < GridSize; ++x)
+				{
+					const FLOAT Xpos = (FLOAT)x * InstanceSpacing;
+					MeshPlacementVertex MPV;
+					MPV.WorldPosition = XMFLOAT3(Xpos, Ypos, Zpos);
+					//XMVECTOR qRotation = XMQuaternionRotationRollPitchYaw(0, (Xpos + Zpos) * 0.1f, 0);
+					//XMStoreFloat4(&MPV.Orientation, qRotation);
+					MPV.Orientation = XMFLOAT4(0, 0, 0, 1);
+					MPV.UniformScale = 1.0f;
+					pLODModel->AddDynamicPlacement(MPV);
+				}
 			}
 		}
 	}
-	*/
 }
 
 bool GameClient::ProcessCommand(const CHAR* strCommand, const CHAR* strArgument)

@@ -26,6 +26,8 @@ namespace Graphics
             return false;
         }
 
+		m_EnableTerrainPlacement = true;
+
         m_ModelIndex = ModelIndex;
         ASSERT(m_ModelIndex != -1);
 
@@ -97,7 +99,7 @@ namespace Graphics
         m_SourcePlacementBuffers.clear();
     }
 
-    void InstancedLODModel::CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams)
+    void InstancedLODModel::CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams, const XMFLOAT4* pTerrainPlacementTransform)
     {
         CBInstanceMeshCulling CBInstance = *pCameraParams;
         CBInstance.g_LOD0Params.x = 30.0f;
@@ -106,6 +108,9 @@ namespace Graphics
 		//CBInstance.g_LOD0Params.x = FLT_MAX;
 
 		CBInstance.g_LOD0Params.y = m_BoundingRadius;
+
+		CBInstance.g_EnableTerrainPlacement.x = m_EnableTerrainPlacement ? 1 : 0;
+		CBInstance.g_TerrainPlacementTransform = *pTerrainPlacementTransform;
 
         auto iter = m_SourcePlacementBuffers.begin();
         auto end = m_SourcePlacementBuffers.end();
@@ -228,13 +233,14 @@ namespace Graphics
             MaxInstanceCount *= 4;
         }
 
-        m_CullingRootSig.Reset(4, 2);
+        m_CullingRootSig.Reset(5, 2);
         m_CullingRootSig.InitStaticSampler(0, Graphics::SamplerLinearClampDesc, D3D12_SHADER_VISIBILITY_ALL);
         m_CullingRootSig.InitStaticSampler(1, Graphics::SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_ALL);
         m_CullingRootSig[0].InitAsConstantBuffer(0, D3D12_SHADER_VISIBILITY_ALL);
         m_CullingRootSig[1].InitAsBufferSRV(0, D3D12_SHADER_VISIBILITY_ALL);
 		m_CullingRootSig[2].InitAsBufferSRV(1, D3D12_SHADER_VISIBILITY_ALL);
 		m_CullingRootSig[3].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, 4, D3D12_SHADER_VISIBILITY_ALL);
+		m_CullingRootSig[4].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 4, D3D12_SHADER_VISIBILITY_ALL);
         m_CullingRootSig.Finalize(L"Instance Mesh Culling");
 
         m_CullingPSO.SetRootSignature(m_CullingRootSig);
@@ -357,6 +363,12 @@ namespace Graphics
         return nullptr;
     }
 
+	void InstancedLODModelManager::SetTerrainTransform(XMVECTOR OffsetScaleXZ, D3D12_CPU_DESCRIPTOR_HANDLE hTerrainHeightmap)
+	{
+		XMStoreFloat4(&m_TerrainPlacementTransform, OffsetScaleXZ);
+		m_hTerrainHeightMap = hTerrainHeightmap;
+	}
+
     void InstancedLODModelManager::CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams)
     {
         for (UINT32 i = 0; i < ARRAYSIZE(m_InstancePlacements); ++i)
@@ -370,6 +382,10 @@ namespace Graphics
         Context.SetPipelineState(m_CullingPSO);
 
 		Context.SetDynamicDescriptors(3, 0, ARRAYSIZE(m_hInstancePlacementUAV), m_hInstancePlacementUAV);
+		if (m_hTerrainHeightMap.ptr != 0)
+		{
+			Context.SetDynamicDescriptor(4, 0, m_hTerrainHeightMap);
+		}
 
         UINT32 CopyOffset = 4;
         auto iter = m_Models.begin();
@@ -377,7 +393,7 @@ namespace Graphics
         while (iter != end)
         {
             InstancedLODModel* pModel = iter->second;
-            pModel->CullAndSort(Context, pCameraParams);
+            pModel->CullAndSort(Context, pCameraParams, &m_TerrainPlacementTransform);
             for (UINT32 i = 0; i < ARRAYSIZE(m_InstancePlacements); ++i)
             {
 				Context.TransitionResource(m_InstancePlacements[i].GetCounterBuffer(), D3D12_RESOURCE_STATE_COPY_SOURCE);

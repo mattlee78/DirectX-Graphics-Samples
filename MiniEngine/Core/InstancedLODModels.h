@@ -29,6 +29,8 @@ namespace Graphics
         XMFLOAT4   g_LOD1Params;
         XMFLOAT4   g_LOD2Params;
         XMUINT4    g_MaxVertexCount;
+		XMUINT4    g_EnableTerrainPlacement;
+		XMFLOAT4   g_TerrainPlacementTransform;
     };
 
     class InstancedLODModel
@@ -40,6 +42,7 @@ namespace Graphics
 		FLOAT m_BoundingRadius;
         UINT32 m_LODCount;
         static const UINT32 m_MaxInstanceCountPerFrame = 1024;
+		bool m_EnableTerrainPlacement;
 
         struct LODRender
         {
@@ -58,7 +61,8 @@ namespace Graphics
             : m_pModel(nullptr),
               m_LODCount(0),
               m_ModelIndex(-1),
-              m_FirstDrawArgIndex(0)
+              m_FirstDrawArgIndex(0),
+			  m_EnableTerrainPlacement(false)
         { }
 
         bool Load(const CHAR* strFilename, UINT32 ModelIndex, D3D12_DRAW_INDEXED_ARGUMENTS* pDestArgs, UINT32* pDestArgOffset);
@@ -71,7 +75,7 @@ namespace Graphics
 
     private:
         friend class InstancedLODModelManager;
-        void CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams);
+        void CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams, const XMFLOAT4* pTerrainPlacementTransform);
         void Render(GraphicsContext& Context, const ModelRenderContext* pMRC, StructuredBuffer* pInstancePlacementBuffers, ByteAddressBuffer& DrawInstancedArgs);
     };
 
@@ -120,11 +124,16 @@ namespace Graphics
         GpuResource m_SourceDrawIndirectArguments;
         D3D12_DRAW_INDEXED_ARGUMENTS* m_pSourceDrawIndirectBuffer;
 
+		XMFLOAT4 m_TerrainPlacementTransform;
+		D3D12_CPU_DESCRIPTOR_HANDLE m_hTerrainHeightMap;
+
     public:
         void Initialize();
         void Terminate();
 
         InstancedLODModel* FindOrLoadModel(const CHAR* strFileName);
+
+		void SetTerrainTransform(XMVECTOR OffsetScaleXZ, D3D12_CPU_DESCRIPTOR_HANDLE hTerrainHeightmap);
 
         void CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams);
         void Render(GraphicsContext& Context, const ModelRenderContext* pMRC);

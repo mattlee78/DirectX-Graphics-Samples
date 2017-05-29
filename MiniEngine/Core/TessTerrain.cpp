@@ -18,6 +18,7 @@
 #include "LineRender.h"
 #include "Math\Random.h"
 #include "Model.h"
+#include "InstancedLODModels.h"
 
 #include "CompiledShaders\InitializationVS.h"
 #include "CompiledShaders\InitializationPS.h"
@@ -849,6 +850,16 @@ void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const Tessel
     }
 
     RenderTerrainHeightmap(pContext, &m_HeightMap, &m_ZoneMap, &m_GradientMap, &m_MaterialMap, CameraPosWorld, 1.0f);
+
+	float TexEyePosX = m_CBCommon.TextureWorldOffset.x;
+	float TexEyePosZ = m_CBCommon.TextureWorldOffset.z;
+	const float TexWorldSize = g_WorldScale * m_OuterRingWorldSize;
+
+	float TexWorldPosX = TexEyePosX * TexWorldSize;
+	float TexWorldPosZ = TexEyePosZ * -TexWorldSize;
+
+	XMVECTOR OffsetScaleXZ = XMVectorSet(-TexWorldPosX, -TexWorldPosZ, 1.0f / TexWorldSize, g_WorldScale);
+	Graphics::g_LODModelManager.SetTerrainTransform(OffsetScaleXZ, m_HeightMap.GetSRV());
 }
 
 void TessellatedTerrain::Render(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)

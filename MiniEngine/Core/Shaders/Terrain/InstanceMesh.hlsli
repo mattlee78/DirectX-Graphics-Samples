@@ -107,6 +107,8 @@ RWStructuredBuffer<MeshPlacementVertex> OutputVerticesLOD1 : register(u1);
 RWStructuredBuffer<MeshPlacementVertex> OutputVerticesLOD2 : register(u2);
 RWStructuredBuffer<MeshPlacementVertex> OutputVerticesLOD3 : register(u3);
 
+Texture2D g_CullingCoarseHeightMap : register(t2);
+
 cbuffer cbInstanceMeshCulling : register(b0)
 {
     row_major float4x4 g_CameraWorldViewProj : register(c0);
@@ -115,7 +117,9 @@ cbuffer cbInstanceMeshCulling : register(b0)
     float4 g_LOD0Params : register(c6);
     float4 g_LOD1Params : register(c7);
     float4 g_LOD2Params : register(c8);
-    uint g_MaxVertexCount : register(c9);
+    uint4 g_MaxVertexCount : register(c9);
+	bool4 g_EnableTerrainPlacement : register(c10);
+	float4 g_TerrainPlacementTransform : register(c11);
 };
 
 [numthreads(8, 8, 1)]
@@ -124,12 +128,21 @@ void InstanceMeshPrepassCS(uint3 DTid : SV_DispatchThreadID)
     bool Visible = true;
 
     const uint index = DTid.y * 8 + DTid.x;
-    if (index >= g_MaxVertexCount)
+    if (index >= g_MaxVertexCount.x)
     {
         Visible = false;
     }
 
     MeshPlacementVertex NewVertex = InputVertices[index];
+
+	if (g_EnableTerrainPlacement.x)
+	{
+		float2 TerrainUV = (NewVertex.WorldPosition.xz + g_TerrainPlacementTransform.xy) * float2(g_TerrainPlacementTransform.z, -g_TerrainPlacementTransform.z);
+		TerrainUV.y = 1.0f - TerrainUV.y;
+		const int mipLevel = 0;
+		float TerrainHeight = g_CullingCoarseHeightMap.SampleLevel(SamplerClampLinear, TerrainUV, mipLevel).r;
+		NewVertex.WorldPosition.y = TerrainHeight * g_TerrainPlacementTransform.w;
+	}
 
     Visible = Visible & inFrustum(NewVertex.WorldPosition, g_CameraWorldPos, g_CameraWorldDir, NewVertex.UniformScale * 2 * g_LOD0Params.y, g_CameraWorldViewProj);
 

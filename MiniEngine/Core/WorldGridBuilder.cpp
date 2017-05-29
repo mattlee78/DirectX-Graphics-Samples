@@ -480,7 +480,7 @@ void TerrainObjectMap::ProcessTerrainHeightfield(TerrainBlock* pBlock)
     rng.SetSeed((UINT32)pBlock->Coord.Hash ^ (UINT32)(pBlock->Coord.Hash >> 32));
 
     PlacedObject PO;
-    for (UINT32 i = 0; i < 100; ++i)
+    for (UINT32 i = 0; i < 1000; ++i)
     {
         XMVECTOR NormXY = XMVectorSet(rng.NextFloat(), rng.NextFloat(), 0, 0);
         XMStoreHalf2(&PO.NormCoord, NormXY);
