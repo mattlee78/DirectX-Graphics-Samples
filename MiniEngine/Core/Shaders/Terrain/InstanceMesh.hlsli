@@ -83,7 +83,7 @@ DepthVSOutput InstanceMeshDepthVS(VSInput vsInput, MeshPlacementVertex InstanceI
 
 float4 InstanceMeshPS(ObjectVSOutput vsOutput) : SV_Target0
 {
-	return DefaultMaterialLightAndShadow(
+	float4 Result = DefaultMaterialLightAndShadow(
         vsOutput.texcoord0,
         uint2(vsOutput.position.xy),
         vsOutput.viewDir,
@@ -93,12 +93,18 @@ float4 InstanceMeshPS(ObjectVSOutput vsOutput) : SV_Target0
         vsOutput.shadowCoord,
         vsOutput.shadowCoordOuter
     );
+
+    Result.a = 1;
+    return Result;
 }
 
 void InstanceMeshDepthPS(DepthVSOutput vsOutput)
 {
     float Alpha = DefaultMaterialAlphaOnly(vsOutput.texcoord0);
-    if (Alpha < 0.5) discard;
+    if (Alpha < 0.4f)
+    {    
+        discard;
+    }
 }
 
 StructuredBuffer<MeshPlacementVertex> InputVertices : register(t0);

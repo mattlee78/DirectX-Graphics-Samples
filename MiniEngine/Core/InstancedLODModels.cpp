@@ -283,9 +283,15 @@ namespace Graphics
 
         g_InputLayoutCache.FindOrAddLayout(vertElem, _countof(vertElem));
 
+        D3D12_BLEND_DESC BlendCoverage = BlendDisable;
+        BlendCoverage.AlphaToCoverageEnable = TRUE;
+
+        D3D12_BLEND_DESC BlendCoverageNoColor = BlendCoverage;
+        BlendCoverageNoColor.RenderTarget[0].RenderTargetWriteMask = 0;
+
         m_DepthPSO.SetRootSignature(m_RenderRootSig);
         m_DepthPSO.SetRasterizerState(RasterizerDefault);
-        m_DepthPSO.SetBlendState(BlendNoColorWrite);
+        m_DepthPSO.SetBlendState(BlendCoverageNoColor);
         m_DepthPSO.SetDepthStencilState(DepthStateReadWrite);
         m_DepthPSO.SetInputLayout(_countof(vertElem), vertElem);
         m_DepthPSO.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
@@ -302,10 +308,8 @@ namespace Graphics
         m_ShadowPSOCache.Initialize(&m_ShadowPSO);
 
         m_RenderPSO = m_DepthPSO;
-		D3D12_BLEND_DESC BlendCoverage = BlendTraditional;
-		BlendCoverage.AlphaToCoverageEnable = TRUE;
         m_RenderPSO.SetBlendState(BlendCoverage);
-        //m_RenderPSO.SetDepthStencilState(DepthStateTestEqual);
+        m_RenderPSO.SetDepthStencilState(DepthStateTestEqual);
         m_RenderPSO.SetRenderTargetFormats(1, &ColorFormat, DepthFormat);
         m_RenderPSO.SetVertexShader(g_pInstanceMeshVS, sizeof(g_pInstanceMeshVS));
         m_RenderPSO.SetPixelShader(g_pInstanceMeshPS, sizeof(g_pInstanceMeshPS));
@@ -420,7 +424,19 @@ namespace Graphics
     void InstancedLODModelManager::Render(GraphicsContext& Context, const ModelRenderContext* pMRC)
     {
         Context.SetRootSignature(m_RenderRootSig);
-        Context.SetPipelineState(m_RenderPSO);
+
+        switch (pMRC->CurrentPassType)
+        {
+        case RenderPass_Color:
+            Context.SetPipelineState(m_RenderPSO);
+            break;
+        case RenderPass_Shadow:
+            Context.SetPipelineState(m_ShadowPSO);
+            break;
+        case RenderPass_ZPrePass:
+            Context.SetPipelineState(m_DepthPSO);
+            break;
+        }
 
         auto iter = m_Models.begin();
         auto end = m_Models.end();

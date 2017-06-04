@@ -800,10 +800,7 @@ void GameClient::RenderObjects(GraphicsContext& gfxContext, const BaseCamera& Ca
 
     m_pClientWorld->Render(MRC);
 
-	if (PassType == RenderPass_Color)
-	{
-		g_LODModelManager.Render(gfxContext, &MRC);
-	}
+    g_LODModelManager.Render(gfxContext, &MRC);
 }
 
 void GameClient::RenderScene( void )
