@@ -4,7 +4,6 @@
 #include "TessTerrain.h"
 #include "BulletPhysics.h"
 #include "LineRender.h"
-#include "Math/Random.h"
 
 WorldGridBuilder::WorldGridBuilder()
 {
@@ -427,33 +426,7 @@ void TerrainPhysicsMap::ProcessTerrainHeightfield(TerrainBlock* pBlock)
 void TerrainObjectMap::Initialize(TessellatedTerrain* pTessTerrain, FLOAT BlockWorldScale)
 {
     TerrainServerRenderer::Initialize(pTessTerrain, BlockWorldScale);
-    m_WaterLevel = pTessTerrain->GetConstructionDesc()->WaterLevelY;
-}
-
-void TerrainObjectMap::RenderWater(GraphicsContext* pContext)
-{
-    const XMVECTOR BlockOffset = XMVectorSet(0, 0, -m_BlockWorldScale, 0);
-    auto iter = m_BlockMap.begin();
-    auto end = m_BlockMap.end();
-    while (iter != end)
-    {
-        TerrainBlock* pTB = iter->second;
-        if (pTB->pData == nullptr || pTB->State == WorldGridBuilder::BlockState::Initialized)
-        {
-            ++iter;
-            continue;
-        }
-        ObjectBlockData* pBD = (ObjectBlockData*)pTB->pData;
-        if (pBD->MinValue >= m_WaterLevel)
-        {
-            ++iter;
-            continue;
-        }
-        XMVECTOR BlockCoord = pTB->Coord.GetWorldPosition(m_BlockWorldScale, 0.5f) + BlockOffset;
-        BlockCoord = XMVectorSetY(BlockCoord, m_WaterLevel);
-        LineRender::DrawGridXZ(XMMatrixTranslationFromVector(BlockCoord), m_BlockWorldScale * 0.5f, 100, XMVectorSet(0.5f, 0.5f, 1.0f, 1.0f));
-        ++iter;
-    }
+    m_pConstructionDesc = pTessTerrain->GetConstructionDesc();
 }
 
 void TerrainObjectMap::InitializeBlockData(TerrainBlock* pNewBlock)
@@ -475,17 +448,123 @@ void TerrainObjectMap::ProcessTerrainHeightfield(TerrainBlock* pBlock)
     const D3D12_SUBRESOURCE_FOOTPRINT& Footprint = pBD->Footprint;
     ConvertHeightmap(pBlock, 1.0f);
 
-    // TODO: place objects
+    // Seed RNG with block coordinates
     Math::RandomNumberGenerator rng;
     rng.SetSeed((UINT32)pBlock->Coord.Hash ^ (UINT32)(pBlock->Coord.Hash >> 32));
 
-    PlacedObject PO;
-    for (UINT32 i = 0; i < 1000; ++i)
+    ObjectPlacementStack OPStack;
+
+    const UINT32 PlacementCount = m_pConstructionDesc->PlacementsPerBlock;
+    for (UINT32 i = 0; i < PlacementCount; ++i)
     {
         XMVECTOR NormXY = XMVectorSet(rng.NextFloat(), rng.NextFloat(), 0, 0);
-        XMStoreHalf2(&PO.NormCoord, NormXY);
-        PO.Radius = rng.NextFloat(0, 5);
-        pBD->ObjectCoords.push_back(PO);
+        CreatePlacement(NormXY, pBlock, OPStack, rng, nullptr);
+    }
+
+    while (!OPStack.empty())
+    {
+        ObjectPlacementStackEntry& SE = OPStack.front();
+        OPStack.pop_front();
+        assert(SE.PlacementCount > 0);
+
+        for (UINT32 i = 0; i < SE.PlacementCount; ++i)
+        {
+            // TODO: compute a NormXY adjacent to SE.ParentCoordXY
+
+            XMVECTOR ParentNormXY = XMLoadFloat2(&SE.ParentCoordXY);
+            XMVECTOR NormXY = ParentNormXY;
+
+            CreatePlacement(NormXY, pBlock, OPStack, rng, SE.pParentPlacementDesc);
+        }
+    }
+}
+
+void TerrainObjectMap::CreatePlacement(XMVECTOR NormalizedXY, const TerrainBlock* pBlock, ObjectPlacementStack& PlacementStack, Math::RandomNumberGenerator& rng, const ObjectPlacementDesc* pParentDesc)
+{
+    const UINT32 MaxCandidateCount = 16;
+    const ObjectPlacementDesc* pCandidates[MaxCandidateCount];
+    FLOAT CandidatePriorities[MaxCandidateCount];
+    UINT32 CandidateCount = 0;
+    FLOAT PrioritySum = 0;
+
+    // TODO: characterize NormalizedXY into [hilltop, valley, slope, flat] plus "factor"
+
+    if (pParentDesc == nullptr)
+    {
+        const UINT32 DescCount = (UINT32)m_pConstructionDesc->Placements.size();
+        for (UINT32 i = 0; i < DescCount; ++i)
+        {
+            const ObjectPlacementDesc* pDesc = m_pConstructionDesc->Placements[i];
+            if (!pDesc->IsPrimaryPlacement)
+            {
+                continue;
+            }
+
+            // TODO: filter out desc based on characterization
+
+            if (CandidateCount < MaxCandidateCount)
+            {
+                pCandidates[CandidateCount] = pDesc;
+                CandidatePriorities[CandidateCount] = pDesc->PriorityRatio;
+                PrioritySum += pDesc->PriorityRatio;
+                ++CandidateCount;
+            }
+        }
+    }
+    else
+    {
+        const UINT32 DescCount = (UINT32)pParentDesc->PropagateDescs.size();
+        for (UINT32 i = 0; i < DescCount; ++i)
+        {
+            const ObjectPropagationDesc& PropDesc = pParentDesc->PropagateDescs[i];
+
+            // TODO: filter out desc based on characterization
+
+            if (CandidateCount < MaxCandidateCount)
+            {
+                pCandidates[CandidateCount] = PropDesc.pPlacementDesc;
+                CandidatePriorities[CandidateCount] = PropDesc.PriorityRatio;
+                PrioritySum += PropDesc.PriorityRatio;
+                ++CandidateCount;
+            }
+        }
+    }
+
+    if (CandidateCount == 0 || PrioritySum == 0)
+    {
+        return;
+    }
+
+    FLOAT Selection = PrioritySum * rng.NextFloat();
+
+    for (UINT32 i = 0; i < CandidateCount; ++i)
+    {
+        if (Selection < CandidatePriorities[i])
+        {
+            const ObjectPlacementDesc* pDesc = pCandidates[i];
+            Graphics::MeshPlacementVertex MPV = {};
+
+            // TODO: finalize position and orientation of instance into MPV
+            // TODO: look up InstanceModelPlacementBuffer using model ID
+            // TODO: add MPV to buffer
+
+            if (pDesc->MaxPropagations > 0)
+            {
+                UINT32 PropagationCount = rng.NextInt(pDesc->MinPropagations, pDesc->MaxPropagations);
+                if (PropagationCount > 0)
+                {
+                    ObjectPlacementStackEntry SE = {};
+                    XMStoreFloat2(&SE.ParentCoordXY, NormalizedXY);
+                    SE.pParentPlacementDesc = pDesc;
+                    SE.PlacementCount = PropagationCount;
+                    PlacementStack.push_back(SE);
+                }
+            }
+        }
+        else
+        {
+            Selection -= CandidatePriorities[i];
+        }
     }
 }
 
@@ -532,6 +611,7 @@ void TerrainObjectMap::PostUpdate()
 
         if (pOBD->pData != nullptr)
         {
+            /*
             const UINT32 ObjCount = (UINT32)pOBD->ObjectCoords.size();
             for (UINT32 i = 0; i < ObjCount; ++i)
             {
@@ -543,6 +623,7 @@ void TerrainObjectMap::PostUpdate()
                 XMVECTOR PosXYZ = XMVectorSelect(HeightY, PosXZ, g_XMSelect1010);
                 LineRender::DrawAxisAlignedBox(PosXYZ - BoxSize, PosXYZ + BoxSize, XMVectorSet(1, 0, 1, 1));
             }
+            */
         }
     }
 }

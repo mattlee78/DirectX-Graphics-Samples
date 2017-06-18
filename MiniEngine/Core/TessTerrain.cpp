@@ -222,8 +222,10 @@ TessellatedTerrain::TessellatedTerrain()
 
 void TessellatedTerrain::CreateDefaultConstructionDesc(TerrainConstructionDesc* pDesc)
 {
-    ZeroMemory(pDesc, sizeof(*pDesc));
+    pDesc->Placements.clear();
     pDesc->RandomSeed = 0x1234;
+    pDesc->WaterLevelY = 0;
+    pDesc->PlacementsPerBlock = 1000;
 }
 
 void TessellatedTerrain::Initialize(bool ClientGraphicsEnabled, const TerrainConstructionDesc* pDesc)

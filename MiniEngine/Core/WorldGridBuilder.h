@@ -1,8 +1,12 @@
 #pragma once
 
 #include <unordered_map>
+#include <deque>
 #include <DirectXMath.h>
 #include <DirectXPackedVector.h>
+
+#include "InstancedLODModels.h"
+#include "Math\Random.h"
 
 class WorldGridBuilder
 {
@@ -138,6 +142,8 @@ protected:
 class PhysicsWorld;
 class RigidBody;
 class CollisionShape;
+struct TerrainConstructionDesc;
+struct ObjectPlacementDesc;
 
 class TerrainPhysicsMap : public TerrainServerRenderer
 {
@@ -166,31 +172,29 @@ protected:
 class TerrainObjectMap : public TerrainServerRenderer
 {
 protected:
-    FLOAT m_WaterLevel;
+    const TerrainConstructionDesc* m_pConstructionDesc;
 
-    enum ObjectType
+    struct InstanceModelPlacementBuffer
     {
-        OT_FlatGround = 0,
-        OT_Rock,
-        OT_TreeParent,
-        OT_TreeChild,
-    };
-
-    struct PlacedObject
-    {
-        DirectX::PackedVector::XMHALF2 NormCoord;
-        FLOAT Radius;
-        ObjectType Type;
+        Graphics::InstancedLODModel* pModel;
+        std::vector<Graphics::MeshPlacementVertex> Placements;
     };
 
     struct ObjectBlockData : public BlockData
     {
-        std::vector<PlacedObject> ObjectCoords;
+        std::unordered_map<UINT32, InstanceModelPlacementBuffer*> PlacementBuffers;
     };
+
+    struct ObjectPlacementStackEntry
+    {
+        const ObjectPlacementDesc* pParentPlacementDesc;
+        UINT32 PlacementCount;
+        XMFLOAT2 ParentCoordXY;
+    };
+    typedef std::deque<ObjectPlacementStackEntry> ObjectPlacementStack;
 
 public:
     void Initialize(TessellatedTerrain* pTessTerrain, FLOAT BlockWorldScale);
-    void RenderWater(GraphicsContext* pContext);
 
 protected:
     virtual void InitializeBlockData(TerrainBlock* pNewBlock);
@@ -200,4 +204,6 @@ protected:
     virtual void PostUpdate();
 
     XMVECTOR LerpCoords(XMVECTOR NormalizedXY, const TerrainBlock* pBlock) const;
+
+    void CreatePlacement(XMVECTOR NormalizedXY, const TerrainBlock* pBlock, ObjectPlacementStack& PlacementStack, Math::RandomNumberGenerator& rng, const ObjectPlacementDesc* pParentDesc);
 };

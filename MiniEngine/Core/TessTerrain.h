@@ -32,13 +32,54 @@ using namespace DirectX::PackedVector;
 #include "CommandContext.h"
 #include "ColorBuffer.h"
 
+#include "StringID.h"
+#include "DataFile.h"
+
 struct InstanceData;
 struct Adjacency;
 struct CBLightShadowWorldConstants;
 namespace Graphics
 {
     class Model;
+    class InstancedLODModel;
 }
+
+struct ObjectPlacementDesc;
+
+struct ObjectPropagationDesc
+{
+    StringID PlacementName;
+    ObjectPlacementDesc* pPlacementDesc;
+    FLOAT PriorityRatio;
+};
+
+struct ObjectPlacementDesc
+{
+    StringID Name;
+    BOOL IsPrimaryPlacement;
+
+    const CHAR* strModelFileName;
+    Graphics::InstancedLODModel* pInstancedLODModel;
+
+    UINT32 LogicID;
+
+    FLOAT MinRadius;
+    FLOAT MaxRadius;
+
+    FLOAT PriorityRatio;
+
+    BOOL PlaceOnHilltop;
+    FLOAT HilltopFilter;
+    BOOL PlaceInValley;
+    FLOAT ValleyFilter;
+    BOOL PlaceOnSlope;
+    FLOAT SlopeFilter;
+    BOOL PlaceOnFlat;
+
+    UINT MinPropagations;
+    UINT MaxPropagations;
+    std::vector<ObjectPropagationDesc> PropagateDescs;
+};
 
 // Int dimensions specified to the ctor are in numbers of tiles.  It's symmetrical in
 // each direction.  (Don't read much into the exact numbers of #s in this diagram.)
@@ -97,6 +138,8 @@ struct TerrainConstructionDesc
 {
     UINT64 RandomSeed;
     FLOAT WaterLevelY;
+    UINT32 PlacementsPerBlock;
+    std::vector<ObjectPlacementDesc*> Placements;
 };
 
 __declspec(align(16))

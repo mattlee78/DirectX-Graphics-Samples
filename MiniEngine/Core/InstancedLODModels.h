@@ -68,6 +68,8 @@ namespace Graphics
         bool Load(const CHAR* strFilename, UINT32 ModelIndex, D3D12_DRAW_INDEXED_ARGUMENTS* pDestArgs, UINT32* pDestArgOffset);
         void Unload();
 
+        UINT32 GetModelIndex() const { return m_ModelIndex; }
+
         StructuredBuffer* CreateSourcePlacementBuffer(UINT32 PlacementCount, const MeshPlacementVertex* pPlacements);
         bool DestroySourcePlacementBuffer(StructuredBuffer* pBuffer);
 

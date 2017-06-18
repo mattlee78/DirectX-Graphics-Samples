@@ -384,7 +384,7 @@ void GameClient::Startup( void )
 //     LMT.Load("Models\\MapleGreenMountain_A.bmesh");
 //     LMT.Unload();
 
-	if (0)
+	if (1)
 	{
 		InstancedLODModel* pLODModel = g_LODModelManager.FindOrLoadModel("Models\\BeechAmerican_B.bmesh");
 		if (pLODModel != nullptr)
@@ -943,7 +943,6 @@ void GameClient::RenderScene( void )
 
             // transparent render
             m_NetClient.GetWorld()->GetTerrain()->AlphaRender(&gfxContext, &RD);
-            //m_NetClient.GetWorld()->GetTerrainObjectMap()->RenderWater(&gfxContext);
         }
 	}
 
