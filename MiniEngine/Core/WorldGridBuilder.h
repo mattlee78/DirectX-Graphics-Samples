@@ -178,6 +178,7 @@ protected:
     {
         Graphics::InstancedLODModel* pModel;
         std::vector<Graphics::MeshPlacementVertex> Placements;
+        StructuredBuffer* pSB;
     };
 
     struct ObjectBlockData : public BlockData
@@ -206,4 +207,7 @@ protected:
     XMVECTOR LerpCoords(XMVECTOR NormalizedXY, const TerrainBlock* pBlock) const;
 
     void CreatePlacement(XMVECTOR NormalizedXY, const TerrainBlock* pBlock, ObjectPlacementStack& PlacementStack, Math::RandomNumberGenerator& rng, const ObjectPlacementDesc* pParentDesc);
+
+private:
+    InstanceModelPlacementBuffer* FindIMPlacementBuffer(ObjectBlockData* pBlockData, Graphics::InstancedLODModel* pModel) const;
 };

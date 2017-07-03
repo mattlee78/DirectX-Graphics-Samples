@@ -487,6 +487,11 @@ void TerrainObjectMap::CreatePlacement(XMVECTOR NormalizedXY, const TerrainBlock
     UINT32 CandidateCount = 0;
     FLOAT PrioritySum = 0;
 
+    ObjectBlockData* pOBD = (ObjectBlockData*)pBlock->pData;
+    assert(pOBD != nullptr);
+    const XMVECTOR HeightY = LerpCoords(NormalizedXY, pBlock);
+    const FLOAT fHeightY = XMVectorGetX(HeightY);
+
     // TODO: characterize NormalizedXY into [hilltop, valley, slope, flat] plus "factor"
 
     if (pParentDesc == nullptr)
@@ -501,6 +506,10 @@ void TerrainObjectMap::CreatePlacement(XMVECTOR NormalizedXY, const TerrainBlock
             }
 
             // TODO: filter out desc based on characterization
+            if (fHeightY < pDesc->MinAltitude || fHeightY > pDesc->MaxAltitude)
+            {
+                continue;
+            }
 
             if (CandidateCount < MaxCandidateCount)
             {
@@ -516,15 +525,15 @@ void TerrainObjectMap::CreatePlacement(XMVECTOR NormalizedXY, const TerrainBlock
         const UINT32 DescCount = (UINT32)pParentDesc->PropagateDescs.size();
         for (UINT32 i = 0; i < DescCount; ++i)
         {
-            const ObjectPropagationDesc& PropDesc = pParentDesc->PropagateDescs[i];
+            const ObjectPropagationDesc* pPropDesc = pParentDesc->PropagateDescs[i];
 
             // TODO: filter out desc based on characterization
 
             if (CandidateCount < MaxCandidateCount)
             {
-                pCandidates[CandidateCount] = PropDesc.pPlacementDesc;
-                CandidatePriorities[CandidateCount] = PropDesc.PriorityRatio;
-                PrioritySum += PropDesc.PriorityRatio;
+                pCandidates[CandidateCount] = pPropDesc->pPlacementDesc;
+                CandidatePriorities[CandidateCount] = pPropDesc->PriorityRatio;
+                PrioritySum += pPropDesc->PriorityRatio;
                 ++CandidateCount;
             }
         }
@@ -542,11 +551,29 @@ void TerrainObjectMap::CreatePlacement(XMVECTOR NormalizedXY, const TerrainBlock
         if (Selection < CandidatePriorities[i])
         {
             const ObjectPlacementDesc* pDesc = pCandidates[i];
-            Graphics::MeshPlacementVertex MPV = {};
 
-            // TODO: finalize position and orientation of instance into MPV
-            // TODO: look up InstanceModelPlacementBuffer using model ID
-            // TODO: add MPV to buffer
+            // Look up InstanceModelPlacementBuffer using model ID
+            InstanceModelPlacementBuffer* pPB = FindIMPlacementBuffer(pOBD, pDesc->pInstancedLODModel);
+
+            if (pPB != nullptr)
+            {
+                Graphics::MeshPlacementVertex MPV = {};
+
+                // Finalize position and orientation of instance into MPV
+                const XMVECTOR BlockOffset = XMVectorSet(0, 0, -m_BlockWorldScale, 0);
+                const XMVECTOR BlockMin = pBlock->Coord.GetWorldPosition(m_BlockWorldScale, 0.0f) + BlockOffset;
+                const XMVECTOR BlockMax = pBlock->Coord.GetWorldPosition(m_BlockWorldScale, 1.0f) + BlockOffset;
+                XMVECTOR PosXZ = XMVectorLerpV(BlockMin, BlockMax, XMVectorSwizzle<0, 3, 1, 3>(NormalizedXY));
+                XMVECTOR PosXYZ = XMVectorSelect(HeightY, PosXZ, g_XMSelect1010);
+                XMStoreFloat3(&MPV.WorldPosition, PosXYZ);
+
+                // TODO: orientation and scale
+                XMStoreFloat4(&MPV.Orientation, g_XMIdentityR3);
+                MPV.UniformScale = 1.0f;
+
+                // Add MPV to buffer
+                pPB->Placements.push_back(MPV);
+            }
 
             if (pDesc->MaxPropagations > 0)
             {
@@ -560,12 +587,34 @@ void TerrainObjectMap::CreatePlacement(XMVECTOR NormalizedXY, const TerrainBlock
                     PlacementStack.push_back(SE);
                 }
             }
+
+            break;
         }
         else
         {
             Selection -= CandidatePriorities[i];
         }
     }
+}
+
+TerrainObjectMap::InstanceModelPlacementBuffer* TerrainObjectMap::FindIMPlacementBuffer(ObjectBlockData* pBlockData, Graphics::InstancedLODModel* pModel) const
+{
+    if (pModel == nullptr)
+    {
+        return nullptr;
+    }
+
+    const UINT32 Key = pModel->GetModelIndex();
+    auto iter = pBlockData->PlacementBuffers.find(Key);
+    if (iter != pBlockData->PlacementBuffers.end())
+    {
+        return iter->second;
+    }
+
+    InstanceModelPlacementBuffer* pPB = new InstanceModelPlacementBuffer();
+    pPB->pModel = pModel;
+    pBlockData->PlacementBuffers[Key] = pPB;
+    return pPB;
 }
 
 void TerrainObjectMap::CompleteTerrainHeightfield(TerrainBlock* pBlock, TerrainBlock* pNeighborBlocks[4])
@@ -580,7 +629,22 @@ void TerrainObjectMap::CompleteTerrainHeightfield(TerrainBlock* pBlock, TerrainB
 
     // TODO: add additional cross-block objects based on objects within pBD and pNBDs
 
-    // TODO: for client, build instance VBs for renderable objects
+    // For client, build placement buffer for renderable objects
+    auto iter = pBD->PlacementBuffers.begin();
+    auto end = pBD->PlacementBuffers.end();
+    while (iter != end)
+    {
+        InstanceModelPlacementBuffer* pPB = iter->second;
+        ++iter;
+
+        const UINT32 PlacementCount = (UINT32)pPB->Placements.size();
+        if (PlacementCount > 0)
+        {
+            pPB->pSB = pPB->pModel->CreateSourcePlacementBuffer(PlacementCount, &pPB->Placements.front());
+            pPB->Placements.clear();
+        }
+    }
+
     // TODO: for server, build physics objects for collidable objects
 }
 

@@ -211,8 +211,12 @@ private:
 
     IWorldNotifications* m_pNotify;
 
+    static TerrainConstructionDesc* m_pTerrainConstructionDesc;
+
 public:
     virtual ~World();
+
+    static void LoadTerrainConstructionDesc(const CHAR* strFileName);
 
     void Initialize(bool GraphicsEnabled, IWorldNotifications* pNotify);
     void Terminate();

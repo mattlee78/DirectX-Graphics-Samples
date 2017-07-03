@@ -410,12 +410,25 @@ void ModelInstance::ServerProcessInput(const NetworkInputState& InputState, FLOA
     }
 }
 
+TerrainConstructionDesc* World::m_pTerrainConstructionDesc = nullptr;
+
+void World::LoadTerrainConstructionDesc(const CHAR* strFileName)
+{
+    if (m_pTerrainConstructionDesc != nullptr)
+    {
+        DataFile::Unload(m_pTerrainConstructionDesc);
+        m_pTerrainConstructionDesc = nullptr;
+    }
+
+    m_pTerrainConstructionDesc = (TerrainConstructionDesc*)DataFile::LoadStructFromFile(STRUCT_TEMPLATE_REFERENCE(TerrainConstructionDesc), strFileName);
+}
+
 void World::Initialize(bool GraphicsEnabled, IWorldNotifications* pNotify)
 {
     m_GraphicsEnabled = GraphicsEnabled;
     m_pNotify = pNotify;
     m_PhysicsWorld.Initialize(0, XMVectorSet(0, -9.8f, 0, 0));
-    m_TessTerrain.Initialize(GraphicsEnabled, nullptr);
+    m_TessTerrain.Initialize(GraphicsEnabled, m_pTerrainConstructionDesc);
     m_TerrainPhysicsMap.Initialize(&m_PhysicsWorld, &m_TessTerrain, m_TessTerrain.GetWorldScale() * 0.25f);
     m_TerrainObjectMap.Initialize(&m_TessTerrain, m_TessTerrain.GetWorldScale() * 4.0f);
 }

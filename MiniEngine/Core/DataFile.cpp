@@ -284,6 +284,10 @@ DWORD DataFile::GetDataTypeSize( const DataMemberTemplate* pMember )
     case DT_UInt16:
         dwElementSize = 2;
         break;
+    case DT_Int64:
+    case DT_UInt64:
+        dwElementSize = 8;
+        break;
     case DT_Double:
         dwElementSize = sizeof(DOUBLE);
         break;
@@ -1621,6 +1625,12 @@ VOID* DataFileParser::ParseScalarValue( DataType Type, const json& Value, VOID* 
     case DT_UInt32:
         *(UINT*)pDest = (UINT)Value;
         return (VOID*)( (UINT*)pDest + 1 );
+    case DT_UInt64:
+        *(UINT64*)pDest = (UINT64)Value;
+        return (VOID*)((UINT64*)pDest + 1);
+    case DT_Int64:
+        *(INT64*)pDest = (INT64)Value;
+        return (VOID*)((INT64*)pDest + 1);
     case DT_UInt16:
         *(USHORT*)pDest = (USHORT)Value;
         return (VOID*)( (USHORT*)pDest + 1 );

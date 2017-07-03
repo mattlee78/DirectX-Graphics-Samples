@@ -41,6 +41,42 @@
 #include "CompiledShaders\WaterPatchHS.h"
 #include "CompiledShaders\WaterPatchPS.h"
 
+STRUCT_TEMPLATE_START_FILE(TerrainConstructionDesc, nullptr, nullptr)
+MEMBER_UINT64(RandomSeed)
+MEMBER_FLOAT(WaterLevelY)
+MEMBER_UINT(PlacementsPerBlock)
+MEMBER_STRUCT_STL_POINTER_VECTOR(Placements, ObjectPlacementDesc)
+STRUCT_TEMPLATE_END(TerrainConstructionDesc)
+
+STRUCT_TEMPLATE_START_INLINE(ObjectPlacementDesc, nullptr, nullptr)
+MEMBER_STRINGID(Name)
+MEMBER_BOOL(IsPrimaryPlacement)
+MEMBER_STRING(ModelFileName)
+MEMBER_PADDING_POINTER()
+MEMBER_UINT(LogicID)
+MEMBER_FLOAT(MinRadius)
+MEMBER_FLOAT(MaxRadius)
+MEMBER_FLOAT(PriorityRatio)
+MEMBER_FLOAT(MinAltitude)
+MEMBER_FLOAT(MaxAltitude)
+MEMBER_BOOL(PlaceOnHilltop)
+MEMBER_FLOAT(HilltopFilter)
+MEMBER_BOOL(PlaceInValley)
+MEMBER_FLOAT(ValleyFilter)
+MEMBER_BOOL(PlaceOnSlope)
+MEMBER_FLOAT(SlopeFilter)
+MEMBER_BOOL(PlaceOnFlat)
+MEMBER_UINT(MinPropagations)
+MEMBER_UINT(MaxPropagations)
+MEMBER_STRUCT_STL_POINTER_VECTOR(PropagateDescs, ObjectPropagationDesc)
+STRUCT_TEMPLATE_END(ObjectPlacementDesc)
+
+STRUCT_TEMPLATE_START_INLINE(ObjectPropagationDesc, nullptr, nullptr)
+MEMBER_STRINGID(PlacementName)
+MEMBER_PADDING_POINTER()
+MEMBER_FLOAT(PriorityRatio)
+STRUCT_TEMPLATE_END(ObjectPropagationDesc)
+
 BoolVar g_TerrainEnabled("Terrain/Enabled", true);
 BoolVar g_HwTessellation("Terrain/HW Tessellation", true);
 IntVar g_TessellatedTriWidth("Terrain/Tessellated Triangle Width", 20, 1, 100);
@@ -260,6 +296,8 @@ void TessellatedTerrain::Initialize(bool ClientGraphicsEnabled, const TerrainCon
     CreateInstanceLayers();
 
     CreateWaterResources();
+
+    CreateInstanceModels();
 
     ZeroMemory(&m_CBCommon, sizeof(m_CBCommon));
     ZeroMemory(&m_CBTerrain, sizeof(m_CBTerrain));
@@ -819,6 +857,42 @@ void TessellatedTerrain::CreateWaterResources()
 
 void TessellatedTerrain::TerminateWaterResources()
 {
+}
+
+void TessellatedTerrain::CreateInstanceModels()
+{
+    if (!m_ClientGraphicsEnabled)
+    {
+        return;
+    }
+
+    std::unordered_map<const WCHAR*, ObjectPlacementDesc*> PlacementLookup;
+
+    const UINT32 PlacementCount = (UINT32)m_ConstructionDesc.Placements.size();
+    for (UINT32 i = 0; i < PlacementCount; ++i)
+    {
+        ObjectPlacementDesc* pOPD = m_ConstructionDesc.Placements[i];
+        PlacementLookup[pOPD->Name] = pOPD;
+        if (pOPD->strModelFileName != nullptr)
+        {
+            pOPD->pInstancedLODModel = Graphics::g_LODModelManager.FindOrLoadModel(pOPD->strModelFileName);
+        }
+    }
+
+    for (UINT32 i = 0; i < PlacementCount; ++i)
+    {
+        ObjectPlacementDesc* pOPD = m_ConstructionDesc.Placements[i];
+        const UINT32 PropagationCount = (UINT32)pOPD->PropagateDescs.size();
+        for (UINT32 j = 0; j < PropagationCount; ++j)
+        {
+            ObjectPropagationDesc* pProp = pOPD->PropagateDescs[j];
+            auto iter = PlacementLookup.find(pProp->PlacementName);
+            if (iter != PlacementLookup.end())
+            {
+                pProp->pPlacementDesc = iter->second;
+            }
+        }
+    }
 }
 
 void TessellatedTerrain::OffscreenRender(GraphicsContext* pContext, const TessellatedTerrainRenderDesc* pDesc)

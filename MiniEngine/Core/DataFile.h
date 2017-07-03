@@ -265,6 +265,8 @@ extern DataStructTemplate __StructTemplate_STRUCT_TEMPLATE_SELF;
 #define MEMBER_UINT(Name) MEMBER_TYPED_VALUE( Name, DT_UInt32, 1, __alignof(UINT) )
 #define MEMBER_FLOAT(Name) MEMBER_TYPED_VALUE( Name, DT_Float, 1, __alignof(FLOAT) )
 #define MEMBER_DOUBLE(Name) MEMBER_TYPED_VALUE( Name, DT_Double, 1, __alignof(DOUBLE) )
+#define MEMBER_INT64(Name) MEMBER_TYPED_VALUE( Name, DT_Int64, 1, __alignof(INT64) )
+#define MEMBER_UINT64(Name) MEMBER_TYPED_VALUE( Name, DT_UInt64, 1, __alignof(UINT64) )
 
 #define MEMBER_ENUM(Name, EnumStructs) { 0, __alignof(INT), #Name, DI_Value, 1, DT_Int32, NULL, EnumStructs },
 

@@ -1,0 +1,26 @@
+{
+    "RandomSeed" : 4660,
+    "WaterLevelY" : 0,
+    "PlacementsPerBlock" : 1000,
+    "Placements" : [
+        {
+            "Name" : "BeechAmerican",
+            "ModelFileName" : "Models\\BeechAmerican_B.bmesh",
+            "IsPrimaryPlacement" : 1,
+            "PriorityRatio" : 1,
+            "MinRadius" : 2,
+            "MaxRadius" : 2,
+            "MinAltitude" : 5,
+            "MaxAltitude" : 250,
+            "PlaceOnHilltop" : 1,
+            "HilltopFilter" : 0,
+            "PlaceInValley" : 1,
+            "ValleyFilter" : 0,
+            "PlaceOnSlope" : 1,
+            "SlopeFilter" : 0,
+            "PlaceOnFlat" : 1,
+            "MinPropagations" : 0,
+            "MaxPropagations" : 0
+        }
+    ]
+}

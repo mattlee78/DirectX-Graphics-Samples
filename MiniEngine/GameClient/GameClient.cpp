@@ -204,6 +204,8 @@ void GameClient::Startup( void )
     DataFile::SetDataFileRootPath("Data");
     TestData* pTestData = (TestData*)DataFile::LoadStructFromFile(STRUCT_TEMPLATE_REFERENCE(TestData), "foo");
 
+    World::LoadTerrainConstructionDesc("World1");
+
 	m_RootSig.Reset(6, 2);
 	m_RootSig.InitStaticSampler(0, SamplerAnisoWrapDesc, D3D12_SHADER_VISIBILITY_PIXEL);
 	m_RootSig.InitStaticSampler(15, SamplerShadowDesc, D3D12_SHADER_VISIBILITY_PIXEL);
@@ -384,7 +386,7 @@ void GameClient::Startup( void )
 //     LMT.Load("Models\\MapleGreenMountain_A.bmesh");
 //     LMT.Unload();
 
-	if (1)
+	if (0)
 	{
 		InstancedLODModel* pLODModel = g_LODModelManager.FindOrLoadModel("Models\\BeechAmerican_B.bmesh");
 		if (pLODModel != nullptr)

@@ -52,6 +52,7 @@ struct ObjectPropagationDesc
     ObjectPlacementDesc* pPlacementDesc;
     FLOAT PriorityRatio;
 };
+STRUCT_TEMPLATE_EXTERNAL(ObjectPropagationDesc);
 
 struct ObjectPlacementDesc
 {
@@ -68,6 +69,9 @@ struct ObjectPlacementDesc
 
     FLOAT PriorityRatio;
 
+    FLOAT MinAltitude;
+    FLOAT MaxAltitude;
+
     BOOL PlaceOnHilltop;
     FLOAT HilltopFilter;
     BOOL PlaceInValley;
@@ -78,8 +82,9 @@ struct ObjectPlacementDesc
 
     UINT MinPropagations;
     UINT MaxPropagations;
-    std::vector<ObjectPropagationDesc> PropagateDescs;
+    std::vector<ObjectPropagationDesc*> PropagateDescs;
 };
+STRUCT_TEMPLATE_EXTERNAL(ObjectPlacementDesc);
 
 // Int dimensions specified to the ctor are in numbers of tiles.  It's symmetrical in
 // each direction.  (Don't read much into the exact numbers of #s in this diagram.)
@@ -141,6 +146,7 @@ struct TerrainConstructionDesc
     UINT32 PlacementsPerBlock;
     std::vector<ObjectPlacementDesc*> Placements;
 };
+STRUCT_TEMPLATE_EXTERNAL(TerrainConstructionDesc);
 
 __declspec(align(16))
 struct TessellatedTerrainRenderDesc
@@ -441,6 +447,8 @@ private:
 
     void CreateWaterResources();
     void TerminateWaterResources();
+
+    void CreateInstanceModels();
 
     void RenderTerrainHeightmap(
         GraphicsContext* pContext, 
