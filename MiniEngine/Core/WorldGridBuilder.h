@@ -194,6 +194,21 @@ protected:
     };
     typedef std::deque<ObjectPlacementStackEntry> ObjectPlacementStack;
 
+    enum TerrainSlopeType
+    {
+        TST_Unknown = 0,
+        TST_Flat,
+        TST_Hilltop,
+        TST_Valley,
+        TST_Slope,
+    };
+
+    struct TerrainCharacterization
+    {
+        TerrainSlopeType SlopeType;
+        FLOAT SlopeFactor;
+    };
+
 public:
     void Initialize(TessellatedTerrain* pTessTerrain, FLOAT BlockWorldScale);
 
@@ -210,4 +225,5 @@ protected:
 
 private:
     InstanceModelPlacementBuffer* FindIMPlacementBuffer(ObjectBlockData* pBlockData, Graphics::InstancedLODModel* pModel) const;
+    void CharacterizeTerrain(XMVECTOR NormalizedXY, FLOAT CenterHeight, const TerrainBlock* pBlock, TerrainCharacterization* pTC) const;
 };

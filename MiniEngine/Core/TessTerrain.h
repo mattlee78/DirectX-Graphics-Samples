@@ -415,6 +415,7 @@ public:
     void Terminate();
 
     const TerrainConstructionDesc* GetConstructionDesc() const { return &m_ConstructionDesc; }
+    bool IsClientGraphicsEnabled() const { return m_ClientGraphicsEnabled; }
 
     FLOAT GetWorldScale() const;
     FLOAT GetWorldSize() const { return m_OuterRingWorldSize * GetWorldScale(); }

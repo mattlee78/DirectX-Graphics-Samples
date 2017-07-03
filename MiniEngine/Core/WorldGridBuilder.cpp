@@ -493,6 +493,7 @@ void TerrainObjectMap::CreatePlacement(XMVECTOR NormalizedXY, const TerrainBlock
     const FLOAT fHeightY = XMVectorGetX(HeightY);
 
     // TODO: characterize NormalizedXY into [hilltop, valley, slope, flat] plus "factor"
+    TerrainCharacterization TC = {};
 
     if (pParentDesc == nullptr)
     {
@@ -509,6 +510,36 @@ void TerrainObjectMap::CreatePlacement(XMVECTOR NormalizedXY, const TerrainBlock
             if (fHeightY < pDesc->MinAltitude || fHeightY > pDesc->MaxAltitude)
             {
                 continue;
+            }
+
+            CharacterizeTerrain(NormalizedXY, fHeightY, pBlock, &TC);
+
+            switch (TC.SlopeType)
+            {
+            case TST_Flat:
+                if (!pDesc->PlaceOnFlat)
+                {
+                    continue;
+                }
+                break;
+            case TST_Hilltop:
+                if (!pDesc->PlaceOnHilltop || TC.SlopeFactor > pDesc->HilltopFilter)
+                {
+                    continue;
+                }
+                break;
+            case TST_Valley:
+                if (!pDesc->PlaceInValley || TC.SlopeFactor > pDesc->ValleyFilter)
+                {
+                    continue;
+                }
+                break;
+            case TST_Slope:
+                if (!pDesc->PlaceOnSlope || TC.SlopeFactor > pDesc->SlopeFilter)
+                {
+                    continue;
+                }
+                break;
             }
 
             if (CandidateCount < MaxCandidateCount)
@@ -597,6 +628,69 @@ void TerrainObjectMap::CreatePlacement(XMVECTOR NormalizedXY, const TerrainBlock
     }
 }
 
+void TerrainObjectMap::CharacterizeTerrain(XMVECTOR NormalizedXY, FLOAT CenterHeight, const TerrainBlock* pBlock, TerrainCharacterization* pTC) const
+{
+    if (pTC->SlopeType != TST_Unknown)
+    {
+        return;
+    }
+
+    const FLOAT OffsetNormDistance = 0.001f;
+    const XMVECTOR SampleOffsets[4] =
+    {
+        { -OffsetNormDistance, -OffsetNormDistance, 0, 0 },
+        { -OffsetNormDistance,  OffsetNormDistance, 0, 0 },
+        {  OffsetNormDistance, -OffsetNormDistance, 0, 0 },
+        {  OffsetNormDistance,  OffsetNormDistance, 0, 0 }
+    };
+
+    const FLOAT FlatThreshold = 1.0f;
+    UINT32 HigherCount = 0;
+    FLOAT HigherFactor = 0;
+    UINT32 LowerCount = 0;
+    FLOAT LowerFactor = 0;
+    for (UINT32 i = 0; i < 4; ++i)
+    {
+        const XMVECTOR HeightVector = LerpCoords(NormalizedXY + SampleOffsets[i], pBlock);
+        FLOAT SampleHeight = XMVectorGetX(HeightVector);
+
+        const FLOAT HeightDelta = SampleHeight - CenterHeight;
+
+        if (HeightDelta >= FlatThreshold)
+        {
+            ++HigherCount;
+            HigherFactor = std::max(HigherFactor, HeightDelta);
+        }
+        else if (HeightDelta <= -FlatThreshold)
+        {
+            ++LowerCount;
+            LowerFactor = std::max(LowerFactor, -HeightDelta);
+        }
+    }
+
+    if (HigherCount > 0)
+    {
+        if (LowerCount > 0)
+        {
+            pTC->SlopeType = TST_Slope;
+        }
+        else
+        {
+            pTC->SlopeType = TST_Valley;
+        }
+    }
+    else if (LowerCount > 0)
+    {
+        pTC->SlopeType = TST_Hilltop;
+    }
+    else
+    {
+        pTC->SlopeType = TST_Flat;
+    }
+
+    pTC->SlopeFactor = HigherFactor + LowerFactor;
+}
+
 TerrainObjectMap::InstanceModelPlacementBuffer* TerrainObjectMap::FindIMPlacementBuffer(ObjectBlockData* pBlockData, Graphics::InstancedLODModel* pModel) const
 {
     if (pModel == nullptr)
@@ -630,6 +724,7 @@ void TerrainObjectMap::CompleteTerrainHeightfield(TerrainBlock* pBlock, TerrainB
     // TODO: add additional cross-block objects based on objects within pBD and pNBDs
 
     // For client, build placement buffer for renderable objects
+    assert(m_pTessTerrain->IsClientGraphicsEnabled());
     auto iter = pBD->PlacementBuffers.begin();
     auto end = pBD->PlacementBuffers.end();
     while (iter != end)
@@ -698,6 +793,7 @@ XMVECTOR TerrainObjectMap::LerpCoords(XMVECTOR NormalizedXY, const TerrainBlock*
     assert(pOBD->pData != nullptr);
 
     const UINT32 PhysicsMapDimension = m_pTessTerrain->GetPhysicsMapDimension();
+    NormalizedXY = XMVectorSaturate(NormalizedXY);
     NormalizedXY *= XMVectorReplicate((FLOAT)(PhysicsMapDimension - 1));
     XMVECTOR Frac = NormalizedXY - XMVectorFloor(NormalizedXY);
     XMVECTOR InvFrac = g_XMOne - Frac;
