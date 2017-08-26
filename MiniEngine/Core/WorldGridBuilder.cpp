@@ -793,7 +793,7 @@ XMVECTOR TerrainObjectMap::LerpCoords(XMVECTOR NormalizedXY, const TerrainBlock*
     assert(pOBD->pData != nullptr);
 
     const UINT32 PhysicsMapDimension = m_pTessTerrain->GetPhysicsMapDimension();
-    NormalizedXY = XMVectorSaturate(NormalizedXY);
+    NormalizedXY = XMVectorMax(g_XMZero, XMVectorMin(XMVectorReplicate(0.9999f), NormalizedXY));
     NormalizedXY *= XMVectorReplicate((FLOAT)(PhysicsMapDimension - 1));
     XMVECTOR Frac = NormalizedXY - XMVectorFloor(NormalizedXY);
     XMVECTOR InvFrac = g_XMOne - Frac;

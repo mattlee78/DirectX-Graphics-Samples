@@ -109,6 +109,12 @@ float4 debugDualRamps(float2 uv)
     return float4(max(frac(uv.x), frac(uv.y)).xxx, 1);
 }
 
+float sigmoid(float x)
+{
+    float sx = sin(x * 1.5708);
+    return pow(sx, g_DeformConstants.z);
+}
+
 void InitializationPS( DeformVertex input, out float4 Heightmap : SV_Target0, out float4 Zonemap : SV_Target1 )
 {
 	const float2 uv = g_TextureWorldOffset.xz + input.texCoord;
@@ -118,8 +124,12 @@ void InitializationPS( DeformVertex input, out float4 Heightmap : SV_Target0, ou
 	//result = float4(debugSineHills(uv * 2) * 0.25f,  1);
 	//result = float4(debugCubes(uv), 1);
     //result = debugDualRamps(uv * 16);
-    result = hybridTerrain(uv, g_FractalOctaves);
-    result.xyz = ((result.x * g_DeformConstants.x) + g_DeformConstants.y).xxx;
+    float RawHeightValue = hybridTerrain(uv, g_FractalOctaves);
+
+    //RawHeightValue = sigmoid(RawHeightValue);
+
+    result.xyz = ((RawHeightValue * g_DeformConstants.x) + g_DeformConstants.y).xxx;
+    result.w = 1;
 
     Heightmap = result;
     Zonemap = fBm4(uv * 0.01, 3, 2.0, 0.5);
