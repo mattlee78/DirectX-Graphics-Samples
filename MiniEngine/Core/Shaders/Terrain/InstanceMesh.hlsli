@@ -126,6 +126,7 @@ cbuffer cbInstanceMeshCulling : register(b0)
     uint4 g_MaxVertexCount : register(c9);
 	bool4 g_EnableTerrainPlacement : register(c10);
 	float4 g_TerrainPlacementTransform : register(c11);
+    float4 g_BillboardFacingOrientation : register(c12);
 };
 
 [numthreads(8, 8, 1)]
@@ -166,14 +167,26 @@ void InstanceMeshPrepassCS(uint3 DTid : SV_DispatchThreadID)
         }
         else if (DistanceFromCamera < g_LOD1Params.x)
         {
+            if (g_LOD1Params.y != 0)
+            {
+                NewVertex.OrientationQuaternion = g_BillboardFacingOrientation;
+            }
             OutputVerticesLOD1[OutputVerticesLOD1.IncrementCounter()] = NewVertex;
         }
         else if (DistanceFromCamera < g_LOD2Params.x)
         {
+            if (g_LOD2Params.y != 0)
+            {
+                NewVertex.OrientationQuaternion = g_BillboardFacingOrientation;
+            }
             OutputVerticesLOD2[OutputVerticesLOD2.IncrementCounter()] = NewVertex;
         }
         else
         {
+            if (g_LOD2Params.z != 0)
+            {
+                NewVertex.OrientationQuaternion = g_BillboardFacingOrientation;
+            }
             OutputVerticesLOD3[OutputVerticesLOD3.IncrementCounter()] = NewVertex;
         }
     }

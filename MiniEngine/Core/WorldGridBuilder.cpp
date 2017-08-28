@@ -599,7 +599,8 @@ void TerrainObjectMap::CreatePlacement(XMVECTOR NormalizedXY, const TerrainBlock
                 XMStoreFloat3(&MPV.WorldPosition, PosXYZ);
 
                 // TODO: orientation and scale
-                XMStoreFloat4(&MPV.Orientation, g_XMIdentityR3);
+                XMVECTOR Orientation = XMQuaternionRotationAxis(g_XMIdentityR1, rng.NextFloat(XM_2PI));
+                XMStoreFloat4(&MPV.Orientation, Orientation);
                 MPV.UniformScale = 1.0f;
 
                 // Add MPV to buffer

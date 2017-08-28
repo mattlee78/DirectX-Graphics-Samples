@@ -31,6 +31,7 @@ namespace Graphics
         XMUINT4    g_MaxVertexCount;
 		XMUINT4    g_EnableTerrainPlacement;
 		XMFLOAT4   g_TerrainPlacementTransform;
+        XMFLOAT4   g_BillboardOrientation;
     };
 
     class InstancedLODModel
@@ -77,7 +78,7 @@ namespace Graphics
 
     private:
         friend class InstancedLODModelManager;
-        void CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams, const XMFLOAT4* pTerrainPlacementTransform);
+        void CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams, const XMFLOAT4* pTerrainPlacementTransform, XMVECTOR CameraRotation);
         void Render(GraphicsContext& Context, const ModelRenderContext* pMRC, StructuredBuffer* pInstancePlacementBuffers, ByteAddressBuffer& DrawInstancedArgs);
     };
 

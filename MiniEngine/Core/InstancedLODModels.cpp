@@ -99,7 +99,7 @@ namespace Graphics
         m_SourcePlacementBuffers.clear();
     }
 
-    void InstancedLODModel::CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams, const XMFLOAT4* pTerrainPlacementTransform)
+    void InstancedLODModel::CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams, const XMFLOAT4* pTerrainPlacementTransform, XMVECTOR CameraRotation)
     {
         CBInstanceMeshCulling CBInstance = *pCameraParams;
         CBInstance.g_LOD0Params.x = 30.0f;
@@ -107,7 +107,10 @@ namespace Graphics
         CBInstance.g_LOD2Params.x = 400.0f;
 		//CBInstance.g_LOD0Params.x = FLT_MAX;
 
-		CBInstance.g_LOD0Params.y = m_BoundingRadius;
+        CBInstance.g_LOD2Params.z = 1;
+        XMStoreFloat4(&CBInstance.g_BillboardOrientation, CameraRotation);
+
+		CBInstance.g_LOD0Params.y = m_BoundingRadius * 5;
 
 		CBInstance.g_EnableTerrainPlacement.x = m_EnableTerrainPlacement ? 1 : 0;
 		CBInstance.g_TerrainPlacementTransform = *pTerrainPlacementTransform;
@@ -375,6 +378,17 @@ namespace Graphics
 
     void InstancedLODModelManager::CullAndSort(ComputeContext& Context, const CBInstanceMeshCulling* pCameraParams)
     {
+        XMVECTOR CameraFlatDir = XMLoadFloat4(&pCameraParams->g_CameraWorldDir);
+        CameraFlatDir = XMVectorSelect(g_XMZero, CameraFlatDir, g_XMSelect1011);
+        CameraFlatDir = XMVector3Normalize(CameraFlatDir);
+        XMVECTOR CameraRotation = g_XMIdentityR3;
+        XMVECTOR Angle = XMVector3AngleBetweenNormals(g_XMIdentityR2, CameraFlatDir);
+        if (fabsf(XMVectorGetX(Angle) > 0.001f))
+        {
+            XMVECTOR Axis = XMVector3Normalize(XMVector3Cross(g_XMIdentityR2, CameraFlatDir));
+            CameraRotation = XMQuaternionRotationNormal(Axis, XMVectorGetX(Angle));
+        }
+
         for (UINT32 i = 0; i < ARRAYSIZE(m_InstancePlacements); ++i)
         {
             Context.ResetCounter(m_InstancePlacements[i]);
@@ -397,7 +411,7 @@ namespace Graphics
         while (iter != end)
         {
             InstancedLODModel* pModel = iter->second;
-            pModel->CullAndSort(Context, pCameraParams, &m_TerrainPlacementTransform);
+            pModel->CullAndSort(Context, pCameraParams, &m_TerrainPlacementTransform, CameraRotation);
             for (UINT32 i = 0; i < ARRAYSIZE(m_InstancePlacements); ++i)
             {
 				Context.TransitionResource(m_InstancePlacements[i].GetCounterBuffer(), D3D12_RESOURCE_STATE_COPY_SOURCE);
