@@ -121,6 +121,7 @@ public:
     VOID RequestDisconnect() { m_Disconnect = TRUE; }
 
     void SingleThreadedTick();
+    INT64 GetCurrentTime() const { return m_CurrentTime; }
 
     NetworkClientMap::const_iterator ClientListBegin() const { return m_NetworkClients.cbegin(); }
     NetworkClientMap::const_iterator ClientListEnd() const { return m_NetworkClients.cend(); }

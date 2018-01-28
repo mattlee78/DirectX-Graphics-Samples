@@ -73,6 +73,7 @@ public:
         const FLOAT Brightness = 5.0f;
         Color SkyColor(0.5f * Brightness, 0.5f * Brightness, 1.0f * Brightness);
         Graphics::g_SceneColorBuffer.SetClearColor(SkyColor);
+		m_pLogFile = nullptr;
 	}
 
 	virtual void Startup( void ) override;
@@ -92,6 +93,8 @@ private:
 
     void RemoteObjectCreated(ModelInstance* pModelInstance, UINT ParentObjectID);
     void RemoteObjectDeleted(ModelInstance* pModelInstance);
+
+	void LogMovementSample(const Vector3& ClientPos, const Vector3& Delta, FLOAT Distance, const Vector3& NetworkPos, INT64 Timestamp, FLOAT LerpValue);
 
 	Camera m_Camera;
 	CameraController* m_pCameraController;
@@ -127,13 +130,14 @@ private:
     bool m_StartServer;
     GameNetServer m_NetServer;
     PrintfDebugListener m_ServerDebugListener;
-    std::vector<ModelInstance*> m_PlacedModelInstances;
 
     Vector3 DebugVector;
 
     Vector3 m_LastCameraPos;
     Vector3 m_LastTargetPos;
     FLOAT m_LastTargetVelocity;
+
+	FILE* m_pLogFile;
 };
 
 CREATE_APPLICATION( GameClient )
@@ -189,6 +193,24 @@ DecomposedTransform CreateCylinderTransform(UINT32 Index, XMFLOAT3 CenterPos)
     return DecomposedTransform::CreateFromComponents(XMFLOAT3(Xpos, Ypos, Zpos), Orientation);
 }
 
+void GameClient::LogMovementSample(const Vector3& ClientPos, const Vector3& Delta, FLOAT Distance, const Vector3& NetworkPos, INT64 Timestamp, FLOAT LerpValue)
+{
+	if (m_pLogFile != nullptr)
+	{
+		fprintf_s(
+            m_pLogFile, 
+            "%0.3f, %0.3f, %0.3f, %0.3f, "
+            "%0.3f, %0.3f, %0.3f, "
+            "%0.3f, %0.3f, %0.3f, "
+            "%I64d, %0.4f\n", 
+            Distance, 
+            (FLOAT)Delta.GetX(), (FLOAT)Delta.GetY(), (FLOAT)Delta.GetZ(),
+            (FLOAT)ClientPos.GetX(), (FLOAT)ClientPos.GetY(), (FLOAT)ClientPos.GetZ(),
+            (FLOAT)NetworkPos.GetX(), (FLOAT)NetworkPos.GetY(), (FLOAT)NetworkPos.GetZ(), 
+            Timestamp, LerpValue);
+	}
+}
+
 void GameClient::Startup( void )
 {
     m_StartServer = true;
@@ -200,6 +222,8 @@ void GameClient::Startup( void )
     m_LastTargetVelocity = 0;
 
     ProcessCommandLine();
+
+	//fopen_s(&m_pLogFile, "movement.csv", "w+");
 
     DataFile::SetDataFileRootPath("Data");
     TestData* pTestData = (TestData*)DataFile::LoadStructFromFile(STRUCT_TEMPLATE_REFERENCE(TestData), "foo");
@@ -338,16 +362,6 @@ void GameClient::Startup( void )
         DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(200, 0, 100));
         m_NetServer.SpawnObject(nullptr, "*plane", nullptr, DT, XMFLOAT3(0, 0, 0));
         m_NetServer.SpawnObject(nullptr, "ramp1", nullptr, DT, XMFLOAT3(0, 0, 0));
-
-        if (1)
-        {
-            for (UINT32 i = 0; i < (g_RingSize * 8); ++i)
-            {
-                DT = CreateCylinderTransform(i, g_CylinderCenterPos);
-                ModelInstance* pMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
-                m_PlacedModelInstances.push_back(pMI);
-            }
-        }
 
         //DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 50, 0));
         //ModelInstance* pMI = (ModelInstance*)m_NetServer.SpawnObject(nullptr, "*cube", nullptr, DT, XMFLOAT3(0, 0, 0));
@@ -531,6 +545,12 @@ void GameClient::Cleanup( void )
 
     delete m_pFollowCameraController;
     m_pFollowCameraController = nullptr;
+
+	if (m_pLogFile != nullptr)
+	{
+		fclose(m_pLogFile);
+		m_pLogFile = nullptr;
+	}
 }
 
 void GameClient::RemoteObjectCreated(ModelInstance* pModelInstance, UINT ParentObjectID)
@@ -574,9 +594,13 @@ void GameClient::Update( float deltaT )
 	ScopedTimer _prof(L"Update State");
 
     m_NetClient.SingleThreadedTick();
+    LARGE_INTEGER ClientTicks;
+    QueryPerformanceCounter(&ClientTicks);
 
     if (m_NetClient.IsConnected(nullptr))
     {
+        ClientTicks.QuadPart = m_NetClient.GetCurrentTime();
+
         if (!m_ClientObjectsCreated && m_NetClient.CanSpawnObjects())
         {
             m_ClientObjectsCreated = true;
@@ -625,7 +649,7 @@ void GameClient::Update( float deltaT )
                 InputState.Buttons[1] = GameInput::IsPressed(GameInput::kKey_f);
                 m_pInputRemoting->ClientUpdate(InputState);
             }
-            else
+            else if (0)
             {
                 NetworkInputState InputState = {};
                 InputState.Buttons[1] = true;
@@ -634,8 +658,6 @@ void GameClient::Update( float deltaT )
         }
     }
 
-    LARGE_INTEGER ClientTicks;
-    QueryPerformanceCounter(&ClientTicks);
     m_pClientWorld->Tick(deltaT, ClientTicks.QuadPart);
 
     if (DisplayPhysicsDebug)
@@ -659,16 +681,6 @@ void GameClient::Update( float deltaT )
     if (GameInput::IsFirstPressed(GameInput::kKey_c))
     {
         m_FollowCameraEnabled = !m_FollowCameraEnabled;
-    }
-
-    if (GameInput::IsFirstPressed(GameInput::kKey_p))
-    {
-        const UINT32 Count = (UINT32)m_PlacedModelInstances.size();
-        for (UINT32 i = 0; i < Count; ++i)
-        {
-            DecomposedTransform DT = CreateCylinderTransform(i, g_CylinderCenterPos);
-            m_PlacedModelInstances[i]->SetWorldTransform(DT.GetMatrix());
-        }
     }
 
     if (GameInput::IsFirstPressed(GameInput::kKey_k))
@@ -703,7 +715,9 @@ void GameClient::Update( float deltaT )
         ModelInstance* pFirstMI = *m_ControllableModelInstances.begin();
         Vector3 LastTargetPos = m_LastTargetPos;
         m_LastTargetPos = pFirstMI->GetWorldPosition();
-        FLOAT FrameDistance = XMVectorGetX(XMVector3Length(m_LastTargetPos - LastTargetPos));
+		const Vector3 Delta = m_LastTargetPos - LastTargetPos;
+        FLOAT FrameDistance = XMVectorGetX(XMVector3Length(Delta));
+		LogMovementSample(m_LastTargetPos, Delta, FrameDistance, pFirstMI->GetRawPosition(), pFirstMI->GetRawPositionTimestamp(), pFirstMI->GetRawPositionLerpValue());
         FLOAT FrameVelocity = FrameDistance / deltaT;
         FLOAT Lerp = std::min(1.0f, deltaT * 3);
         m_LastTargetVelocity = FrameVelocity * Lerp + m_LastTargetVelocity * (1.0f - Lerp);

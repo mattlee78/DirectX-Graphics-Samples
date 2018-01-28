@@ -115,6 +115,8 @@ private:
     LevelDesc* m_pLevelDesc;
     TemplateDescMap m_TemplateDescs;
 
+	ModelInstance* m_pTestInstance;
+
 public:
     INetworkObject* SpawnObject(ConnectedClient* pClient, const CHAR* strTemplateName, const CHAR* strObjectName, const DecomposedTransform& InitialTransform, const XMFLOAT3& LinearImpulse);
     INetworkObject* SpawnObject(ConnectedClient* pClient, const RMsg_SpawnObject* pMsg);

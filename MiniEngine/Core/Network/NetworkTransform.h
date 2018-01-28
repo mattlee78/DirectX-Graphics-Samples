@@ -118,4 +118,8 @@ public:
             m_ContinuityEpoch.SourceUpdate();
         }
     }
+
+    Math::Vector3 GetRawPosition() const { return Math::Vector3(m_NetPosition.GetRawValue()); }
+    INT64 GetRawPositionTimestamp() const { return m_NetPosition.GetSampleTime(); }
+    FLOAT GetRawPositionLerpValue() const { return m_NetPosition.GetLerpValue(); }
 };

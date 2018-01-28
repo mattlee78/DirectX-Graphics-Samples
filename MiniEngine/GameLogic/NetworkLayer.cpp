@@ -185,11 +185,24 @@ VOID GameNetServer::InitializeServer()
 {
     m_NextObjectID = 1000;
     m_World.Initialize(false, this);
+
+	//DecomposedTransform DT = DecomposedTransform::CreateFromComponents(XMFLOAT3(0, 300, 0));
+	//m_pTestInstance = (ModelInstance*)SpawnObject(nullptr, "*staticbox1:1:1", nullptr, DT, XMFLOAT3(0, 0, 0));
+    m_pTestInstance = nullptr;
 }
 
 VOID GameNetServer::TickServer(FLOAT DeltaTime, DOUBLE AbsoluteTime)
 {
-    auto iter = m_SystemObjects.begin();
+    if (m_pTestInstance != nullptr)
+    {
+        const FLOAT Radius = 100.0f;
+        FLOAT XPos = Radius * (FLOAT)sin(AbsoluteTime * 0.31f);
+        FLOAT ZPos = Radius * (FLOAT)cos(AbsoluteTime * 0.29f);
+        XMMATRIX matTransform = XMMatrixTranslation(XPos, 300, ZPos);
+        m_pTestInstance->SetWorldTransform(Math::Matrix4(matTransform));
+    }
+
+	auto iter = m_SystemObjects.begin();
     auto end = m_SystemObjects.end();
     while (iter != end)
     {

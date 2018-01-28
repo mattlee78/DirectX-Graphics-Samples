@@ -98,6 +98,7 @@ public:
     INT64 GetSampleTime() const { return CurrentRecvTimestamp.QuadPart; }
     XMVECTOR GetCurrentValue() { return Lerp(GetSampleTime()); }
     XMVECTOR GetCurrentValueQuaternion() { return LerpQuaternion(GetSampleTime()); }
+    FLOAT GetLerpValue() const { return PrevLerpValue; }
 
     VOID Reset(const T& Value)
     {
@@ -133,6 +134,8 @@ public:
         }
         //FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - CurrentRecvTimestamp.QuadPart) / (DOUBLE)(CurrentRecvTimestamp.QuadPart - PreviousRecvTimestamp.QuadPart));
         FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - CurrentRecvTimestamp.QuadPart) / (DOUBLE)(g_ClientPredictConstants.FrameTickLength));
+        //assert(LerpValue > 0.0f);
+        /*
         if (LerpValue > 1.0f)
         {
             FLOAT FracLerp = (LerpValue - 1.0f) * 0.5f;
@@ -145,6 +148,7 @@ public:
             ReceiveNewValue(GetCurrentValue(), CT);
             CurrentRecvTimestamp.QuadPart = 0;
         }
+        */
         PrevLerpValue = LerpValue;
         const XMVECTOR Current = StateLoad(&CurrentValue);
         XMVECTOR Result = XMVectorLerp(Prev, Current, LerpValue);
@@ -160,6 +164,7 @@ public:
         }
         //FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - CurrentRecvTimestamp.QuadPart) / (DOUBLE)(CurrentRecvTimestamp.QuadPart - PreviousRecvTimestamp.QuadPart));
         FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - CurrentRecvTimestamp.QuadPart) / (DOUBLE)(g_ClientPredictConstants.FrameTickLength));
+        /*
         if (LerpValue > 1.0f)
         {
             FLOAT FracLerp = (LerpValue - 1.0f) * 0.5f;
@@ -172,6 +177,7 @@ public:
             ReceiveNewValue(GetCurrentValue(), CT);
             CurrentRecvTimestamp.QuadPart = 0;
         }
+        */
         PrevLerpValue = LerpValue;
         const XMVECTOR Current = StateLoad(&CurrentValue);
         XMVECTOR Result = XMQuaternionSlerp(Prev, Current, LerpValue);
@@ -179,5 +185,94 @@ public:
     }
 };
 
-typedef StateDelta<XMFLOAT3> StateFloat3Delta;
-typedef StateDelta<XMFLOAT4> StateFloat4Delta;
+// typedef StateDelta<XMFLOAT3> StateFloat3Delta;
+// typedef StateDelta<XMFLOAT4> StateFloat4Delta;
+
+template <typename T>
+struct ExpFilteredVector
+{
+private:
+    T m_LastReceivedValue;
+    T m_CurrentExtrapolatedValue;
+    T m_CurrentTrend;
+    INT64 m_LastReceivedTicks;
+    INT64 m_LastExtrapolatedTicks;
+    FLOAT m_PrevLerpValue;
+
+private:
+    static inline void StateStore(XMFLOAT3* pValue, CXMVECTOR v) { XMStoreFloat3(pValue, v); }
+    static inline void StateStore(XMFLOAT4* pValue, CXMVECTOR v) { XMStoreFloat4(pValue, v); }
+    static inline XMVECTOR StateLoad(const XMFLOAT3* pValue) { return XMLoadFloat3(pValue); }
+    static inline XMVECTOR StateLoad(const XMFLOAT4* pValue) { return XMLoadFloat4(pValue); }
+
+public:
+    ExpFilteredVector()
+    {
+        T ZeroValue;
+        StateStore(&ZeroValue, XMVectorZero());
+        Reset(ZeroValue);
+    }
+
+    const T* GetRawData() const { return &m_LastReceivedValue; }
+    XMVECTOR GetRawValue() const { return StateLoad(&m_LastReceivedValue); }
+    void SetRawValue(CXMVECTOR Value) { StateStore(&m_LastReceivedValue, Value); }
+    INT64 GetSampleTime() const { return m_LastReceivedTicks; }
+    FLOAT GetLerpValue() const { return m_PrevLerpValue; }
+
+    void Reset(const T& Value)
+    {
+        m_LastReceivedValue = Value;
+        m_CurrentExtrapolatedValue = Value;
+        StateStore(&m_CurrentTrend, XMVectorZero());
+        m_LastExtrapolatedTicks = 0;
+        m_LastReceivedTicks = 0;
+        m_PrevLerpValue = 0;
+    }
+
+    void ReceiveNewValue(const XMVECTOR Value, LARGE_INTEGER CurrentTimestamp)
+    {
+        XMVECTOR LastExtrapolatedValue = StateLoad(&m_CurrentExtrapolatedValue);
+        XMVECTOR LastTrend = StateLoad(&m_CurrentTrend);
+        const XMVECTOR Error = Value - LastExtrapolatedValue;
+        XMVECTOR NewTrend = Value - StateLoad(&m_LastReceivedValue);
+        StateStore(&m_LastReceivedValue, Value);
+        m_LastReceivedTicks = CurrentTimestamp.QuadPart;
+        if (m_LastExtrapolatedTicks == 0)
+        {
+            m_LastExtrapolatedTicks = CurrentTimestamp.QuadPart;
+        }
+        static const FLOAT TrendSmoothingFactor = 0.9f;
+        XMVECTOR SmoothedTrend = XMVectorLerp(LastTrend, NewTrend, TrendSmoothingFactor) + Error;
+        StateStore(&m_CurrentTrend, SmoothedTrend);
+    }
+
+    void ResetPrediction()
+    {
+        INT64 Ticks = m_LastExtrapolatedTicks;
+        Reset(m_CurrentExtrapolatedValue);
+        m_LastReceivedTicks = Ticks;
+        m_LastExtrapolatedTicks = Ticks;
+    }
+
+    inline XMVECTOR Lerp(INT64 CurrentTime)
+    {
+        XMVECTOR ExtrapolatedValue = StateLoad(&m_CurrentExtrapolatedValue);
+        if (m_LastExtrapolatedTicks > 0)
+        {
+            FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - m_LastExtrapolatedTicks) / (DOUBLE)(g_ClientPredictConstants.FrameTickLength));
+            ExtrapolatedValue += StateLoad(&m_CurrentTrend) * LerpValue;
+            StateStore(&m_CurrentExtrapolatedValue, ExtrapolatedValue);
+            m_LastExtrapolatedTicks = CurrentTime;
+            m_PrevLerpValue = LerpValue;
+        }
+        return ExtrapolatedValue;
+    }
+
+    inline XMVECTOR LerpQuaternion(INT64 CurrentTime)
+    {
+        return XMQuaternionNormalize(Lerp(CurrentTime));
+    }
+};
+
+typedef ExpFilteredVector<XMFLOAT3> StateFloat3Delta;
+typedef ExpFilteredVector<XMFLOAT4> StateFloat4Delta;
