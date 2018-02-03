@@ -186,40 +186,37 @@ public:
 };
 
 // typedef StateDelta<XMFLOAT3> StateFloat3Delta;
-// typedef StateDelta<XMFLOAT4> StateFloat4Delta;
+typedef StateDelta<XMFLOAT4> StateFloat4Delta;
 
-template <typename T>
-struct ExpFilteredVector
+struct ExpFilteredVector3
 {
 private:
-    T m_LastReceivedValue;
-    T m_CurrentExtrapolatedValue;
-    T m_CurrentTrend;
+    XMFLOAT3 m_LastReceivedValue;
+    XMFLOAT3 m_CurrentExtrapolatedValue;
+    XMFLOAT3 m_CurrentTrend;
     INT64 m_LastReceivedTicks;
     INT64 m_LastExtrapolatedTicks;
     FLOAT m_PrevLerpValue;
 
 private:
     static inline void StateStore(XMFLOAT3* pValue, CXMVECTOR v) { XMStoreFloat3(pValue, v); }
-    static inline void StateStore(XMFLOAT4* pValue, CXMVECTOR v) { XMStoreFloat4(pValue, v); }
     static inline XMVECTOR StateLoad(const XMFLOAT3* pValue) { return XMLoadFloat3(pValue); }
-    static inline XMVECTOR StateLoad(const XMFLOAT4* pValue) { return XMLoadFloat4(pValue); }
 
 public:
-    ExpFilteredVector()
+    ExpFilteredVector3()
     {
-        T ZeroValue;
-        StateStore(&ZeroValue, XMVectorZero());
+        XMFLOAT3 ZeroValue;
+        StateStore(&ZeroValue, g_XMIdentityR3);
         Reset(ZeroValue);
     }
 
-    const T* GetRawData() const { return &m_LastReceivedValue; }
+    const XMFLOAT3* GetRawData() const { return &m_LastReceivedValue; }
     XMVECTOR GetRawValue() const { return StateLoad(&m_LastReceivedValue); }
     void SetRawValue(CXMVECTOR Value) { StateStore(&m_LastReceivedValue, Value); }
     INT64 GetSampleTime() const { return m_LastReceivedTicks; }
     FLOAT GetLerpValue() const { return m_PrevLerpValue; }
 
-    void Reset(const T& Value)
+    void Reset(const XMFLOAT3& Value)
     {
         m_LastReceivedValue = Value;
         m_CurrentExtrapolatedValue = Value;
@@ -231,6 +228,10 @@ public:
 
     void ReceiveNewValue(const XMVECTOR Value, LARGE_INTEGER CurrentTimestamp)
     {
+        if (m_LastExtrapolatedTicks != 0 && CurrentTimestamp.QuadPart > m_LastExtrapolatedTicks)
+        {
+            Lerp(CurrentTimestamp.QuadPart);
+        }
         XMVECTOR LastExtrapolatedValue = StateLoad(&m_CurrentExtrapolatedValue);
         XMVECTOR LastTrend = StateLoad(&m_CurrentTrend);
         const XMVECTOR Error = Value - LastExtrapolatedValue;
@@ -267,12 +268,129 @@ public:
         }
         return ExtrapolatedValue;
     }
+};
+
+struct ExpFilteredQuaternion
+{
+private:
+    XMFLOAT4 m_LastReceivedValue;
+    XMFLOAT4 m_CurrentExtrapolatedValue;
+    XMFLOAT4 m_CurrentTrend;
+    XMFLOAT4 m_CurrentTrendAxisAngle;
+    XMFLOAT4 m_CurrentErrorAxisAngle;
+    INT64 m_LastReceivedTicks;
+    INT64 m_LastExtrapolatedTicks;
+    FLOAT m_PrevLerpValue;
+
+private:
+    static inline void StateStore(XMFLOAT4* pValue, CXMVECTOR v) { XMStoreFloat4(pValue, v); }
+    static inline XMVECTOR StateLoad(const XMFLOAT4* pValue) { return XMLoadFloat4(pValue); }
+
+    static inline XMVECTOR RotationBetweenQuaternions(XMVECTOR A, XMVECTOR B)
+    {
+        XMVECTOR R = XMQuaternionMultiply(B, XMQuaternionInverse(A));
+        XMVECTOR T = XMQuaternionMultiply(A, R);
+        return R;
+    }
+
+    static inline XMVECTOR QuaternionToAxisAngle(XMVECTOR Q)
+    {
+        XMVECTOR Axis;
+        FLOAT Angle;
+        XMQuaternionToAxisAngle(&Axis, &Angle, Q);
+        Axis = XMVectorSetW(Axis, Angle);
+        return Axis;
+    }
+
+    static inline XMVECTOR QuaternionRotationAxis(XMVECTOR AA)
+    {
+        FLOAT Angle = XMVectorGetW(AA);
+        if (fabsf(Angle) >= 0.01f)
+        {
+            return XMQuaternionRotationAxis(AA, Angle);
+        }
+        return XMQuaternionIdentity();
+    }
+
+public:
+    ExpFilteredQuaternion()
+    {
+        Reset(XMFLOAT4(0, 0, 0, 1));
+    }
+
+    const XMFLOAT4* GetRawData() const { return &m_LastReceivedValue; }
+    XMVECTOR GetRawValue() const { return StateLoad(&m_LastReceivedValue); }
+    void SetRawValue(CXMVECTOR Value) { StateStore(&m_LastReceivedValue, Value); }
+    INT64 GetSampleTime() const { return m_LastReceivedTicks; }
+    FLOAT GetLerpValue() const { return m_PrevLerpValue; }
+
+    void Reset(const XMFLOAT4& Value)
+    {
+        m_LastReceivedValue = Value;
+        m_CurrentExtrapolatedValue = Value;
+        StateStore(&m_CurrentTrend, g_XMIdentityR3);
+        StateStore(&m_CurrentTrendAxisAngle, g_XMIdentityR1);
+        StateStore(&m_CurrentErrorAxisAngle, g_XMIdentityR1);
+        m_LastExtrapolatedTicks = 0;
+        m_LastReceivedTicks = 0;
+        m_PrevLerpValue = 0;
+    }
+
+    void ReceiveNewValue(const XMVECTOR Value, LARGE_INTEGER CurrentTimestamp)
+    {
+        XMVECTOR LastExtrapolatedValue = StateLoad(&m_CurrentExtrapolatedValue);
+        XMVECTOR LastTrend = StateLoad(&m_CurrentTrend);
+        const XMVECTOR Error = RotationBetweenQuaternions(LastExtrapolatedValue, Value);
+        const XMVECTOR NewTrend = RotationBetweenQuaternions(StateLoad(&m_LastReceivedValue), Value);
+        StateStore(&m_LastReceivedValue, Value);
+        m_LastReceivedTicks = CurrentTimestamp.QuadPart;
+        if (m_LastExtrapolatedTicks == 0)
+        {
+            Reset(m_LastReceivedValue);
+            m_LastReceivedTicks = CurrentTimestamp.QuadPart;
+            m_LastExtrapolatedTicks = CurrentTimestamp.QuadPart;
+        }
+        else
+        {
+            static const FLOAT TrendSmoothingFactor = 0.9f;
+            XMVECTOR SmoothedTrend = XMQuaternionSlerp(LastTrend, NewTrend, TrendSmoothingFactor);
+            StateStore(&m_CurrentTrend, SmoothedTrend);
+            StateStore(&m_CurrentTrendAxisAngle, QuaternionToAxisAngle(SmoothedTrend));
+            StateStore(&m_CurrentErrorAxisAngle, QuaternionToAxisAngle(Error));
+            m_PrevLerpValue = 0;
+        }
+    }
+
+    void ResetPrediction()
+    {
+        INT64 Ticks = m_LastExtrapolatedTicks;
+        Reset(m_CurrentExtrapolatedValue);
+        m_LastReceivedTicks = Ticks;
+        m_LastExtrapolatedTicks = Ticks;
+    }
 
     inline XMVECTOR LerpQuaternion(INT64 CurrentTime)
     {
-        return XMQuaternionNormalize(Lerp(CurrentTime));
+        //return StateLoad(&m_LastReceivedValue);
+
+        XMVECTOR ExtrapolatedValue = StateLoad(&m_CurrentExtrapolatedValue);
+        if (m_LastExtrapolatedTicks > 0)
+        {
+            FLOAT LerpValue = (FLOAT)((DOUBLE)(CurrentTime - m_LastExtrapolatedTicks) / (DOUBLE)(g_ClientPredictConstants.FrameTickLength));
+            const XMVECTOR AALerp = XMVectorSet(1, 1, 1, LerpValue);
+            const XMVECTOR ErrorAA = StateLoad(&m_CurrentErrorAxisAngle) * AALerp;
+            const XMVECTOR TrendAA = StateLoad(&m_CurrentTrendAxisAngle) * AALerp;
+            const XMVECTOR ErrorQ = QuaternionRotationAxis(ErrorAA);
+            const XMVECTOR TrendQ = QuaternionRotationAxis(TrendAA);
+            ExtrapolatedValue = XMQuaternionMultiply(ExtrapolatedValue, ErrorQ);
+            ExtrapolatedValue = XMQuaternionMultiply(ExtrapolatedValue, TrendQ);
+            StateStore(&m_CurrentExtrapolatedValue, ExtrapolatedValue);
+            m_LastExtrapolatedTicks = CurrentTime;
+            m_PrevLerpValue = LerpValue;
+        }
+        return ExtrapolatedValue;
     }
 };
 
-typedef ExpFilteredVector<XMFLOAT3> StateFloat3Delta;
-typedef ExpFilteredVector<XMFLOAT4> StateFloat4Delta;
+typedef ExpFilteredVector3 StateFloat3Delta;
+//typedef ExpFilteredQuaternion StateFloat4Delta;
